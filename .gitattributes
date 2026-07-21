@@ -1,0 +1,22 @@
+# Normalize line endings on commit; check out native on Windows.
+* text=auto
+
+# Shell scripts must stay LF or they break under Git Bash / WSL.
+*.sh text eol=lf
+
+# Windows-native scripts stay CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets: never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
