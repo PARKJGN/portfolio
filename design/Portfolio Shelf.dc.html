@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-abda0e15-4baa-4c9f-b492-a804e4fa5af7/styles.css">
+  <script src="_ds/modernist-abda0e15-4baa-4c9f-b492-a804e4fa5af7/_ds_bundle.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap">
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <style>
+    body { font-family: "Nanum Myeongjo", "Pretendard", serif; margin: 0; }
+    a { color: var(--color-accent); text-decoration: none; }
+    a:hover { color: var(--color-accent-700); }
+    @keyframes bookPull { from { opacity: 0; transform: translateY(70px) scale(.88); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes coverOpen { 0% { transform: rotateY(0deg); opacity: 1; } 60% { opacity: 1; } 100% { transform: rotateY(-160deg); opacity: 0; } }
+  </style>
+</helmet>
+
+<div style="position:relative; min-height:100vh; overflow:hidden; background:linear-gradient(180deg, #e8dabb 0%, #d7c199 72%); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:80px 0 0; box-sizing:border-box;">
+
+  <div aria-hidden="true" style="position:absolute; left:0; right:0; top:0; bottom:200px; background:repeating-linear-gradient(90deg, transparent 0 178px, rgba(60,40,15,.06) 178px 180px); pointer-events:none;"></div>
+  <div aria-hidden="true" style="position:absolute; inset:0; background:radial-gradient(64% 44% at 24% 4%, rgba(255,250,232,.55), transparent 55%); pointer-events:none;"></div>
+  <div aria-hidden="true" style="position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(60,40,15,.1) 100%); pointer-events:none;"></div>
+
+  <div aria-hidden="true" style="position:absolute; left:0; right:0; bottom:0; height:200px; background:linear-gradient(180deg, #7c5c37 0%, #5d4222 100%); pointer-events:none;"></div>
+  <div aria-hidden="true" style="position:absolute; left:0; right:0; bottom:0; height:200px; background:repeating-linear-gradient(90deg, rgba(30,18,6,.16) 0 1px, transparent 1px 82px); pointer-events:none;"></div>
+  <div aria-hidden="true" style="position:absolute; left:0; right:0; bottom:200px; height:11px; background:#b89b6b; border-top:2px solid rgba(40,26,10,.42); border-bottom:2px solid rgba(40,26,10,.3); pointer-events:none;"></div>
+
+  <!-- three half-width cabinets: left · center · right -->
+  <div style="position:relative; z-index:2; margin-bottom:200px; display:flex; align-items:flex-end; gap:96px;">
+    <sc-for list="{{ cabinets }}" as="c" hint-placeholder-count="3">
+      <div style="position:relative; display:flex; flex-direction:column; align-items:center;">
+        <div aria-hidden="true" style="position:absolute; left:50%; transform:translateX(-50%); bottom:-24px; width:108%; height:34px; background:radial-gradient(50% 50% at 50% 50%, rgba(40,26,10,.5), transparent 72%); filter:blur(4px); pointer-events:none;"></div>
+        <!-- thick top plank -->
+        <div aria-hidden="true" style="position:relative; z-index:3; width:calc(100% + 30px); margin:0 -15px -4px; height:34px; background:linear-gradient(180deg,#3a2915 0%,#4a3418 40%,#2e2010 100%); border-top:2px solid #6b4f26; box-shadow:0 8px 16px rgba(30,18,6,.5), inset 0 2px 0 rgba(214,182,120,.28), inset 0 -6px 10px rgba(0,0,0,.5);"></div>
+        <!-- plain title above the cabinet -->
+        <div style="position:absolute; top:-40px; left:0; right:0; text-align:center; z-index:4;">
+          <span style="font-family:'Gowun Batang',serif; font-weight:700; font-size:20px; letter-spacing:.2em; color:#3a2814;">{{ c.name }}</span>
+        </div>
+        <div style="position:relative; background:#2a1d10; border-left:15px solid #1a1108; border-right:15px solid #1a1108; box-shadow:0 22px 44px rgba(40,26,10,.45), inset 0 18px 30px rgba(0,0,0,.5);">
+
+          <!-- tier 1 (decorative) -->
+          <div style="display:flex; align-items:flex-end; justify-content:center; gap:4px; padding:20px 18px 0; height:180px; box-sizing:border-box;">
+            <sc-for list="{{ c.decorTop }}" as="d" hint-placeholder-count="5">
+              <div aria-hidden="true" style="width:{{ d.w }}; height:{{ d.h }}; background:{{ d.bg }}; color:{{ d.fg }}; display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:inset 3px 0 5px rgba(255,255,255,.1), inset -4px 0 8px rgba(0,0,0,.38);">
+                <span style="writing-mode:vertical-rl; font-family:'Gowun Batang',serif; font-weight:700; font-size:12px; letter-spacing:.02em; white-space:nowrap; opacity:.82;">{{ d.title }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="height:15px; background:linear-gradient(180deg,#3a2915,#1a1108); box-shadow:0 5px 10px rgba(0,0,0,.45);"></div>
+
+          <!-- tier 2 (decorative) -->
+          <div style="display:flex; align-items:flex-end; justify-content:center; gap:4px; padding:20px 18px 0; height:180px; box-sizing:border-box;">
+            <sc-for list="{{ c.decorMid }}" as="d" hint-placeholder-count="5">
+              <div aria-hidden="true" style="width:{{ d.w }}; height:{{ d.h }}; background:{{ d.bg }}; color:{{ d.fg }}; display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:inset 3px 0 5px rgba(255,255,255,.1), inset -4px 0 8px rgba(0,0,0,.38);">
+                <span style="writing-mode:vertical-rl; font-family:'Gowun Batang',serif; font-weight:700; font-size:12px; letter-spacing:.02em; white-space:nowrap; opacity:.82;">{{ d.title }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="height:15px; background:linear-gradient(180deg,#3a2915,#1a1108); box-shadow:0 5px 10px rgba(0,0,0,.45);"></div>
+
+          <!-- tier 3 (real projects) -->
+          <div style="display:flex; align-items:flex-end; justify-content:center; gap:5px; padding:28px 18px 0;">
+            <sc-for list="{{ c.books }}" as="p" hint-placeholder-count="3">
+              <button onClick="{{ p.open }}" aria-label="{{ p.title }} 열람" style="all:unset; box-sizing:border-box; width:{{ p.spineW }}; height:{{ p.spineH }}; background:{{ p.spineBg }}; color:{{ p.spineFg }}; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:16px 0 18px; cursor:pointer; transition:transform .2s ease; box-shadow:inset 3px 0 5px rgba(255,255,255,.1), inset -4px 0 8px rgba(0,0,0,.38), inset 0 3px 4px rgba(255,255,255,.08);" style-hover="transform:translateY(-18px);" style-focus="transform:translateY(-18px); outline:2px solid var(--color-accent); outline-offset:3px;">
+                <div aria-hidden="true" style="position:absolute; left:0; right:0; top:34px; height:6px; background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(0,0,0,.28)); border-top:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(0,0,0,.3);"></div>
+                <div aria-hidden="true" style="position:absolute; left:0; right:0; bottom:34px; height:6px; background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(0,0,0,.28)); border-top:1px solid rgba(255,255,255,.12); border-bottom:1px solid rgba(0,0,0,.3);"></div>
+                <span style="font-family:'Nanum Myeongjo',serif; font-size:10px; letter-spacing:.06em; opacity:.72;">{{ p.year }}</span>
+                <span style="flex:1; min-height:0; display:flex; align-items:center; justify-content:center; overflow:hidden; writing-mode:vertical-rl; text-align:center; font-family:'Gowun Batang',serif; font-weight:700; font-size:16px; line-height:1.32; letter-spacing:.01em; white-space:nowrap;">{{ p.title }}</span>
+                <span style="font-family:'Nanum Myeongjo',serif; font-size:9px; letter-spacing:.1em; opacity:.6;">{{ p.call }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="height:18px; background:#1a1108;"></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- detail overlay: book pulls out and opens -->
+  <sc-if value="{{ selected }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" onClick="{{ close }}" style="z-index:60; background:color-mix(in srgb, #241609 66%, transparent); display:block; overflow:auto; padding:40px 0;">
+      <div onClick="{{ stop }}" style="margin:0 auto; width:min(780px,92vw); perspective:2000px; animation:bookPull .5s cubic-bezier(.2,.7,.2,1);">
+        <div style="position:relative; display:flex; width:100%; height:min(500px,78vh); box-shadow:0 44px 90px rgba(0,0,0,.55);">
+
+          <!-- left page -->
+          <div style="flex:1; background:linear-gradient(90deg,#ece0c2,#f4ecd8); padding:40px 34px; display:flex; flex-direction:column; box-shadow:inset -24px 0 36px -22px rgba(58,43,18,.5); border:1px solid rgba(58,43,18,.12);">
+            <div style="font-family:'Nanum Myeongjo',serif; font-size:12px; letter-spacing:.14em; color:#7d5411;">{{ selected.call }} · Folio {{ selected.n }}</div>
+            <div style="font-family:'Gowun Batang',serif; font-size:66px; font-weight:700; color:var(--color-accent); line-height:1; margin:6px 0 18px;">{{ selected.n }}</div>
+            <h3 style="font-family:'Gowun Batang',serif; font-weight:700; margin:0 0 auto; font-size:30px; line-height:1.14; color:#33240f;">{{ selected.title }}</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; border-top:1px solid rgba(58,43,18,.3); padding-top:16px;">
+              <div><div style="font-size:10px; letter-spacing:.12em; color:#7d5411; margin-bottom:4px;">연도</div><div style="font-family:'Gowun Batang',serif; font-weight:700; font-size:17px; color:#33240f;">{{ selected.year }}</div></div>
+              <div><div style="font-size:10px; letter-spacing:.12em; color:#7d5411; margin-bottom:4px;">역할</div><div style="font-family:'Gowun Batang',serif; font-weight:700; font-size:17px; color:#33240f;">{{ selected.role }}</div></div>
+              <div><div style="font-size:10px; letter-spacing:.12em; color:#7d5411; margin-bottom:4px;">상태</div><div style="font-family:'Gowun Batang',serif; font-weight:700; font-size:17px; color:#33240f;">{{ selected.status }}</div></div>
+            </div>
+          </div>
+
+          <!-- right page -->
+          <div style="flex:1; background:linear-gradient(270deg,#ece0c2,#f4ecd8); padding:40px 34px; display:flex; flex-direction:column; box-shadow:inset 24px 0 36px -22px rgba(58,43,18,.5); border:1px solid rgba(58,43,18,.12);">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:22px;">
+              <sc-for list="{{ selected.stack }}" as="s" hint-placeholder-count="3"><span style="font-family:'Nanum Myeongjo',serif; font-size:11px; letter-spacing:.02em; padding:3px 9px; border:1px solid rgba(120,90,40,.4); color:#5a4319;">{{ s }}</span></sc-for>
+            </div>
+            <p style="font-family:'Nanum Myeongjo',serif; font-size:14.5px; line-height:1.85; margin:0 0 auto; color:#463714;">{{ selected.detail }}</p>
+            <div style="display:flex; gap:10px; border-top:1px solid rgba(58,43,18,.3); padding-top:16px;">
+              <a href="#" style="font-family:'Nanum Myeongjo',serif; font-size:13px; padding:9px 16px; background:#5f120d; color:#f6efdd; text-decoration:none;">저장소 열람 →</a>
+              <button onClick="{{ close }}" style="all:unset; cursor:pointer; font-family:'Nanum Myeongjo',serif; font-size:13px; padding:9px 16px; border:1px solid rgba(120,90,40,.5); color:#463714; box-sizing:border-box;">덮기</button>
+            </div>
+          </div>
+
+          <!-- front cover swings open -->
+          <div aria-hidden="true" style="position:absolute; right:0; top:0; width:50%; height:100%; transform-origin:left center; backface-visibility:hidden; pointer-events:none; background:{{ selected.spineBg }}; color:{{ selected.spineFg }}; display:flex; flex-direction:column; justify-content:space-between; padding:40px 34px; border:1px solid rgba(0,0,0,.22); box-shadow:0 0 46px rgba(0,0,0,.4); animation:coverOpen .7s .3s cubic-bezier(.42,.02,.2,1) forwards;">
+            <div style="font-family:'Nanum Myeongjo',serif; font-size:12px; letter-spacing:.1em; opacity:.78;">{{ selected.call }}</div>
+            <div style="font-family:'Gowun Batang',serif; font-weight:700; font-size:34px; line-height:1.1;">{{ selected.title }}</div>
+            <div style="font-family:'Nanum Myeongjo',serif; font-size:12px; opacity:.78;">{{ selected.year }}</div>
+          </div>
+
+        </div>
+        <p style="font-family:'Nanum Myeongjo',serif; text-align:center; font-size:12px; letter-spacing:.08em; color:#e4d5b0; opacity:.7; margin:20px 0 0;">바깥을 누르면 닫힙니다</p>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { selected: null };
+
+  renderVals() {
+    const projects = [
+      { n: "01", call: "AB · 001", title: "프로필", year: "2018—", role: "백엔드", stack: ["Go", "Kotlin", "Rust"], status: "서울", detail: "서버와 시스템을 짓는 백엔드 개발자 박종건입니다. 견고한 구조와 조용한 안정성을 좋아하고, 로그·결제·검색처럼 멈추면 안 되는 영역에서 8년간 일했습니다. jg.park@example.com", spineW: "90px", spineH: "266px", spineBg: "#ae1800", spineFg: "#f3ead5" },
+      { n: "02", call: "WK · 000", title: "프로젝트", year: "2025", role: "엔지니어", stack: ["System", "Platform", "Infra"], status: "9건", detail: "9년간 설계·운영한 대표 백엔드 프로젝트 모음입니다. 다른 책을 꺼내 로그·결제·검색·배포 등 각 권을 자세히 열람하세요.", spineW: "84px", spineH: "284px", spineBg: "#3f2c1a", spineFg: "#e8d9bd" },
+      { n: "03", call: "MS · 004.6", title: "API 게이트웨이", year: "2024", role: "주도", stack: ["Go", "Envoy", "Redis"], status: "운영중", detail: "인증·레이트리밋·라우팅을 통합한 단일 관문. 40여 개 내부 서비스의 공통 관심사를 한 계층으로 흡수했습니다.", spineW: "99px", spineH: "258px", spineBg: "#c7a877", spineFg: "#3a2a16" },
+      { n: "04", call: "MS · 025.4", title: "검색 색인 엔진", year: "2023", role: "참여", stack: ["Rust", "Lucene", "K8s"], status: "운영중", detail: "색인 반영 지연을 6초에서 300ms로 단축한 리라이트. 세그먼트 병합 전략을 재설계해 쓰기 증폭을 낮췄습니다.", spineW: "87px", spineH: "288px", spineBg: "#4f4327", spineFg: "#efe6cf" },
+      { n: "05", call: "MS · 006.3", title: "이벤트 알림", year: "2023", role: "주도", stack: ["Python", "Kafka", "WebSocket"], status: "유지보수", detail: "다채널(푸시·메일·인앱) 알림 팬아웃과 재시도 보장 처리. 사용자 선호 기반 라우팅으로 발송량을 최적화했습니다.", spineW: "96px", spineH: "264px", spineBg: "#e3d6b6", spineFg: "#3a2a16" },
+      { n: "06", call: "MS · 621.3", title: "이미지 CDN", year: "2022", role: "참여", stack: ["Go", "S3", "Varnish"], status: "유지보수", detail: "엣지 캐시 적중률 98%의 이미지 전송망. 온-더-플라이 리사이징과 포맷 협상을 엣지에서 처리합니다.", spineW: "84px", spineH: "292px", spineBg: "#241a10", spineFg: "#e8d9bd" },
+      { n: "07", call: "MS · 005.7", title: "GraphQL 통합", year: "2022", role: "주도", stack: ["TypeScript", "Apollo", "Node"], status: "아카이브", detail: "12개 서비스 스키마를 단일 게이트웨이로 통합. 팀별 소유권을 유지하면서 하나의 그래프를 제공하는 페더레이션 구조.", spineW: "99px", spineH: "260px", spineBg: "#6b5334", spineFg: "#f0e6cf" },
+      { n: "08", call: "MS · 004.2", title: "배포 자동화", year: "2021", role: "주도", stack: ["Go", "Helm", "ArgoCD"], status: "아카이브", detail: "GitOps 기반 무중단 배포 파이프라인. 선언적 매니페스트와 점진적 롤아웃으로 배포 사고를 크게 줄였습니다.", spineW: "87px", spineH: "278px", spineBg: "#7d3b2a", spineFg: "#f3e6dc" },
+      { n: "09", call: "MS · 005.4", title: "캐시 라이브러리", year: "2020", role: "저자", stack: ["Rust", "Tokio"], status: "공개", detail: "제로 카피 인메모리 캐시 라이브러리. GitHub 2.4k★, 여러 프로덕션 서비스에서 사용 중입니다.", spineW: "99px", spineH: "254px", spineBg: "#5e2016", spineFg: "#efe2c6" },
+    ];
+    const books = projects.map((p) => ({ ...p, open: () => this.setState({ selected: p }) }));
+
+    const pal = [
+      ["#ae1800", "#f3ead5"], ["#3f2c1a", "#e8d9bd"], ["#c7a877", "#3a2a16"], ["#4f4327", "#efe6cf"],
+      ["#e3d6b6", "#3a2a16"], ["#241a10", "#e8d9bd"], ["#6b5334", "#f0e6cf"], ["#7d3b2a", "#f3e6dc"],
+      ["#5e2016", "#efe2c6"], ["#8a7a4a", "#2b2410"], ["#2f4030", "#e6e0c8"], ["#9c5a2a", "#f6ead6"],
+    ];
+    const titlePool = ["史記", "詩經", "論語", "HISTORIA", "ATLAS", "CODEX", "曆書", "LEXICON", "星圖", "藥草誌", "FABVLAE", "音樂論", "幾何原本", "博物誌", "航海記", "MEMORIA", "천문", "本草", "地理志", "神曲", "列傳", "格物", "算術", "예악"];
+    const makeRow = (seed, count) => {
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const k = (seed * 7 + i * 13);
+        const [bg, fg] = pal[k % pal.length];
+        out.push({
+          w: (36 + (k * 11) % 27) + "px",
+          h: (130 + (k * 17) % 42) + "px",
+          bg, fg,
+          title: titlePool[(k * 5) % titlePool.length],
+        });
+      }
+      return out;
+    };
+
+    const cabinets = [
+      { name: "프로필", books: books.slice(0, 3), decorTop: makeRow(1, 4), decorMid: makeRow(2, 4) },
+      { name: "프로젝트", books: books.slice(3, 6), decorTop: makeRow(3, 4), decorMid: makeRow(4, 4) },
+      { name: "방명록", books: books.slice(6, 9), decorTop: makeRow(5, 4), decorMid: makeRow(6, 4) },
+    ];
+
+    return {
+      cabinets,
+      selected: this.state.selected,
+      close: () => this.setState({ selected: null }),
+      stop: (e) => e.stopPropagation(),
+    };
+  }
+}
+</script>
+</body>
+</html>
