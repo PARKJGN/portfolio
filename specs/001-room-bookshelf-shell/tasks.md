@@ -31,12 +31,12 @@ description: "Task list for 방·책장·책 모달 골격"
 
 **Purpose**: 프로젝트 초기화
 
-- [ ] T001 Next.js 14 프로젝트를 App Router·TypeScript로 초기화하고 `output: 'export'`를 설정 — `package.json`, `next.config.mjs`, `tsconfig.json`
-- [ ] T002 [P] Tailwind CSS 3.4 설치 및 설정 — `tailwind.config.ts`, `postcss.config.mjs`
-- [ ] T003 [P] ESLint·Prettier 설정에 **임의값 클래스 금지 규칙**(`bg-[#...]` 형태 차단) 추가 — `.eslintrc.json` (헌장 원칙 V)
-- [ ] T004 [P] Vitest 설정 — `vitest.config.ts`
-- [ ] T005 [P] Playwright와 axe-core 설정 — `playwright.config.ts`
-- [ ] T006 [P] `.gitignore`에 `node_modules/`, `.next/`, `out/` 반영 확인 — `.gitignore`
+- [x] T001 Next.js 14 프로젝트를 App Router·TypeScript로 초기화하고 `output: 'export'`를 설정 — `package.json`, `next.config.mjs`, `tsconfig.json`
+- [x] T002 [P] Tailwind CSS 3.4 설치 및 설정 — `tailwind.config.js`, `postcss.config.mjs`
+- [x] T003 [P] ESLint·Prettier 설정에 **임의값 클래스 금지 규칙**(`bg-[#...]` 형태 차단) 추가 — `.eslintrc.json` (헌장 원칙 V)
+- [x] T004 [P] Vitest 설정 — `vitest.config.ts`
+- [x] T005 [P] Playwright와 axe-core 설정 — `playwright.config.ts`
+- [x] T006 [P] `.gitignore`에 `node_modules/`, `.next/`, `out/` 반영 확인 — `.gitignore`
 
 ---
 
@@ -48,7 +48,7 @@ description: "Task list for 방·책장·책 모달 골격"
 
 ### 🚨 성능 예산 게이트 — 다른 모든 작업보다 먼저
 
-- [ ] T007 **폐기용 최소 스텁 페이지**를 만들어 정적 export로 빌드하고 `/`와 `/books/[slug]`의 First Load JS와 압축 크기를 실측한 뒤, 결과를 `specs/001-room-bookshelf-shell/research.md`의 R-1에 기록 — `src/app/page.tsx`, `src/app/books/[slug]/page.tsx`
+- [x] T007 **폐기용 최소 스텁 페이지**를 만들어 정적 export로 빌드하고 `/`와 `/books/[slug]`의 First Load JS와 압축 크기를 실측한 뒤, 결과를 `specs/001-room-bookshelf-shell/research.md`의 R-1에 기록 — `src/app/page.tsx`, `src/app/books/[slug]/page.tsx`
   - **이 스텁은 측정 전용이다.** 실제 방과 책 페이지는 T021·T022에서 만든다. 여기서는 클라이언트 컴포넌트 1개(책 창을 흉내낸 빈 `<dialog>`)를 포함한 최소 형태로만 만들어, 실제 구성에 근접한 번들 크기를 잰다
   - **100KB 이하** → 헌장 유지. T016에서 이 수치를 예산으로 고정
   - **초과** → 클라이언트 컴포넌트 축소 여지를 먼저 확인하고, 그래도 넘으면 **여기서 작업을 멈추고** 실측값을 근거로 헌장 원칙 III의 MAJOR 개정 여부를 결정한다. 초과 상태로 T008 이후를 진행하지 않는다
@@ -57,7 +57,7 @@ description: "Task list for 방·책장·책 모달 골격"
 ### 디자인 토큰과 콘텐츠 기반
 
 - [ ] T008 `design-notes.md`의 책등 색 9종과 목재·양피지 색을 이름 있는 토큰으로 정의(라이트/다크 모두) — `src/styles/tokens.css`
-- [ ] T009 Tailwind 테마가 `tokens.css`의 변수를 참조하도록 매핑 — `tailwind.config.ts`
+- [ ] T009 Tailwind 테마가 `tokens.css`의 변수를 참조하도록 매핑 — `tailwind.config.js`
 - [ ] T010 [P] 콘텐츠에서 사용된 글자만 추출해 한글 폰트를 서브셋하는 빌드 스크립트 작성 — `scripts/subset-fonts.mjs` (R-4)
 - [ ] T011 [P] `contracts/content-schema.md`의 규칙을 Zod 스키마로 구현(책장 3개, slug 고유, 허용 토큰, 빈 본문 금지) — `src/lib/schema.ts`
 - [ ] T012 책장·책 마크다운을 읽고 파생 데이터(책장별 목록, 이전/다음, 정적 경로)를 계산하는 로더 — `src/lib/content.ts`
