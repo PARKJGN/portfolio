@@ -84,9 +84,13 @@ test.describe('두 보기 방식', () => {
   });
 
   test('장을 넘기면 위치 표시가 바뀐다 (FR-010)', async ({ page }) => {
+    // 넓은 화면에서는 이 책이 한 장에 다 들어가 넘길 것이 없다.
+    // 여러 장으로 나뉘는 폭을 잡아야 이동 자체를 검증할 수 있다.
+    await page.setViewportSize({ width: 640, height: 700 });
     await openBook(page);
+
     const progress = page.locator('dialog[open] [data-progress]');
-    await expect(progress).toHaveText(/^1 \/ \d+$/);
+    await expect(progress).toHaveText(/^1 \/ [2-9]\d*$/);
 
     await page.locator('dialog[open] [data-action="page-next"]').click();
     await expect(progress).toHaveText(/^2 \/ \d+$/);
