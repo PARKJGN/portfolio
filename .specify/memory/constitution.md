@@ -1,8 +1,22 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (unversioned template) → 1.0.0
-Rationale: First concrete ratification of the constitution. All template placeholders
+Version change: 1.0.0 → 2.0.0  (2026-07-22)
+Rationale: MAJOR. Principle III 에서 "페이지당 압축 JS 100KB 이하" 조항을 삭제했다.
+기준을 없애는 것은 완화이며, 완화는 이전에 부적합했던 산출물을 소급해서 적합으로
+바꾼다. 이 문서의 versioning policy 가 그런 변경을 MAJOR 로 규정한다.
+
+삭제 근거: 실측 결과 프레임워크 기저 비용만으로 예산의 94%(Next 14 기준 94.4KB)가
+소진되었고, Next 16 으로 올린 뒤에는 145.8KB 로 예산 자체를 넘겼다. 기능을 하나도
+만들지 않은 상태에서 이미 지킬 수 없는 숫자였다. 지켜지지 않을 기준을 문서에 남겨
+두면 나머지 조항의 구속력까지 함께 떨어진다.
+
+무엇이 남았나: 사용자가 실제로 체감하는 지표(LCP·CLS·INP)는 그대로 게이트다.
+용량은 그 지표를 통해 간접적으로 관리된다. 다만 용량은 유일한 선행 지표였으므로,
+번들이 조용히 부풀어도 실험실 조건에서는 드러나지 않을 수 있다는 점은 감수한 위험이다.
+
+--- 최초 제정 기록 (1.0.0) ---
+First concrete ratification of the constitution. All template placeholders
 replaced with project-specific governance. MAJOR bump to 1.0.0 establishes the initial
 stable baseline rather than an incremental amendment.
 
@@ -72,14 +86,21 @@ a gate rather than an opinion.
 
 The following budgets apply to every page on a simulated mid-tier mobile device over a
 throttled connection: Largest Contentful Paint under 2.5s, Cumulative Layout Shift under
-0.1, Interaction to Next Paint under 200ms. Shipped JavaScript MUST NOT exceed 100KB
-compressed per page. Images MUST be served in a modern format, responsively sized, with
-explicit dimensions to reserve layout space. Fonts MUST be self-hosted, subset, and loaded
-without blocking first paint. A change that breaches any budget MUST NOT merge until the
-budget is restored or the budget itself is formally amended under Governance.
+0.1, Interaction to Next Paint under 200ms. Images MUST be served in a modern format,
+responsively sized, with explicit dimensions to reserve layout space. Fonts MUST be
+self-hosted, subset, and loaded without blocking first paint. A change that breaches any
+budget MUST NOT merge until the budget is restored or the budget itself is formally
+amended under Governance.
+
+JavaScript 전송량에는 고정 상한을 두지 않는다(2.0.0 에서 삭제). 용량은 위 세 지표를
+통해 결과적으로 관리한다.
 
 **Rationale**: Budgets stated as numbers can be enforced by tooling; "keep it fast" cannot.
 Layout shift and blocked paint are the defects most visible to a first-time visitor.
+용량 상한을 뺀 이유는 실측값이 프레임워크 기저 비용만으로 상한에 닿았기 때문이다 —
+지킬 수 없는 숫자는 게이트가 아니라 무시되는 문장이 된다. 대신 사용자가 실제로 겪는
+지표만 남겼다. 그 대가로 "번들이 조용히 부푸는 것"은 잡히지 않으므로, 무거운 의존성을
+추가할 때는 사람이 판단해야 한다.
 
 ### IV. Pragmatic Verification
 
@@ -170,4 +191,4 @@ justified in writing or removed. Unjustified violations MUST block the merge. Th
 MUST be re-read at the start of each new feature's planning; agent runtime guidance lives in
 `CLAUDE.md` and MUST NOT contradict this constitution.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-21 | **Last Amended**: 2026-07-21
+**Version**: 2.0.0 | **Ratified**: 2026-07-21 | **Last Amended**: 2026-07-22

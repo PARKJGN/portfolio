@@ -64,7 +64,7 @@ description: "Task list for 방·책장·책 모달 골격"
 - [ ] T013 [P] 스키마 검증 단위 테스트 — `tests/unit/schema.test.ts`
 - [ ] T014 [P] 콘텐츠 로더 단위 테스트(slug 중복·order 중복·빈 본문이 빌드를 실패시키는지) — `tests/unit/content.test.ts`
 - [ ] T015 루트 레이아웃에 `lang="ko"`, 서브셋 폰트, 토큰 스타일 연결 — `src/app/layout.tsx`
-- [ ] T016 Lighthouse CI 설정에 T007 실측값과 헌장 원칙 III 수치(LCP·CLS·INP)를 예산으로 고정 — `lighthouserc.json`
+- [ ] T016 Lighthouse CI 설정에 헌장 원칙 III 수치(LCP < 2.5s · CLS < 0.1 · INP < 200ms)를 예산으로 고정 — `lighthouserc.json` (JS 용량 상한은 v2.0.0에서 삭제되어 게이트에 넣지 않는다)
 
 **Checkpoint**: 기반 완료 — 사용자 스토리 착수 가능
 
@@ -152,7 +152,7 @@ description: "Task list for 방·책장·책 모달 골격"
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T047 성능 예산 재측정 후 LHCI 게이트 최종 고정 — `lighthouserc.json`
+- [ ] T047 실제 화면 완성 후 LCP·CLS·INP 재측정하고 LHCI 게이트 최종 고정 — `lighthouserc.json`
 - [ ] T048 `quickstart.md`의 검증 1~7을 처음부터 끝까지 수행하고 결과 기록 — `specs/001-room-bookshelf-shell/quickstart.md`
 - [ ] T049 새 책 1권을 파일 하나만 추가해 방에 나타나는지 확인(FR-015·SC-007 검증) — `src/content/books/profile/`
 - [ ] T050 [P] 낭독기로 방·책 모달을 수동 확인(자동 검사가 못 잡는 순서·맥락) — 수동 검증
