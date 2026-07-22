@@ -1,6 +1,7 @@
 import { getShelves, getBookNeighbors } from '@/lib/content';
 import { assertFeatureReadiness } from '@/lib/schema';
 import { Shelf } from '@/components/room/Shelf';
+import { ShelfNav } from '@/components/room/ShelfNav';
 import { BookContent } from '@/components/book/BookContent';
 import { BookController } from '@/components/book/BookController';
 
@@ -23,13 +24,17 @@ export default function RoomPage() {
     <main className="room">
       <h1 className="room__title">서재</h1>
 
-      <div className="shelf-row" role="list" aria-label="책장">
+      <ShelfNav shelves={shelves} />
+
+      {/* role="list" 를 흉내내지 않고 진짜 ul/li 를 쓴다 — 낭독기와 검사 도구
+          양쪽에서 군더더기가 없다. */}
+      <ul className="shelf-row">
         {shelves.map((shelf) => (
-          <div role="listitem" key={shelf.slug}>
+          <li key={shelf.slug} className="shelf-row__item" data-shelf-slug={shelf.slug}>
             <Shelf shelf={shelf} />
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
 
       <div className="room__rail" aria-hidden="true" />
       <div className="room__floor" aria-hidden="true" />

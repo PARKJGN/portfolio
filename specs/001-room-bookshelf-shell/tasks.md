@@ -124,12 +124,12 @@ description: "Task list for 방·책장·책 모달 골격"
 
 **Independent Test**: 마우스를 뽑고 방 진입부터 특정 책의 마지막 장까지 도달해 보고, 낭독기로 같은 경로를 따라간다
 
-- [ ] T033 [P] [US3] 좁은 화면에서 책장 가로 스와이프를 CSS 스크롤 스냅으로 구현 — `src/components/room/ShelfCarousel.tsx` (FR-018, R-6)
-- [ ] T034 [US3] 책장 바로가기 링크 목록으로 키보드 이동 경로 확보, 현재 위치 표시 — `src/components/room/ShelfNav.tsx` (FR-019)
-- [ ] T035 [P] [US3] `prefers-reduced-motion`에서 책 열기·장 넘김 연출 제거 — `src/styles/motion.css` (FR-016)
-- [ ] T036 [US3] 320px~1920px 전 구간에서 페이지 가로 스크롤이 없도록 조정 — `src/app/page.tsx`, `src/styles/` (FR-017)
-- [ ] T037 [P] [US3] E2E: 키보드만으로 방 진입 → 책장 이동 → 책 열기 → 마지막 장 → 닫기 — `tests/e2e/keyboard.spec.ts`
-- [ ] T038 [P] [US3] E2E: axe 접근성 검사를 방·책 페이지·열린 모달 각각에 적용해 위반 0건 확인 — `tests/e2e/a11y.spec.ts` (헌장 원칙 II)
+- [x] T033 [P] [US3] 좁은 화면에서 책장 가로 스와이프를 CSS 스크롤 스냅으로 구현 — `src/components/room/ShelfCarousel.tsx` (FR-018, R-6)
+- [x] T034 [US3] 책장 바로가기 링크 목록으로 키보드 이동 경로 확보, 현재 위치 표시 — `src/components/room/ShelfNav.tsx` (FR-019)
+- [x] T035 [P] [US3] `prefers-reduced-motion`에서 책 열기·장 넘김 연출 제거 — `src/styles/motion.css` (FR-016)
+- [x] T036 [US3] 320px~1920px 전 구간에서 페이지 가로 스크롤이 없도록 조정 — `src/app/page.tsx`, `src/styles/` (FR-017)
+- [x] T037 [P] [US3] E2E: 키보드만으로 방 진입 → 책장 이동 → 책 열기 → 마지막 장 → 닫기 — `tests/e2e/keyboard.spec.ts`
+- [x] T038 [P] [US3] E2E: axe 접근성 검사를 방·책 페이지·열린 모달 각각에 적용해 위반 0건 확인 — `tests/e2e/a11y.spec.ts` (헌장 원칙 II)
 
 **Checkpoint**: 세 스토리 모두 독립적으로 동작한다
 

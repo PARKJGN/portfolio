@@ -180,8 +180,13 @@
   max-height: none;
 }
 
-/* 움직임 최소화에서는 부드러운 스크롤도 끈다 (FR-016) */
+/* 움직임 최소화에서는 부드러운 스크롤도 끈다 (FR-016)
+   선택자에 [data-view-mode] 를 붙인 이유: 미디어 쿼리는 명시도를 올리지 않는다.
+   위의 [data-view-mode='paged'] .book__body 가 (0,2,0) 이므로 그냥 .book__body
+   (0,1,0) 로는 이기지 못하고, 움직임 최소화를 켠 사용자에게도 부드러운 스크롤이
+   그대로 나간다. E2E 가 이걸 잡았다. */
 @media (prefers-reduced-motion: reduce) {
+  [data-view-mode] .book__body,
   .book__body {
     scroll-behavior: auto;
   }

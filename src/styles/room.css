@@ -69,7 +69,6 @@
 
 /* ── 책장 ──────────────────────────────── */
 .shelf {
-  scroll-snap-align: center;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -169,8 +168,10 @@
 }
 
 .spine__meta {
+  /* opacity 를 쓰지 않는다. 책등 색 9종은 배경/글자 쌍의 대비가 검증된 조합인데,
+     투명도를 얹으면 그 값이 그대로 깎여 4.5:1 아래로 떨어진다. axe 가 실제로
+     crimson 책등에서 이걸 잡아냈다. 위계는 글자 크기로만 준다. */
   font-size: var(--text-xs);
-  opacity: 0.72;
 }
 
 /* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게 */
@@ -229,4 +230,76 @@
 .spine--wine {
   background: var(--spine-wine-bg);
   color: var(--spine-wine-fg);
+}
+
+/* ── 책장 바로가기 (FR-018, FR-019) ──────────────────────────────
+   책장이 한 화면에 다 들어가는 넓은 화면에서는 필요 없다.
+   그때는 Tab 만으로 모든 책에 도달할 수 있다. */
+.shelf-nav {
+  display: none;
+}
+
+.shelf-nav ul {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shelf-nav a {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  color: var(--room-wall-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.shelf-nav a:hover {
+  border-color: var(--room-wall-text);
+}
+
+.shelf-nav a[aria-current='true'] {
+  border-color: var(--room-wall-text);
+  background: color-mix(in srgb, var(--room-wall-text) 12%, transparent);
+  font-weight: 700;
+}
+
+.shelf-nav a:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 899px) {
+  .shelf-nav {
+    display: block;
+    position: absolute;
+    top: var(--space-12);
+    inset-inline: 0;
+    z-index: 2;
+  }
+}
+
+/* 조각 링크로 이동할 때 책장이 가장자리에 딱 붙지 않게 */
+.shelf-row__item {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  scroll-margin-inline: var(--space-4);
+  list-style: none;
+}
+
+.shelf-row {
+  margin: 0 0 14svh;
+  padding-inline: var(--space-4);
+  list-style: none;
+  scroll-behavior: smooth;
+}
+
+/* FR-016 — 움직임 최소화에서는 부드러운 스크롤도 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  .shelf-row {
+    scroll-behavior: auto;
+  }
 }

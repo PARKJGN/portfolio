@@ -117,6 +117,25 @@ export function BookController() {
       if (action === 'page-prev') return turnPage(-1);
       if (action === 'page-next') return turnPage(1);
 
+      // 책장 바로가기 (FR-019).
+      // 조각 링크만으로도 이동은 되지만, 스크롤 스냅과 겹치면 목표 책장이
+      // 화면에 절반만 걸친 채 멈춘다. JS 가 있을 때는 정확히 가운데로 보낸다.
+      // 가로채지 못하면 평범한 앵커로 동작해 근사 위치까지는 간다.
+      const shelfLink = target?.closest<HTMLElement>('[data-shelf-link]');
+      if (shelfLink) {
+        const item = document.querySelector(`[data-shelf-slug="${shelfLink.dataset.shelfLink}"]`);
+        if (item) {
+          e.preventDefault();
+          const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+          item.scrollIntoView({
+            inline: 'center',
+            block: 'nearest',
+            behavior: reduced ? 'auto' : 'smooth',
+          });
+        }
+        return;
+      }
+
       const spine = target?.closest<HTMLElement>('[data-book-slug]');
       if (spine) {
         const slug = spine.dataset.bookSlug;
@@ -148,6 +167,29 @@ export function BookController() {
     window.addEventListener('popstate', onPopState);
     window.addEventListener('resize', onScrollOrResize);
 
+    // ── 현재 보고 있는 책장 표시 (FR-018) ──────────────────────────────
+    // 좁은 화면에서 책장이 가로로 넘어갈 때, 지금 몇 번째를 보고 있는지 알려준다.
+    // 스크롤 위치를 직접 계산하지 않고 교차 관찰에 맡긴다 — 스냅 위치·여백·
+    // 화면 크기 변화를 브라우저가 알아서 반영한다.
+    const shelfObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const slug = (entry.target as HTMLElement).dataset.shelfSlug;
+          if (!slug) continue;
+          for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-shelf-link]')) {
+            const isCurrent = link.dataset.shelfLink === slug;
+            if (isCurrent) link.setAttribute('aria-current', 'true');
+            else link.removeAttribute('aria-current');
+          }
+        }
+      },
+      { threshold: 0.6 },
+    );
+    for (const item of document.querySelectorAll('[data-shelf-slug]')) {
+      shelfObserver.observe(item);
+    }
+
     // 초기화는 모든 선언이 끝난 뒤에. 인라인 스크립트가 이미 속성을 붙여 두었더라도
     // 버튼 라벨과 aria-pressed 는 여기서 맞춰야 한다.
     applyMode(readStoredMode(globalThis.localStorage));
@@ -158,6 +200,7 @@ export function BookController() {
       document.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('resize', onScrollOrResize);
+      shelfObserver.disconnect();
     };
   }, []);
 
