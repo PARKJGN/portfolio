@@ -22,8 +22,17 @@ export default defineConfig({
     },
     {
       // 320px — 헌장이 요구하는 최소 폭 (FR-017, SC-005)
+      //
+      // devices['iPhone SE'] 를 쓰지 않는 이유: 그 서술자는 기본 브라우저가 WebKit 이라
+      // 별도 설치가 필요하다. 여기서 검증하려는 것은 좁은 폭에서의 레이아웃과 스와이프이고
+      // 그건 엔진과 무관하다. 실제 iOS Safari 확인은 수동 검증(T050)의 몫으로 남긴다.
       name: 'mobile',
-      use: { ...devices['iPhone SE'], viewport: { width: 320, height: 568 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 320, height: 568 },
+        isMobile: false,
+        hasTouch: true,
+      },
     },
     {
       // JS 를 끈 채로도 모든 책에 도달해야 한다 (헌장 원칙 I, FR-012)

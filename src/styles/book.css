@@ -4,7 +4,7 @@
  */
 
 .book-dialog {
-  width: min(860px, 94vw);
+  width: min(920px, 94vw);
   max-height: 90svh;
   padding: 0;
   border: 0;
@@ -132,4 +132,114 @@
 
 .book-page .book__body {
   overflow: visible;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   두 보기 방식 (R-2, FR-007)
+
+   같은 DOM 에 클래스만 다르게 적용한다. 마크업이 하나이므로 낭독기와
+   검색 엔진에는 언제나 하나의 연속된 문서로 보이고, 전체 내용이
+   빠짐없이 존재한다는 FR-011 이 구조적으로 보장된다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 한 장씩 넘기기 ──
+   CSS 다단이 화면 크기에 맞춰 장을 나눈다. JS 계산이 없으므로
+   창 크기가 바뀌면 브라우저가 알아서 다시 나눈다. */
+[data-view-mode='paged'] .book__body {
+  height: 60svh;
+  /* 20rem 이면 넓은 화면에서 두 면이 펼쳐지고, 좁아지면 자연히 한 면이 된다.
+     단 개수를 고정하지 않고 너비로 정하므로 화면 크기에 따라 브라우저가 결정한다. */
+  column-width: 20rem;
+  column-gap: var(--space-8);
+  column-fill: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+}
+
+/* 단 사이에 세로 실선 — 실제 책의 접힌 면처럼 보이게 */
+[data-view-mode='paged'] .book__body {
+  column-rule: 1px solid var(--page-rule);
+}
+
+.book-page[data-view-mode='paged'] .book__body,
+[data-view-mode='paged'] .book-page .book__body {
+  height: 70svh;
+}
+
+/* ── 전체 이어보기 ── */
+[data-view-mode='continuous'] .book__body {
+  columns: auto;
+  max-height: 70svh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.book-page [data-view-mode='continuous'] .book__body,
+.book-page.book__body {
+  max-height: none;
+}
+
+/* 움직임 최소화에서는 부드러운 스크롤도 끈다 (FR-016) */
+@media (prefers-reduced-motion: reduce) {
+  .book__body {
+    scroll-behavior: auto;
+  }
+}
+
+/* ── 조작부 ── */
+.book__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.book__btn {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--page-rule);
+  background: transparent;
+  color: var(--page-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.book__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--page-text) 8%, transparent);
+}
+
+.book__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.book__btn:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
+}
+
+.book__progress {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--page-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 전체 이어보기에서는 장 이동과 위치 표시가 의미 없다.
+   display:none 이면 접근성 트리에서도 빠진다. */
+[data-view-mode='continuous'] .book__paging {
+  display: none;
+}
+
+/* JS 가 없으면 조작부를 감춘다.
+   data-view-mode 는 인라인 스크립트가 붙이므로, 이 속성이 없다는 것은
+   JS 가 돌지 않았다는 뜻이다. 그때는 본문이 기본 스타일(전체 이어보기)로
+   읽히고, 눌러도 아무 일 없는 버튼을 보여줄 이유가 없다. */
+.book__controls {
+  display: none;
+}
+[data-view-mode] .book__controls {
+  display: flex;
 }

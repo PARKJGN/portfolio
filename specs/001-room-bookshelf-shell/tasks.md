@@ -107,12 +107,12 @@ description: "Task list for 방·책장·책 모달 골격"
 
 **Independent Test**: 책을 연 뒤 두 방식을 번갈아 전환하며 같은 내용이 빠짐없이 보이는지, 다른 책을 열었을 때 선택이 유지되는지 확인한다
 
-- [ ] T027 [P] [US2] 두 보기 모드를 CSS 다단 + 스크롤 스냅으로 구현(같은 DOM, 클래스만 전환) — `src/styles/book-view.css` (R-2, FR-007, FR-011)
-- [ ] T028 [US2] 보기 모드 전환 UI와 `localStorage` 저장·복원 — `src/components/book/ViewModeToggle.tsx` (FR-008, FR-009)
-- [ ] T029 [US2] 현재 위치와 전체 분량 표시, 앞뒤 이동 수단 — `src/components/book/PageIndicator.tsx` (FR-010)
-- [ ] T030 [US2] 표·이미지가 단 경계를 넘지 않도록 `break-inside: avoid` 적용 — `src/styles/book-view.css` (R-2 잔여 위험)
-- [ ] T031 [P] [US2] 모드 상태 단위 테스트(기본값, 알 수 없는 값 복구, `localStorage` 불가 환경) — `tests/unit/view-mode.test.ts`
-- [ ] T032 [P] [US2] E2E: 두 모드 전환·다른 책에서 유지·창 크기 변경 시 읽던 위치 보존 — `tests/e2e/view-mode.spec.ts`
+- [x] T027 [P] [US2] 두 보기 모드를 CSS 다단 + 스크롤 스냅으로 구현(같은 DOM, 클래스만 전환) — `src/styles/book-view.css` (R-2, FR-007, FR-011)
+- [x] T028 [US2] 보기 모드 전환 UI와 `localStorage` 저장·복원 — `src/components/book/ViewModeToggle.tsx` (FR-008, FR-009)
+- [x] T029 [US2] 현재 위치와 전체 분량 표시, 앞뒤 이동 수단 — `src/components/book/PageIndicator.tsx` (FR-010)
+- [x] T030 [US2] 표·이미지가 단 경계를 넘지 않도록 `break-inside: avoid` 적용 — `src/styles/book-view.css` (R-2 잔여 위험)
+- [x] T031 [P] [US2] 모드 상태 단위 테스트(기본값, 알 수 없는 값 복구, `localStorage` 불가 환경) — `tests/unit/view-mode.test.ts`
+- [x] T032 [P] [US2] E2E: 두 모드 전환·다른 책에서 유지·창 크기 변경 시 읽던 위치 보존 — `tests/e2e/view-mode.spec.ts`
 
 **Checkpoint**: US1과 US2가 각각 독립적으로 동작한다
 

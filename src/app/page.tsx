@@ -2,7 +2,7 @@ import { getShelves, getBookNeighbors } from '@/lib/content';
 import { assertFeatureReadiness } from '@/lib/schema';
 import { Shelf } from '@/components/room/Shelf';
 import { BookContent } from '@/components/book/BookContent';
-import { DialogController } from '@/components/book/DialogController';
+import { BookController } from '@/components/book/BookController';
 
 /**
  * 방 — 사이트의 첫 화면.
@@ -59,7 +59,7 @@ export default function RoomPage() {
         );
       })}
 
-      <DialogController />
+      <BookController />
     </main>
   );
 }

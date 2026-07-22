@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getBook, getBookSlugs, getBookNeighbors } from '@/lib/content';
 import { BookContent } from '@/components/book/BookContent';
+import { BookController } from '@/components/book/BookController';
 
 /**
  * 책 한 권의 정본 페이지.
@@ -35,6 +36,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   return (
     <main className="book-page">
       <BookContent book={book} prev={prev} next={next} />
+      <BookController />
     </main>
   );
 }

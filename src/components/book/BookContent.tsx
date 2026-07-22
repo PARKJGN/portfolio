@@ -35,6 +35,36 @@ export function BookContent({
         dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }}
       />
 
+      <div className="book__controls">
+        {/* 조작부 마크업은 서버에서 렌더하고 동작만 BookController 가 위임받는다.
+            버튼마다 클라이언트 컴포넌트를 두면 책 권수만큼 늘어난다. */}
+        <span className="book__paging">
+          <button
+            type="button"
+            className="book__btn"
+            data-action="page-prev"
+            aria-label="이전 장"
+          >
+            ←
+          </button>
+          <span className="book__progress" data-progress aria-live="polite">
+            1 / 1
+          </span>
+          <button type="button" className="book__btn" data-action="page-next" aria-label="다음 장">
+            →
+          </button>
+        </span>
+        <button
+          type="button"
+          className="book__btn"
+          data-action="toggle-view"
+          aria-pressed="false"
+          data-toggle-label
+        >
+          전체 이어보기
+        </button>
+      </div>
+
       <footer className="book__footer">
         <nav className="book__nav" aria-label="같은 책장의 다른 책">
           {prev ? <a href={`/books/${prev.slug}`}>← {prev.title}</a> : null}
