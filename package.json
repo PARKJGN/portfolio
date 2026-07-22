@@ -13,6 +13,8 @@
     "serve": "serve out -l 3000"
   },
   "dependencies": {
+    "gray-matter": "^4.0.3",
+    "marked": "^18.0.7",
     "next": "^16.2.11",
     "react": "18.3.1",
     "react-dom": "18.3.1",

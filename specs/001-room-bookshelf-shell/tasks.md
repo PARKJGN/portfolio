@@ -56,15 +56,15 @@ description: "Task list for 방·책장·책 모달 골격"
 
 ### 디자인 토큰과 콘텐츠 기반
 
-- [ ] T008 `design-notes.md`의 책등 색 9종과 목재·양피지 색을 이름 있는 토큰으로 정의(라이트/다크 모두) — `src/styles/tokens.css`
-- [ ] T009 Tailwind 테마가 `tokens.css`의 변수를 참조하도록 매핑 — `tailwind.config.js`
+- [x] T008 `design-notes.md`의 책등 색 9종과 목재·양피지 색을 이름 있는 토큰으로 정의(라이트/다크 모두) — `src/styles/tokens.css`
+- [x] T009 Tailwind 테마가 `tokens.css`의 변수를 참조하도록 매핑 — `tailwind.config.js`
 - [ ] T010 [P] 콘텐츠에서 사용된 글자만 추출해 한글 폰트를 서브셋하는 빌드 스크립트 작성 — `scripts/subset-fonts.mjs` (R-4)
-- [ ] T011 [P] `contracts/content-schema.md`의 규칙을 Zod 스키마로 구현(책장 3개, slug 고유, 허용 토큰, 빈 본문 금지) — `src/lib/schema.ts`
-- [ ] T012 책장·책 마크다운을 읽고 파생 데이터(책장별 목록, 이전/다음, 정적 경로)를 계산하는 로더 — `src/lib/content.ts`
-- [ ] T013 [P] 스키마 검증 단위 테스트 — `tests/unit/schema.test.ts`
-- [ ] T014 [P] 콘텐츠 로더 단위 테스트(slug 중복·order 중복·빈 본문이 빌드를 실패시키는지) — `tests/unit/content.test.ts`
-- [ ] T015 루트 레이아웃에 `lang="ko"`, 서브셋 폰트, 토큰 스타일 연결 — `src/app/layout.tsx`
-- [ ] T016 Lighthouse CI 설정에 헌장 원칙 III 수치(LCP < 2.5s · CLS < 0.1 · INP < 200ms)를 예산으로 고정 — `lighthouserc.json` (JS 용량 상한은 v2.0.0에서 삭제되어 게이트에 넣지 않는다)
+- [x] T011 [P] `contracts/content-schema.md`의 규칙을 Zod 스키마로 구현(책장 3개, slug 고유, 허용 토큰, 빈 본문 금지) — `src/lib/schema.ts`
+- [x] T012 책장·책 마크다운을 읽고 파생 데이터(책장별 목록, 이전/다음, 정적 경로)를 계산하는 로더 — `src/lib/content.ts`
+- [x] T013 [P] 스키마 검증 단위 테스트 — `tests/unit/schema.test.ts`
+- [x] T014 [P] 콘텐츠 로더 단위 테스트(slug 중복·order 중복·빈 본문이 빌드를 실패시키는지) — `tests/unit/content.test.ts`
+- [x] T015 루트 레이아웃에 `lang="ko"`, 서브셋 폰트, 토큰 스타일 연결 — `src/app/layout.tsx`
+- [x] T016 Lighthouse CI 설정에 헌장 원칙 III 수치(LCP < 2.5s · CLS < 0.1 · INP < 200ms)를 예산으로 고정 — `lighthouserc.json` (JS 용량 상한은 v2.0.0에서 삭제되어 게이트에 넣지 않는다)
 
 **Checkpoint**: 기반 완료 — 사용자 스토리 착수 가능
 
@@ -78,7 +78,7 @@ description: "Task list for 방·책장·책 모달 골격"
 
 ### 콘텐츠
 
-- [ ] T017 [P] [US1] 책장 3개(프로필·프로젝트·방명록) 정의 파일 작성 — `src/content/shelves/profile.md`, `project.md`, `guestbook.md`
+- [x] T017 [P] [US1] 책장 3개(프로필·프로젝트·방명록) 정의 파일 작성 — `src/content/shelves/profile.md`, `project.md`, `guestbook.md`
 - [ ] T018 [US1] 프로필 책 1권을 실제 내용으로 작성 — `src/content/books/profile/<slug>.md` (FR-022)
 
 ### 화면

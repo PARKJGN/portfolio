@@ -1,0 +1,31 @@
+{
+  "$comment": [
+    "헌장 원칙 III 의 게이트. 숫자가 문서에만 있으면 지켜지지 않으므로 도구가 매번 본다.",
+    "JS 용량 상한은 헌장 v2.0.0 에서 삭제되어 여기에 넣지 않는다 — research.md R-1 참조.",
+    "T047 에서 실제 화면이 완성된 뒤 최종 확정한다."
+  ],
+  "ci": {
+    "collect": {
+      "staticDistDir": "./out",
+      "url": ["http://localhost/index.html"],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "emulatedFormFactor": "mobile",
+        "throttlingMethod": "simulate"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 200 }],
+        "categories:accessibility": ["error", { "minScore": 1 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": "./.lighthouseci"
+    }
+  }
+}

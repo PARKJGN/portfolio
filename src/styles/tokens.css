@@ -1,0 +1,160 @@
+/*
+ * 디자인 토큰 — 헌장 원칙 V의 단일 출처.
+ *
+ * 이 파일 밖에서는 색·간격·타이포 리터럴을 쓰지 않는다. 컴포넌트는 Tailwind 테마를 통해
+ * 이 변수들을 이름으로 참조한다. 임의값 클래스(bg-[#...])와 인라인 hex 는 ESLint 가 막는다.
+ *
+ * 색 출처:
+ *  - 책등 9종은 Claude Design 시안에서 가져왔다. 배경/글자 쌍의 대비를 계산해
+ *    5.81:1 ~ 12.27:1 로 전부 AA 통과를 확인했다 (design-notes.md).
+ *  - 다크 팔레트는 시안에 없어 새로 정했고, 마찬가지로 계산해 확인했다
+ *    (7.33:1 ~ 12.82:1).
+ */
+
+:root {
+  /* ── 책등 (라이트·다크 공통) ────────────────────────────────
+     책은 방 안의 '사물'이라 테마와 무관하게 같은 색을 유지한다.
+     각 쌍은 대비가 검증된 조합이므로 배경만 바꾸거나 글자만 바꾸면 안 된다. */
+  --spine-crimson-bg: #ae1800;
+  --spine-crimson-fg: #f3ead5; /* 5.99:1 */
+  --spine-walnut-bg: #3f2c1a;
+  --spine-walnut-fg: #e8d9bd; /* 9.51:1 */
+  --spine-sand-bg: #c7a877;
+  --spine-sand-fg: #3a2a16; /* 6.10:1 */
+  --spine-olive-bg: #4f4327;
+  --spine-olive-fg: #efe6cf; /* 7.80:1 */
+  --spine-parchment-bg: #e3d6b6;
+  --spine-parchment-fg: #3a2a16; /* 9.56:1 */
+  --spine-ink-bg: #241a10;
+  --spine-ink-fg: #e8d9bd; /* 12.27:1 */
+  --spine-oak-bg: #6b5334;
+  --spine-oak-fg: #f0e6cf; /* 5.81:1 */
+  --spine-brick-bg: #7d3b2a;
+  --spine-brick-fg: #f3e6dc; /* 6.78:1 */
+  --spine-wine-bg: #5e2016;
+  --spine-wine-fg: #efe2c6; /* 9.66:1 */
+
+  /* ── 방 (라이트) ──────────────────────────────── */
+  --room-wall-top: #e8dabb;
+  --room-wall-bottom: #d7c199;
+  --room-wall-text: #3a2814; /* 벽 위 8.66:1 */
+  --room-floor-top: #7c5c37;
+  --room-floor-bottom: #5d4222;
+  --room-rail: #b89b6b;
+
+  /* ── 책장 (라이트) ──────────────────────────────── */
+  --cabinet-body: #2a1d10;
+  --cabinet-edge: #1a1108;
+  --cabinet-plank-top: #4a3418;
+  --cabinet-plank-bottom: #2e2010;
+  --cabinet-plank-highlight: #6b4f26;
+
+  /* ── 펼친 책 (라이트) ──────────────────────────────── */
+  --page-bg: #f0e6d0;
+  --page-bg-edge: #ece0c2;
+  --page-text: #463714; /* 9.32:1 */
+  --page-caption: #7d5411; /* 5.38:1 */
+  --page-accent: #ae1800; /* 5.78:1 — 본문 크기에도 안전 */
+  --page-rule: #8a7550;
+  --backdrop: #241609;
+
+  /* ── 간격 ──────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── 타이포 ──────────────────────────────── */
+  --font-serif: 'Book Serif', 'Nanum Myeongjo', serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --leading-body: 1.85;
+  --leading-tight: 1.2;
+
+  /* ── 모서리·그림자 ──────────────────────────────── */
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --shadow-book: 0 22px 44px rgb(40 26 10 / 45%);
+  --shadow-open: 0 44px 90px rgb(0 0 0 / 55%);
+
+  /* ── 모션 (FR-016 에서 media query 로 0 이 된다) ────────── */
+  --motion-fast: 180ms;
+  --motion-base: 320ms;
+  --motion-slow: 500ms;
+}
+
+/*
+ * 다크 테마. 시스템 설정을 따르되, 나중에 수동 토글을 붙일 수 있도록
+ * data-theme 속성도 함께 받는다. 책등 색은 재정의하지 않는다 — 위 주석 참조.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --room-wall-top: #221810;
+    --room-wall-bottom: #180f09;
+    --room-wall-text: #e6d3ab; /* 11.83:1 */
+    --room-floor-top: #1a1209;
+    --room-floor-bottom: #120c06;
+    --room-rail: #4a3a24;
+
+    --cabinet-body: #17100a;
+    --cabinet-edge: #0d0805;
+    --cabinet-plank-top: #2c2011;
+    --cabinet-plank-bottom: #1a1209;
+    --cabinet-plank-highlight: #4a3720;
+
+    --page-bg: #241c12;
+    --page-bg-edge: #1e170e;
+    --page-text: #ece0c4; /* 12.82:1 */
+    --page-caption: #c9a86a; /* 7.44:1 */
+    --page-accent: #ff8b6b; /* 7.33:1 */
+    --page-rule: #6b5a3c;
+    --backdrop: #0a0704;
+
+    --shadow-book: 0 22px 44px rgb(0 0 0 / 65%);
+    --shadow-open: 0 44px 90px rgb(0 0 0 / 75%);
+  }
+}
+
+:root[data-theme='dark'] {
+  --room-wall-top: #221810;
+  --room-wall-bottom: #180f09;
+  --room-wall-text: #e6d3ab;
+  --room-floor-top: #1a1209;
+  --room-floor-bottom: #120c06;
+  --room-rail: #4a3a24;
+
+  --cabinet-body: #17100a;
+  --cabinet-edge: #0d0805;
+  --cabinet-plank-top: #2c2011;
+  --cabinet-plank-bottom: #1a1209;
+  --cabinet-plank-highlight: #4a3720;
+
+  --page-bg: #241c12;
+  --page-bg-edge: #1e170e;
+  --page-text: #ece0c4;
+  --page-caption: #c9a86a;
+  --page-accent: #ff8b6b;
+  --page-rule: #6b5a3c;
+  --backdrop: #0a0704;
+
+  --shadow-book: 0 22px 44px rgb(0 0 0 / 65%);
+  --shadow-open: 0 44px 90px rgb(0 0 0 / 75%);
+}
+
+/* FR-016 — 움직임 최소화 설정에서는 연출을 없앤다 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}
