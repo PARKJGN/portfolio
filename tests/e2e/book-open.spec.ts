@@ -5,6 +5,7 @@ const dialog = (slug: string) => `#book-dialog-${slug}`;
 test.describe('책 열기와 닫기', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
   });
 
   test('책을 누르면 모달로 열리고 주소가 바뀐다 (FR-004, FR-012)', async ({ page }) => {

@@ -1,7 +1,19 @@
 /*
  * 방·책장·책등의 시각 표현.
- * 모든 값은 tokens.css 의 변수를 참조한다 — 이 파일에 리터럴은 없다 (헌장 원칙 V).
+ * 모든 색·간격은 tokens.css 의 변수를 참조한다 — 이 파일에 색 리터럴은 없다 (헌장 원칙 V).
+ *
+ * 치수는 화면 높이에 따라 clamp 로 함께 줄고 는다. 책장 칸 높이와 책등 높이가
+ * 같은 기준으로 움직이지 않으면 작은 화면에서 책이 칸 밖으로 넘친다.
  */
+
+:root {
+  /* 책장 칸 높이 — 책 권수나 책등 크기와 무관하게 고정한다.
+     이게 고정되지 않으면 책장들이 계단처럼 들쭉날쭉해진다. */
+  --tier-decor: clamp(74px, 13svh, 132px);
+  --tier-books: clamp(210px, 33svh, 310px);
+  --cabinet-min-width: clamp(150px, 42vw, 260px);
+  --floor-height: clamp(70px, 13svh, 130px);
+}
 
 /* ── 방 ──────────────────────────────── */
 .room {
@@ -11,26 +23,63 @@
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  background: linear-gradient(180deg, var(--room-wall-top) 0%, var(--room-wall-bottom) 72%);
+  background: linear-gradient(180deg, var(--room-wall-top) 0%, var(--room-wall-bottom) 78%);
+}
+
+/* 벽지 결 — 세로 줄무늬를 아주 옅게 */
+.room__wallpaper {
+  position: absolute;
+  inset: 0 0 var(--floor-height);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 96px,
+    color-mix(in srgb, var(--cabinet-body) 6%, transparent) 96px 98px
+  );
+  pointer-events: none;
+}
+
+/* 왼쪽 위에서 드는 빛 + 아래쪽으로 깔리는 그늘 */
+.room__light {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      64% 44% at 24% 4%,
+      color-mix(in srgb, var(--room-wall-top) 70%, white) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 58%,
+      color-mix(in srgb, var(--cabinet-body) 14%, transparent) 100%
+    );
+  pointer-events: none;
 }
 
 .room__floor {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  height: 14svh;
-  min-height: 80px;
-  background: linear-gradient(180deg, var(--room-floor-top) 0%, var(--room-floor-bottom) 100%);
+  height: var(--floor-height);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--cabinet-edge) 18%, transparent) 0 1px,
+      transparent 1px 84px
+    ),
+    linear-gradient(180deg, var(--room-floor-top) 0%, var(--room-floor-bottom) 100%);
   pointer-events: none;
 }
 
+/* 벽과 바닥이 만나는 걸레받이 */
 .room__rail {
   position: absolute;
   inset-inline: 0;
-  bottom: 14svh;
-  height: 8px;
-  min-height: 8px;
+  bottom: var(--floor-height);
+  height: 10px;
   background: var(--room-rail);
+  border-top: 2px solid color-mix(in srgb, var(--cabinet-edge) 42%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--cabinet-edge) 30%, transparent);
   pointer-events: none;
 }
 
@@ -39,56 +88,67 @@
   top: var(--space-6);
   inset-inline: 0;
   text-align: center;
+  font-size: var(--text-xl);
+  letter-spacing: 0.2em;
   color: var(--room-wall-text);
 }
 
 /* ── 책장 줄 ──────────────────────────────
-   좁은 화면에서는 가로 스와이프, 넓은 화면에서는 나란히 배치 (FR-018) */
+   좁은 화면에서는 가로로 넘기고(FR-018), 넓은 화면에서는 나란히 세운다. */
 .shelf-row {
   position: relative;
   z-index: 1;
   display: flex;
-  gap: var(--space-8);
+  gap: clamp(var(--space-4), 5vw, var(--space-12));
   align-items: flex-end;
-  margin-bottom: 14svh;
+  justify-content: safe center;
+  margin: 0 0 var(--floor-height);
   padding-inline: var(--space-4);
+  list-style: none;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
   scrollbar-width: none;
 }
 .shelf-row::-webkit-scrollbar {
   display: none;
 }
 
+.shelf-row__item {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  scroll-margin-inline: var(--space-4);
+  list-style: none;
+}
+
 @media (min-width: 900px) {
   .shelf-row {
-    justify-content: center;
     overflow-x: visible;
   }
 }
 
 /* ── 책장 ──────────────────────────────── */
 .shelf {
-  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 100%;
 }
 
 .shelf__name {
   margin-bottom: var(--space-2);
   font-size: var(--text-lg);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.2em;
   color: var(--room-wall-text);
 }
 
+/* 상단 두꺼운 널판 */
 .shelf__plank {
   position: relative;
   z-index: 1;
-  width: calc(100% + var(--space-6));
+  width: calc(100% + var(--space-8));
   height: var(--space-6);
-  margin-inline: calc(var(--space-3) * -1);
+  margin-inline: calc(var(--space-4) * -1);
+  margin-bottom: -2px;
   background: linear-gradient(
     180deg,
     var(--cabinet-plank-top) 0%,
@@ -99,18 +159,20 @@
 }
 
 .shelf__cabinet {
+  /* 책이 늘면 캐비닛도 넓어지되 화면을 넘지는 않게 한다.
+     상한이 없으면 장식 책(고정 너비)이 캐비닛을 밀어내 320px 에서 화면 밖으로 나간다. */
+  min-width: var(--cabinet-min-width);
+  max-width: min(88vw, 420px);
   border-inline: var(--space-3) solid var(--cabinet-edge);
   background: var(--cabinet-body);
   box-shadow: var(--shadow-book);
 }
 
-.shelf__books {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: var(--space-1);
-  min-height: 180px;
-  padding: var(--space-6) var(--space-4) 0;
+/* 칸 사이 선반 */
+.shelf__divider {
+  height: var(--space-3);
+  background: linear-gradient(180deg, var(--cabinet-plank-top), var(--cabinet-edge));
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--cabinet-edge) 50%, transparent);
 }
 
 .shelf__base {
@@ -118,15 +180,53 @@
   background: var(--cabinet-edge);
 }
 
-.shelf__empty {
+/* 장식 칸 */
+.shelf__decor {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  min-height: 180px;
-  padding: var(--space-6) var(--space-4) var(--space-6);
+  gap: 2px;
+  height: var(--tier-decor);
+  padding: var(--space-3) var(--space-3) 0;
+  /* 장식이라 잘려도 무방하다 — 오히려 책장이 옆으로 이어지는 인상을 준다. */
+  overflow: hidden;
+}
+
+.decor-spine {
+  width: var(--decor-w);
+  height: var(--decor-h);
+  box-shadow:
+    inset 2px 0 4px rgb(255 255 255 / 8%),
+    inset -3px 0 6px rgb(0 0 0 / 34%);
+}
+
+/* 책 칸 — 높이를 고정해 모든 책장이 같은 크기로 선다 */
+.shelf__books {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--tier-books);
+  margin: 0;
+  padding: var(--space-4) var(--space-4) 0;
+  list-style: none;
+}
+
+.shelf__books li {
+  display: flex;
+  align-items: flex-end;
+}
+
+.shelf__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--tier-books);
+  margin: 0;
+  padding: var(--space-4);
   font-size: var(--text-sm);
-  color: var(--spine-parchment-bg);
-  opacity: 0.75;
+  text-align: center;
+  color: color-mix(in srgb, var(--spine-parchment-bg) 72%, transparent);
 }
 
 /* ── 책등 ──────────────────────────────── */
@@ -141,7 +241,8 @@
   transition: transform var(--motion-fast) ease;
   box-shadow:
     inset 3px 0 5px rgb(255 255 255 / 10%),
-    inset -4px 0 8px rgb(0 0 0 / 38%);
+    inset -4px 0 8px rgb(0 0 0 / 38%),
+    inset 0 3px 4px rgb(255 255 255 / 8%);
 }
 
 .spine:hover,
@@ -174,24 +275,25 @@
   font-size: var(--text-xs);
 }
 
-/* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게 */
+/* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게.
+   책 칸 높이(--tier-books)와 같은 기준으로 움직여야 작은 화면에서 넘치지 않는다. */
 .spine--short {
-  height: 200px;
+  height: clamp(140px, 22svh, 208px);
 }
 .spine--medium {
-  height: 240px;
+  height: clamp(164px, 26svh, 246px);
 }
 .spine--tall {
-  height: 280px;
+  height: clamp(186px, 30svh, 284px);
 }
 .spine--narrow {
-  width: 44px;
+  width: clamp(34px, 9vw, 46px);
 }
 .spine--medium-w {
-  width: 56px;
+  width: clamp(42px, 11vw, 58px);
 }
 .spine--wide {
-  width: 68px;
+  width: clamp(50px, 13vw, 70px);
 }
 
 /* 책등 색 — tokens.css 에서 대비가 검증된 쌍 */
@@ -276,25 +378,10 @@
   .shelf-nav {
     display: block;
     position: absolute;
-    top: var(--space-12);
+    top: calc(var(--space-8) + var(--space-6));
     inset-inline: 0;
     z-index: 2;
   }
-}
-
-/* 조각 링크로 이동할 때 책장이 가장자리에 딱 붙지 않게 */
-.shelf-row__item {
-  flex: 0 0 auto;
-  scroll-snap-align: center;
-  scroll-margin-inline: var(--space-4);
-  list-style: none;
-}
-
-.shelf-row {
-  margin: 0 0 14svh;
-  padding-inline: var(--space-4);
-  list-style: none;
-  scroll-behavior: smooth;
 }
 
 /* FR-016 — 움직임 최소화에서는 부드러운 스크롤도 끈다 */

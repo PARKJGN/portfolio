@@ -194,7 +194,13 @@ export function BookController() {
     // 버튼 라벨과 aria-pressed 는 여기서 맞춰야 한다.
     applyMode(readStoredMode(globalThis.localStorage));
 
+    // 준비 완료 신호. 이 속성이 붙기 전에는 책 링크가 아직 가로채이지 않아,
+    // 누르면 모달이 아니라 책 페이지로 이동한다(그래도 내용에는 도달한다).
+    // E2E 가 이 신호를 기다린다 — 없으면 부하에 따라 결과가 갈리는 시험이 된다.
+    root.dataset.bookReady = 'true';
+
     return () => {
+      delete root.dataset.bookReady;
       document.removeEventListener('click', onClick);
       document.removeEventListener('close', onClose, true);
       document.removeEventListener('scroll', onScrollOrResize, true);

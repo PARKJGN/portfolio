@@ -5,6 +5,7 @@ const body = (page: Page) => page.locator('dialog[open] .book__body');
 
 async function openBook(page: Page, slug = 'hello') {
   await page.goto('/');
+  await page.waitForSelector('html[data-book-ready]');
   await page.locator(`[data-book-slug="${slug}"]`).click();
   await expect(page.locator(`#book-dialog-${slug}`)).toBeVisible();
 }

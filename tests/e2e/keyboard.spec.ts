@@ -27,6 +27,7 @@ async function tabUntil(page: Page, predicate: (f: string) => boolean, max = 25)
 test.describe('마우스 없이 (US3)', () => {
   test('방에서 Tab 만으로 모든 책등에 도달한다 (FR-019)', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
 
     const reached = new Set<string>();
     for (let i = 0; i < 25; i++) {
@@ -40,6 +41,7 @@ test.describe('마우스 없이 (US3)', () => {
 
   test('초점이 간 책등에는 보이는 표시가 있다', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     const r = await tabUntil(page, (f) => f.startsWith('spine:'));
     expect(r.ok, `초점 경로: ${r.seen.join(' → ')}`).toBe(true);
 
@@ -54,6 +56,7 @@ test.describe('마우스 없이 (US3)', () => {
 
   test('Enter 로 책을 열고 Esc 로 닫는 전체 경로 (US3 독립 검증)', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
 
     const r = await tabUntil(page, (f) => f === 'spine:hello');
     expect(r.ok, `초점 경로: ${r.seen.join(' → ')}`).toBe(true);
@@ -68,6 +71,7 @@ test.describe('마우스 없이 (US3)', () => {
 
   test('책 창 안에서 Tab 으로 조작부에 도달한다', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await page.locator('[data-book-slug="hello"]').click();
 
     const r = await tabUntil(page, (f) => f === 'action:toggle-view', 12);
@@ -80,6 +84,7 @@ test.describe('좁은 화면에서 키보드로 책장 이동 (FR-019)', () => {
 
   test('바로가기 링크로 세 책장 모두에 도달한다', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
 
     const links = page.locator('[data-shelf-link]');
     await expect(links).toHaveCount(3);
@@ -105,6 +110,7 @@ test.describe('좁은 화면에서 키보드로 책장 이동 (FR-019)', () => {
   test('넓은 화면에서는 바로가기가 필요 없어 감춰진다', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await expect(page.locator('.shelf-nav')).toBeHidden();
   });
 });
