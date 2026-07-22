@@ -44,3 +44,6 @@ test-results/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# 서브셋 원본 글꼴 (23MB) — npm run fonts:fetch 로 받는다. 결과물만 커밋한다.
+.fontsrc/

@@ -58,7 +58,7 @@ description: "Task list for 방·책장·책 모달 골격"
 
 - [x] T008 `design-notes.md`의 책등 색 9종과 목재·양피지 색을 이름 있는 토큰으로 정의(라이트/다크 모두) — `src/styles/tokens.css`
 - [x] T009 Tailwind 테마가 `tokens.css`의 변수를 참조하도록 매핑 — `tailwind.config.js`
-- [ ] T010 [P] 콘텐츠에서 사용된 글자만 추출해 한글 폰트를 서브셋하는 빌드 스크립트 작성 — `scripts/subset-fonts.mjs` (R-4)
+- [x] T010 [P] 콘텐츠에서 사용된 글자만 추출해 한글 폰트를 서브셋하는 빌드 스크립트 작성 — `scripts/subset-fonts.mjs` (R-4)
 - [x] T011 [P] `contracts/content-schema.md`의 규칙을 Zod 스키마로 구현(책장 3개, slug 고유, 허용 토큰, 빈 본문 금지) — `src/lib/schema.ts`
 - [x] T012 책장·책 마크다운을 읽고 파생 데이터(책장별 목록, 이전/다음, 정적 경로)를 계산하는 로더 — `src/lib/content.ts`
 - [x] T013 [P] 스키마 검증 단위 테스트 — `tests/unit/schema.test.ts`

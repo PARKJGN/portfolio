@@ -1,0 +1,25 @@
+/*
+ * 자체 호스팅 글꼴 (헌장 원칙 III — self-host + subset).
+ *
+ * 파일은 scripts/subset-fonts.mjs 가 만든다. 콘텐츠에 실제로 쓰인 글자만 담겨 있어
+ * 두 굵기를 합쳐도 219KB 수준이다. 원본은 23MB 이고 저장소에 두지 않는다.
+ *
+ * font-display: swap — 글꼴이 늦게 와도 폴백으로 먼저 읽히게 한다. 글자가 잠깐
+ * 안 보이는 것(block)보다 낫고, CLS 는 폴백 글꼴을 명조 계열로 맞춰 줄인다.
+ */
+
+@font-face {
+  font-family: 'Noto Serif KR Subset';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/noto-serif-kr-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Noto Serif KR Subset';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/noto-serif-kr-700.woff2') format('woff2');
+}

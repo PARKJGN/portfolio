@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@/styles/fonts.css'; // @font-face 가 먼저 — 토큰이 이 이름을 참조한다
 import '@/styles/tokens.css'; // 토큰이 먼저 — Tailwind 유틸리티가 이 변수들을 참조한다
 import './globals.css';
 import '@/styles/room.css';

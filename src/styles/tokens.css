@@ -69,7 +69,8 @@
   --space-16: 4rem;
 
   /* ── 타이포 ──────────────────────────────── */
-  --font-serif: 'Book Serif', 'Nanum Myeongjo', serif;
+  /* 자체 호스팅 서브셋 글꼴 (fonts.css). 폴백은 시스템 명조 계열. */
+  --font-serif: 'Noto Serif KR Subset', 'Nanum Myeongjo', 'Batang', serif;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
