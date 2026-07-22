@@ -1,0 +1,232 @@
+/*
+ * 방·책장·책등의 시각 표현.
+ * 모든 값은 tokens.css 의 변수를 참조한다 — 이 파일에 리터럴은 없다 (헌장 원칙 V).
+ */
+
+/* ── 방 ──────────────────────────────── */
+.room {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--room-wall-top) 0%, var(--room-wall-bottom) 72%);
+}
+
+.room__floor {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 14svh;
+  min-height: 80px;
+  background: linear-gradient(180deg, var(--room-floor-top) 0%, var(--room-floor-bottom) 100%);
+  pointer-events: none;
+}
+
+.room__rail {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 14svh;
+  height: 8px;
+  min-height: 8px;
+  background: var(--room-rail);
+  pointer-events: none;
+}
+
+.room__title {
+  position: absolute;
+  top: var(--space-6);
+  inset-inline: 0;
+  text-align: center;
+  color: var(--room-wall-text);
+}
+
+/* ── 책장 줄 ──────────────────────────────
+   좁은 화면에서는 가로 스와이프, 넓은 화면에서는 나란히 배치 (FR-018) */
+.shelf-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: var(--space-8);
+  align-items: flex-end;
+  margin-bottom: 14svh;
+  padding-inline: var(--space-4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.shelf-row::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .shelf-row {
+    justify-content: center;
+    overflow-x: visible;
+  }
+}
+
+/* ── 책장 ──────────────────────────────── */
+.shelf {
+  scroll-snap-align: center;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+}
+
+.shelf__name {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-lg);
+  letter-spacing: 0.15em;
+  color: var(--room-wall-text);
+}
+
+.shelf__plank {
+  position: relative;
+  z-index: 1;
+  width: calc(100% + var(--space-6));
+  height: var(--space-6);
+  margin-inline: calc(var(--space-3) * -1);
+  background: linear-gradient(
+    180deg,
+    var(--cabinet-plank-top) 0%,
+    var(--cabinet-plank-bottom) 100%
+  );
+  border-top: 2px solid var(--cabinet-plank-highlight);
+  box-shadow: var(--shadow-book);
+}
+
+.shelf__cabinet {
+  border-inline: var(--space-3) solid var(--cabinet-edge);
+  background: var(--cabinet-body);
+  box-shadow: var(--shadow-book);
+}
+
+.shelf__books {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 180px;
+  padding: var(--space-6) var(--space-4) 0;
+}
+
+.shelf__base {
+  height: var(--space-4);
+  background: var(--cabinet-edge);
+}
+
+.shelf__empty {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 180px;
+  padding: var(--space-6) var(--space-4) var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--spine-parchment-bg);
+  opacity: 0.75;
+}
+
+/* ── 책등 ──────────────────────────────── */
+.spine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: var(--space-3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--motion-fast) ease;
+  box-shadow:
+    inset 3px 0 5px rgb(255 255 255 / 10%),
+    inset -4px 0 8px rgb(0 0 0 / 38%);
+}
+
+.spine:hover,
+.spine:focus-visible {
+  transform: translateY(calc(var(--space-3) * -1));
+}
+
+.spine:focus-visible {
+  outline: 3px solid var(--page-accent);
+  outline-offset: 3px;
+}
+
+.spine__title {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+}
+
+.spine__meta {
+  font-size: var(--text-xs);
+  opacity: 0.72;
+}
+
+/* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게 */
+.spine--short {
+  height: 200px;
+}
+.spine--medium {
+  height: 240px;
+}
+.spine--tall {
+  height: 280px;
+}
+.spine--narrow {
+  width: 44px;
+}
+.spine--medium-w {
+  width: 56px;
+}
+.spine--wide {
+  width: 68px;
+}
+
+/* 책등 색 — tokens.css 에서 대비가 검증된 쌍 */
+.spine--crimson {
+  background: var(--spine-crimson-bg);
+  color: var(--spine-crimson-fg);
+}
+.spine--walnut {
+  background: var(--spine-walnut-bg);
+  color: var(--spine-walnut-fg);
+}
+.spine--sand {
+  background: var(--spine-sand-bg);
+  color: var(--spine-sand-fg);
+}
+.spine--olive {
+  background: var(--spine-olive-bg);
+  color: var(--spine-olive-fg);
+}
+.spine--parchment {
+  background: var(--spine-parchment-bg);
+  color: var(--spine-parchment-fg);
+}
+.spine--ink {
+  background: var(--spine-ink-bg);
+  color: var(--spine-ink-fg);
+}
+.spine--oak {
+  background: var(--spine-oak-bg);
+  color: var(--spine-oak-fg);
+}
+.spine--brick {
+  background: var(--spine-brick-bg);
+  color: var(--spine-brick-fg);
+}
+.spine--wine {
+  background: var(--spine-wine-bg);
+  color: var(--spine-wine-fg);
+}

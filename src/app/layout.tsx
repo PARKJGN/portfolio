@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import '@/styles/tokens.css'; // 토큰이 먼저 — Tailwind 유틸리티가 이 변수들을 참조한다
 import './globals.css';
+import '@/styles/room.css';
+import '@/styles/book.css';
 
 export const metadata: Metadata = {
   title: '포트폴리오',

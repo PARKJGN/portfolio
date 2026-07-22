@@ -83,19 +83,19 @@ description: "Task list for 방·책장·책 모달 골격"
 
 ### 화면
 
-- [ ] T019 [P] [US1] 책등 컴포넌트(세로 조판, 연도·청구기호, 높이·너비 변주) — `src/components/room/BookSpine.tsx`
-- [ ] T020 [P] [US1] 책장 컴포넌트(제목, 책 목록, **빈 상태 처리**) — `src/components/room/Shelf.tsx` (FR-014)
-- [ ] T021 [US1] 방 페이지에 책장 3개 배치와 배경 표현 — `src/app/page.tsx` (FR-001, FR-002, FR-003)
-- [ ] T022 [US1] 책 단독 페이지와 `generateStaticParams` 구현 — `src/app/books/[slug]/page.tsx` (FR-012, R-3)
-- [ ] T023 [US1] 네이티브 `<dialog>` 기반 책 창 — `src/components/book/BookDialog.tsx` (FR-004, FR-005, FR-006, FR-013)
+- [x] T019 [P] [US1] 책등 컴포넌트(세로 조판, 연도·청구기호, 높이·너비 변주) — `src/components/room/BookSpine.tsx`
+- [x] T020 [P] [US1] 책장 컴포넌트(제목, 책 목록, **빈 상태 처리**) — `src/components/room/Shelf.tsx` (FR-014)
+- [x] T021 [US1] 방 페이지에 책장 3개 배치와 배경 표현 — `src/app/page.tsx` (FR-001, FR-002, FR-003)
+- [x] T022 [US1] 책 단독 페이지와 `generateStaticParams` 구현 — `src/app/books/[slug]/page.tsx` (FR-012, R-3)
+- [x] T023 [US1] 네이티브 `<dialog>` 기반 책 창 — `src/components/book/BookDialog.tsx` (FR-004, FR-005, FR-006, FR-013)
   - `showModal()`로 열어 Esc 닫기·포커스 트랩·배경 비활성화·초점 복원을 브라우저에 맡긴다
   - **닫기 버튼과 바깥 영역 클릭 닫기는 직접 구현해야 한다.** `<dialog>`는 `::backdrop` 클릭을 처리하지 않는다 (research.md R-5). 이 둘을 빠뜨리면 FR-005의 세 방법 중 두 개가 누락된다
-- [ ] T024 [US1] 책 링크를 가로채 모달로 띄우고 `history.pushState`로 주소를 바꾸는 향상 — `src/components/book/BookLinkInterceptor.tsx` (R-3)
+- [x] T024 [US1] 책 링크를 가로채 모달로 띄우고 `history.pushState`로 주소를 바꾸는 향상 — `src/components/book/BookLinkInterceptor.tsx` (R-3)
 
 ### 검증
 
-- [ ] T025 [P] [US1] E2E: JavaScript를 끈 상태에서 모든 책 내용에 도달하는지 — `tests/e2e/no-js.spec.ts` (quickstart 검증 2, 헌장 원칙 I)
-- [ ] T026 [P] [US1] E2E: 열기·Esc 닫기·초점 복원·딥링크 진입 — `tests/e2e/book-open.spec.ts`
+- [x] T025 [P] [US1] E2E: JavaScript를 끈 상태에서 모든 책 내용에 도달하는지 — `tests/e2e/no-js.spec.ts` (quickstart 검증 2, 헌장 원칙 I)
+- [x] T026 [P] [US1] E2E: 열기·Esc 닫기·초점 복원·딥링크 진입 — `tests/e2e/book-open.spec.ts`
 
 **Checkpoint**: US1만으로도 공유 가능한 사이트가 된다 — 여기서 멈추고 배포해도 된다
 

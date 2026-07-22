@@ -50,7 +50,17 @@ const config = [
   ...next,
   {
     files: ['src/**/*.{ts,tsx}'],
-    rules: designSystemRules,
+    rules: {
+      ...designSystemRules,
+
+      // next/link 대신 <a> 를 쓰는 것은 이 프로젝트의 의도적 결정이다.
+      //  1) Link 는 자체 클릭 핸들러로 router.push 를 호출해, 문서 레벨에서
+      //     preventDefault 를 해도 이동을 막을 수 없다. 책 링크를 가로채
+      //     모달로 여는 구조(R-3)가 성립하지 않는다.
+      //  2) output: 'export' 정적 사이트라 클라이언트 라우팅이 주는 이득이 없다.
+      //  3) 평범한 <a> 여야 JS 없이도 동작한다 (헌장 원칙 I).
+      '@next/next/no-html-link-for-pages': 'off',
+    },
   },
 ];
 

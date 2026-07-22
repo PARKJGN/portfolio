@@ -1,13 +1,65 @@
-import Link from 'next/link';
-import { StubDialog } from '@/components/book/StubDialog';
+import { getShelves, getBookNeighbors } from '@/lib/content';
+import { assertFeatureReadiness } from '@/lib/schema';
+import { Shelf } from '@/components/room/Shelf';
+import { BookContent } from '@/components/book/BookContent';
+import { DialogController } from '@/components/book/DialogController';
 
-// T007 측정 전용 스텁 — 실제 방 화면은 T021 에서 만든다.
-export default function RoomStubPage() {
+/**
+ * 방 — 사이트의 첫 화면.
+ *
+ * 책 내용을 전부 이 페이지에 <dialog> 로 미리 렌더해 둔다. 클릭 시 가져올 것이
+ * 없으므로 즉시 열리고, 네트워크 실패 경로도 없다. 서버 컴포넌트라 이 내용들은
+ * 클라이언트 JS 를 늘리지 않는다 — HTML 이 조금 커질 뿐이고 그건 압축된다.
+ */
+export default function RoomPage() {
+  const shelves = getShelves();
+
+  // FR-022 — 프로필 책장에 실제 내용을 가진 책이 최소 1권. 없으면 빌드가 멈춘다.
+  assertFeatureReadiness(shelves);
+
+  const books = shelves.flatMap((s) => s.books);
+
   return (
-    <main>
-      <h1>방 (측정용 스텁)</h1>
-      <Link href="/books/stub">책 열기</Link>
-      <StubDialog />
+    <main className="room">
+      <h1 className="room__title">서재</h1>
+
+      <div className="shelf-row" role="list" aria-label="책장">
+        {shelves.map((shelf) => (
+          <div role="listitem" key={shelf.slug}>
+            <Shelf shelf={shelf} />
+          </div>
+        ))}
+      </div>
+
+      <div className="room__rail" aria-hidden="true" />
+      <div className="room__floor" aria-hidden="true" />
+
+      {books.map((book) => {
+        const { prev, next } = getBookNeighbors(book.slug);
+        return (
+          <dialog
+            key={book.slug}
+            id={`book-dialog-${book.slug}`}
+            className="book-dialog"
+            aria-labelledby={`book-title-${book.slug}`}
+          >
+            <BookContent
+              book={book}
+              prev={prev}
+              next={next}
+              onCloseSlot={
+                <form method="dialog">
+                  <button type="submit" className="book__close">
+                    덮기
+                  </button>
+                </form>
+              }
+            />
+          </dialog>
+        );
+      })}
+
+      <DialogController />
     </main>
   );
 }

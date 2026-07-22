@@ -1,0 +1,135 @@
+/*
+ * 펼친 책(모달)과 책 단독 페이지의 표현.
+ * 모든 값은 tokens.css 참조 (헌장 원칙 V).
+ */
+
+.book-dialog {
+  width: min(860px, 94vw);
+  max-height: 90svh;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.book-dialog::backdrop {
+  background: color-mix(in srgb, var(--backdrop) 78%, transparent);
+}
+
+.book {
+  display: flex;
+  flex-direction: column;
+  max-height: 90svh;
+  background: linear-gradient(90deg, var(--page-bg-edge), var(--page-bg));
+  box-shadow: var(--shadow-open);
+  color: var(--page-text);
+}
+
+.book__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-6) var(--space-3);
+  border-bottom: 1px solid var(--page-rule);
+}
+
+.book__title {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+}
+
+.book__call {
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  color: var(--page-caption);
+  white-space: nowrap;
+}
+
+/* ── 본문 ──────────────────────────────
+   두 보기 모드는 같은 DOM 에 클래스만 다르게 적용한다 (R-2).
+   장 나눔은 CSS 다단이 화면 크기에 맞춰 수행하므로 JS 계산이 없다. */
+.book__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-6);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.book__body h2 {
+  margin-block: var(--space-4) var(--space-2);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  break-after: avoid;
+}
+
+.book__body h2:first-child {
+  margin-top: 0;
+}
+
+.book__body p {
+  margin-block: 0 var(--space-4);
+}
+
+/* 표·이미지·인용은 단 경계를 넘지 않게 (R-2 잔여 위험) */
+.book__body :is(table, img, figure, blockquote, pre) {
+  break-inside: avoid;
+}
+
+.book__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--page-rule);
+  font-size: var(--text-sm);
+}
+
+.book__nav {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.book__nav a,
+.book__link {
+  color: var(--page-accent);
+}
+
+.book__close {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--page-rule);
+  background: transparent;
+  color: var(--page-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.book__close:hover {
+  background: color-mix(in srgb, var(--page-text) 8%, transparent);
+}
+
+:is(.book__close, .book__body, .book__nav a):focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
+}
+
+/* ── 책 단독 페이지 (JS 없이 도달하는 정본) ────────── */
+.book-page {
+  min-height: 100svh;
+  padding: var(--space-8) var(--space-4);
+  background: linear-gradient(180deg, var(--room-wall-top), var(--room-wall-bottom));
+}
+
+.book-page .book {
+  max-width: 860px;
+  max-height: none;
+  margin-inline: auto;
+}
+
+.book-page .book__body {
+  overflow: visible;
+}
