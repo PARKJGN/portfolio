@@ -227,15 +227,32 @@
   color: var(--room-wall-text);
 }
 
-/* ── 책등 ──────────────────────────────── */
+/* ── 책등 ── 평면이되 진짜 책등처럼: 페이지 단면 + 금박선 + 연도·청구기호 ── */
 .spine {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding-block: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-4) 0 var(--space-3);
+  overflow: hidden;
   text-decoration: none;
   cursor: pointer;
   transition: transform var(--motion-fast) ease;
+  /* 아주 옅은 좌우 음영으로 둥근 책등을 암시 — 평면은 유지 */
+  box-shadow:
+    inset 2px 0 0 rgb(255 255 255 / 8%),
+    inset -3px 0 5px rgb(0 0 0 / 15%);
+}
+
+/* 페이지 단면(책 머리) — 맨 위 크림 띠 */
+.spine__cap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: var(--spine-pages);
 }
 
 .spine:hover,
@@ -248,6 +265,15 @@
   outline-offset: 3px;
 }
 
+.spine__meta {
+  flex: none;
+  min-height: 0.9em; /* 값이 없어도 자리를 지켜 제목이 가운데 오게 */
+  font-size: var(--text-2xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .spine__title {
   display: flex;
   flex: none;
@@ -257,7 +283,11 @@
   white-space: nowrap;
   font-size: var(--text-lg);
   line-height: 1;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  /* 제목을 감싸는 위·아래 금박선 — 장식이라 currentColor 를 옅게 써도 된다 */
+  border-block: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  padding-block: var(--space-3);
+  margin-block: var(--space-2);
 }
 
 /* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게.

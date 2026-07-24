@@ -26,7 +26,12 @@ export function BookSpine({ book }: { book: Book }) {
 
   return (
     <a href={`/books/${book.slug}`} className={classes} data-book-slug={book.slug}>
+      {/* 페이지 단면(책 머리) */}
+      <span className="spine__cap" aria-hidden="true" />
+      {/* 연도·청구기호. 없어도 빈 자리를 둬 제목이 가운데 오게 한다. */}
+      <span className="spine__meta">{book.year ?? ''}</span>
       <span className="spine__title">{book.title}</span>
+      <span className="spine__meta">{book.callNumber ?? ''}</span>
     </a>
   );
 }
