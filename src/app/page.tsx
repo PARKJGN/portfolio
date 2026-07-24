@@ -22,9 +22,6 @@ export default function RoomPage() {
 
   return (
     <main className="room">
-      <div className="room__wallpaper" aria-hidden="true" />
-      <div className="room__light" aria-hidden="true" />
-
       <h1 className="room__title">서재</h1>
 
       <ShelfNav shelves={shelves} />
@@ -38,9 +35,6 @@ export default function RoomPage() {
           </li>
         ))}
       </ul>
-
-      <div className="room__rail" aria-hidden="true" />
-      <div className="room__floor" aria-hidden="true" />
 
       {books.map((book) => {
         const { prev, next } = getBookNeighbors(book.slug);

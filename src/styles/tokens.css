@@ -35,19 +35,10 @@
   --spine-wine-fg: #efe2c6; /* 9.66:1 */
 
   /* ── 방 (라이트) ──────────────────────────────── */
-  --room-wall-top: #e8dabb;
-  --room-wall-bottom: #d7c199;
-  --room-wall-text: #3a2814; /* 벽 위 8.66:1 */
-  --room-floor-top: #7c5c37;
-  --room-floor-bottom: #5d4222;
-  --room-rail: #b89b6b;
-
-  /* ── 책장 (라이트) ──────────────────────────────── */
-  --cabinet-body: #2a1d10;
-  --cabinet-edge: #1a1108;
-  --cabinet-plank-top: #4a3418;
-  --cabinet-plank-bottom: #2e2010;
-  --cabinet-plank-highlight: #6b4f26;
+  /* 평면·미니멀: 질감 없는 단색 바탕에 얇은 선반 선. */
+  --room-bg: #efe8d8; /* 단색 종이 바탕 */
+  --room-wall-text: #3a2814; /* 바탕 위 라벨 — 검증된 대비 */
+  --room-line: #b6a680; /* 선반 선 (장식) */
 
   /* ── 펼친 책 (라이트) ──────────────────────────────── */
   --page-bg: #f0e6d0;
@@ -100,18 +91,9 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --room-wall-top: #221810;
-    --room-wall-bottom: #180f09;
-    --room-wall-text: #e6d3ab; /* 11.83:1 */
-    --room-floor-top: #1a1209;
-    --room-floor-bottom: #120c06;
-    --room-rail: #4a3a24;
-
-    --cabinet-body: #17100a;
-    --cabinet-edge: #0d0805;
-    --cabinet-plank-top: #2c2011;
-    --cabinet-plank-bottom: #1a1209;
-    --cabinet-plank-highlight: #4a3720;
+    --room-bg: #17120c;
+    --room-wall-text: #e6d3ab;
+    --room-line: #4a3d28;
 
     --page-bg: #241c12;
     --page-bg-edge: #1e170e;
@@ -127,18 +109,9 @@
 }
 
 :root[data-theme='dark'] {
-  --room-wall-top: #221810;
-  --room-wall-bottom: #180f09;
+  --room-bg: #17120c;
   --room-wall-text: #e6d3ab;
-  --room-floor-top: #1a1209;
-  --room-floor-bottom: #120c06;
-  --room-rail: #4a3a24;
-
-  --cabinet-body: #17100a;
-  --cabinet-edge: #0d0805;
-  --cabinet-plank-top: #2c2011;
-  --cabinet-plank-bottom: #1a1209;
-  --cabinet-plank-highlight: #4a3720;
+  --room-line: #4a3d28;
 
   --page-bg: #241c12;
   --page-bg-edge: #1e170e;
