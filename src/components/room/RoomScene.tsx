@@ -14,6 +14,7 @@ export function RoomScene() {
       <div className="scene__floor" />
       <div className="scene__window">
         <span className="scene__mullion scene__mullion--v" />
+        <span className="scene__mullion scene__mullion--v2" />
         <span className="scene__mullion scene__mullion--h" />
       </div>
       <div className="scene__beam" />

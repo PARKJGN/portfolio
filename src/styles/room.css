@@ -7,13 +7,16 @@
  */
 
 .room {
+  --floor-h: clamp(96px, 22vh, 210px);
+
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 100svh;
-  padding: clamp(var(--space-8), 8vh, var(--space-16)) var(--space-4);
+  /* 위: 제목 자리. 아래: 바닥 높이만큼 비워 책장이 바닥선에 앉게 한다. */
+  padding: clamp(var(--space-8), 9vh, var(--space-16)) var(--space-4) var(--floor-h);
   background: var(--room-bg);
   color: var(--room-wall-text);
   overflow: hidden;
@@ -38,23 +41,27 @@
   overflow: hidden;
 }
 
-/* 바닥 — 벽과 얇은 선(걸레받이)으로 나뉜다 */
+/* 바닥 — 벽과 얇은 선(걸레받이)으로 나뉜다. 높이는 .room 의 --floor-h 와 맞춰
+   책장이 정확히 바닥선에 앉게 한다. */
 .scene__floor {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  height: clamp(90px, 20vh, 200px);
+  height: var(--floor-h);
   background: var(--room-floor);
   border-top: 1px solid var(--room-frame);
 }
 
-/* 큰 창 — 오른쪽 벽면. 얇은 창틀과 십자 문설주(모던 그리드). */
+/* 큰 스튜디오 창 — 책장 뒤 중앙에 넓고 높게. 책이 이 창을 등지고 바닥에 선다.
+   빈 벽이 창(빛)으로 채워지고, 3열×2행 문설주가 모던 그리드를 만든다. */
 .scene__window {
   position: absolute;
-  top: clamp(40px, 9vh, 110px);
-  right: clamp(24px, 7vw, 150px);
-  width: clamp(120px, 20vw, 300px);
-  height: min(58vh, 520px);
+  left: 50%;
+  transform: translateX(-50%);
+  /* 제목 아래(벽)에서 시작해 바닥 위에서 끝난다 */
+  top: clamp(100px, 17vh, 200px);
+  width: min(62vw, 760px);
+  height: min(54vh, 500px);
   background: var(--room-window);
   border: 2px solid var(--room-frame);
 }
@@ -63,59 +70,63 @@
   position: absolute;
   background: var(--room-frame);
 }
+/* 세로 문설주 2개(3열) */
 .scene__mullion--v {
   top: 0;
   bottom: 0;
-  left: 50%;
   width: 2px;
-  transform: translateX(-1px);
+  left: calc(100% / 3);
 }
+.scene__mullion--v2 {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  left: calc(200% / 3);
+}
+/* 가로 문설주 1개(2행) */
 .scene__mullion--h {
   left: 0;
   right: 0;
-  top: 46%;
+  top: 50%;
   height: 2px;
 }
 
-/* 창에서 비껴 드는 자연광 — 아주 옅은 사선 띠 */
+/* 창에서 바닥으로 비껴 드는 자연광 — 아주 옅은 사선 */
 .scene__beam {
   position: absolute;
-  top: 0;
-  right: clamp(24px, 7vw, 150px);
-  width: min(46vw, 620px);
-  height: 100%;
+  inset: 0;
   background: linear-gradient(
-    252deg,
-    color-mix(in srgb, var(--room-window) 60%, transparent) 0%,
-    transparent 42%
+    248deg,
+    color-mix(in srgb, var(--room-window) 55%, transparent) 0%,
+    transparent 40%
   );
-  mix-blend-mode: normal;
 }
 
-/* 화분 — 왼쪽 바닥에 선 실루엣 */
+/* 화분 — 왼쪽 바닥에 선 실루엣. 바닥선 위에 놓아 창(오른쪽)과 좌우 균형을 준다. */
 .scene__plant {
   position: absolute;
-  left: clamp(16px, 5vw, 120px);
-  bottom: clamp(78px, 18vh, 176px);
-  width: clamp(64px, 8vw, 104px);
+  left: clamp(24px, 7vw, 170px);
+  bottom: var(--floor-h);
+  width: clamp(84px, 10vw, 140px);
   height: auto;
   color: var(--room-plant);
 }
 
-/* 좁은 화면에서는 물체를 덜어 장면이 답답하지 않게 한다 */
+/* 좁은 화면에서는 물체를 가장자리로 물려 답답하지 않게 한다 */
 @media (max-width: 640px) {
   .scene__window {
-    right: -40px;
-    width: clamp(90px, 30vw, 140px);
+    right: -48px;
+    width: clamp(110px, 32vw, 160px);
+    height: clamp(180px, 34vh, 260px);
   }
   .scene__plant {
-    left: -12px;
-    width: 72px;
+    left: -16px;
+    width: 80px;
   }
 }
 
 .room__title {
-  margin: 0 0 clamp(var(--space-12), 9vh, calc(var(--space-16) * 1.5));
+  margin: 0;
   font-size: clamp(1.125rem, 3vw, 1.625rem);
   font-weight: 400;
   letter-spacing: 0.4em;
@@ -130,10 +141,12 @@
   display: flex;
   align-items: flex-end;
   justify-content: safe center;
-  gap: clamp(var(--space-8), 6vw, calc(var(--space-16) * 1.5));
+  /* 셋을 하나의 무리로 묶는다 — justify-center + 작은 gap 이면 가운데로 뭉친다.
+     좌우 여백은 창(오른쪽)·화분(왼쪽)이 채운다. 큰 gap 은 흩어져 보인다. */
+  gap: clamp(var(--space-6), 4vw, var(--space-12));
   width: 100%;
-  max-width: 1100px;
-  margin: 0;
+  /* 위로 밀어 바닥에 앉힌다 — 제목은 위, 책장은 바닥선 */
+  margin-top: auto;
   padding-inline: var(--space-4);
   list-style: none;
   overflow-x: auto;
@@ -164,7 +177,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: clamp(150px, 26vw, 240px);
+  width: clamp(140px, 19vw, 200px);
 }
 
 .shelf__name {
@@ -176,13 +189,14 @@
   color: var(--room-wall-text);
 }
 
-/* 책이 서는 면. 높이를 고정해 세 책장의 선반 선이 나란히 놓인다. */
+/* 책이 서는 면. 높이를 가장 큰 책(tall)에 맞춰 고정하면 세 책장의 라벨과
+   선반 선이 모두 같은 높이에 놓인다. 낮은 책은 아래(바닥)에 정렬된다. */
 .shelf__plane {
   display: flex;
   align-items: flex-end;
   justify-content: center;
   width: 100%;
-  min-height: clamp(190px, 32svh, 300px);
+  height: clamp(238px, 40svh, 344px);
 }
 
 .shelf__books {
@@ -205,7 +219,7 @@
   align-items: flex-end;
   justify-content: center;
   width: 100%;
-  min-height: clamp(190px, 32svh, 300px);
+  height: clamp(238px, 40svh, 344px);
   margin: 0;
   padding-bottom: var(--space-8);
   font-size: var(--text-sm);
@@ -248,7 +262,7 @@
   justify-content: center;
   writing-mode: vertical-rl;
   white-space: nowrap;
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   line-height: 1;
   letter-spacing: 0.08em;
 }
@@ -256,22 +270,22 @@
 /* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게.
    height 가 아니라 min-height 다. 제목이 길면 책이 그만큼 위로 자라 안 겹친다. */
 .spine--short {
-  min-height: clamp(150px, 24svh, 210px);
+  min-height: clamp(180px, 30svh, 258px);
 }
 .spine--medium {
-  min-height: clamp(174px, 28svh, 248px);
+  min-height: clamp(210px, 35svh, 300px);
 }
 .spine--tall {
-  min-height: clamp(196px, 32svh, 286px);
+  min-height: clamp(238px, 40svh, 344px);
 }
 .spine--narrow {
-  width: clamp(38px, 9vw, 46px);
+  width: clamp(46px, 10vw, 58px);
 }
 .spine--medium-w {
-  width: clamp(44px, 11vw, 54px);
+  width: clamp(54px, 12vw, 68px);
 }
 .spine--wide {
-  width: clamp(52px, 13vw, 64px);
+  width: clamp(64px, 14vw, 82px);
 }
 
 /* 책등 색 — tokens.css 에서 대비가 검증된 쌍 */
