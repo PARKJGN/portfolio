@@ -28,14 +28,25 @@ function walk(dir, files = []) {
  * 콘텐츠(마크다운)뿐 아니라 소스도 훑는다. 버튼 라벨·빈 상태 문구처럼 화면에
  * 보이는 한글이 컴포넌트 안에 있기 때문이다. 이걸 빼면 UI 글자만 폴백 글꼴로
  * 렌더되어 본문과 어긋난다.
+ *
+ * .css 의 블록 주석은 걷어낸다 — 주석은 렌더되지 않으므로 그 글자까지 글꼴에 담으면
+ * 낭비고, 주석을 고칠 때마다 글꼴을 다시 만들어야 하는 마찰이 생긴다. CSS 의 `/* *​/`
+ * 는 문자열과 헷갈릴 일이 없어 안전하게 지울 수 있다. .tsx 는 주석과 렌더되는 문자열을
+ * 구분하기 어려워 손대지 않는다(주석 속 한글이 글꼴에 담기는 정도의 낭비는 감수한다).
  */
+function readForScan(file) {
+  const text = readFileSync(file, 'utf8');
+  if (extname(file) === '.css') return text.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  return text;
+}
+
 export function collectCharacters() {
   const chars = new Set(ALWAYS);
 
   for (const dir of SCAN_DIRS) {
     if (!existsSync(dir)) continue;
     for (const file of walk(dir)) {
-      for (const ch of readFileSync(file, 'utf8')) chars.add(ch);
+      for (const ch of readForScan(file)) chars.add(ch);
     }
   }
 

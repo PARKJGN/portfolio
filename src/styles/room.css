@@ -231,18 +231,49 @@
 
 /* ── 책등 ──────────────────────────────── */
 .spine {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding-block: var(--space-3);
+  padding-block: var(--space-4);
+  overflow: hidden;
   text-decoration: none;
   cursor: pointer;
   transition: transform var(--motion-fast) ease;
+  /* 좌우 하이라이트/그늘로 둥근 책등의 입체를, 안쪽 위아래 선으로 책의 머리·꼬리를 준다 */
   box-shadow:
-    inset 3px 0 5px rgb(255 255 255 / 10%),
-    inset -4px 0 8px rgb(0 0 0 / 38%),
-    inset 0 3px 4px rgb(255 255 255 / 8%);
+    inset 2px 0 4px rgb(255 255 255 / 12%),
+    inset -3px 0 7px rgb(0 0 0 / 40%),
+    inset 0 2px 0 rgb(255 255 255 / 10%),
+    inset 0 -2px 3px rgb(0 0 0 / 30%);
+}
+
+/* 금박선 — 실제 양장본 책등의 위아래 장식 띠. 장식이라 currentColor 를
+   옅게 써도 된다(대비 규칙은 글자에만 적용). 제목 영역을 두 선이 감싼다. */
+.spine::before,
+.spine::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  height: 3px;
+  border-top: 1px solid color-mix(in srgb, currentColor 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 42%, transparent);
+  pointer-events: none;
+}
+.spine::before {
+  top: 2rem;
+}
+.spine::after {
+  bottom: 2rem;
+}
+
+/* 짧은 책은 긴 제목이 들어가면 금박선이 제목과 겹친다. 그럴 땐 장식을 뺀다 —
+   장식은 여유가 있을 때만 값을 한다. */
+.spine--short::before,
+.spine--short::after {
+  display: none;
 }
 
 .spine:hover,
@@ -256,44 +287,57 @@
 }
 
 .spine__title {
-  flex: 1;
-  min-height: 0;
+  /* flex:none — 제목이 자기 높이를 지킨다. flex:1 이면 남는 공간에 맞춰 줄어들며
+     잘렸다. 이제 제목이 길면 책(min-height)이 그만큼 위로 자란다. 짧은 제목이면
+     space-between 이 위아래 여백을 나눠 가운데에 놓는다 — 실제 책등처럼. */
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   writing-mode: vertical-rl;
   white-space: nowrap;
-  font-size: var(--text-base);
-  line-height: var(--leading-tight);
+  /* 연도·청구기호와 붙지 않게 위아래 여백. 짧은 책에서 제목이 메타 위로 올라타는 것을 막는다. */
+  margin-block: var(--space-2);
+  font-size: var(--text-lg);
+  line-height: 1;
+  letter-spacing: 0.06em;
 }
 
 .spine__meta {
   /* opacity 를 쓰지 않는다. 책등 색 9종은 배경/글자 쌍의 대비가 검증된 조합인데,
      투명도를 얹으면 그 값이 그대로 깎여 4.5:1 아래로 떨어진다. axe 가 실제로
-     crimson 책등에서 이걸 잡아냈다. 위계는 글자 크기로만 준다. */
-  font-size: var(--text-xs);
+     crimson 책등에서 이걸 잡아냈다. 위계는 글자 크기로만 준다.
+     nowrap — 좁은 책등에서 청구기호가 두 줄로 깨지지 않게. */
+  flex: none;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 높이·너비 변주 — 실제 책장처럼 들쭉날쭉하게.
-   책 칸 높이(--tier-books)와 같은 기준으로 움직여야 작은 화면에서 넘치지 않는다. */
+   책 칸 높이(--tier-books)와 같은 기준으로 움직여야 작은 화면에서 넘치지 않는다.
+   최소 폭은 청구기호(예: "AB · 002")가 한 줄로 들어갈 만큼 확보한다.
+
+   height 가 아니라 min-height 다. 제목이 길면 책이 그만큼 자라 글자가 겹치지 않는다 —
+   "짧은 책"은 목표 높이일 뿐 상한이 아니다. 책은 바닥에 정렬되므로 위로 자란다. */
 .spine--short {
-  height: clamp(140px, 22svh, 208px);
+  min-height: clamp(140px, 22svh, 208px);
 }
 .spine--medium {
-  height: clamp(164px, 26svh, 246px);
+  min-height: clamp(164px, 26svh, 246px);
 }
 .spine--tall {
-  height: clamp(186px, 30svh, 284px);
+  min-height: clamp(186px, 30svh, 284px);
 }
 .spine--narrow {
-  width: clamp(34px, 9vw, 46px);
+  width: clamp(48px, 11vw, 56px);
 }
 .spine--medium-w {
-  width: clamp(42px, 11vw, 58px);
+  width: clamp(54px, 13vw, 64px);
 }
 .spine--wide {
-  width: clamp(50px, 13vw, 70px);
+  width: clamp(62px, 15vw, 76px);
 }
 
 /* 책등 색 — tokens.css 에서 대비가 검증된 쌍 */
