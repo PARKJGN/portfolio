@@ -19,8 +19,10 @@ export function RoomScene() {
       </div>
       <div className="scene__beam" />
 
-      {/* 화분 — 단순한 실루엣. 잎은 유기적이라 SVG 가 깔끔하다. */}
-      <svg className="scene__plant" viewBox="0 0 120 200" preserveAspectRatio="xMidYMax meet">
+      {/* 화분 — 단순한 실루엣. 잎은 유기적이라 SVG 가 깔끔하다.
+          viewBox 아래끝을 화분 바닥(y150)에 맞춰야 바닥선에 붙는다 — 전에는
+          viewBox 가 200 이라 아래 50 만큼 빈 공간이 생겨 공중에 뜬 것처럼 보였다. */}
+      <svg className="scene__plant" viewBox="0 0 120 150" preserveAspectRatio="xMidYMax meet">
         <g fill="currentColor">
           {/* 잎 */}
           <path d="M60 96 C40 70 40 40 58 16 C64 44 64 70 60 96 Z" />

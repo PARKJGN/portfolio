@@ -42,6 +42,8 @@
   --room-window: #f8f2e6; /* 창 유리 (자연광, 벽보다 밝게) */
   --room-frame: #c9b892; /* 창틀·문설주 */
   --room-plant: #6d7850; /* 화분 실루엣 (뮤트 세이지) */
+  --shelf-back: #e7ddc6; /* 책장 안쪽 패널 (벽보다 짙게 — 오목한 깊이) */
+  --shelf-frame: #9a855c; /* 책장 틀·선반 */
 
   /* ── 펼친 책 (라이트) ──────────────────────────────── */
   --page-bg: #f0e6d0;
@@ -101,6 +103,8 @@
     --room-window: #2b2414; /* 밤 창의 은은한 빛 */
     --room-frame: #3d3320;
     --room-plant: #3a4530;
+    --shelf-back: #1c160e;
+    --shelf-frame: #4a3d28;
 
     --page-bg: #241c12;
     --page-bg-edge: #1e170e;
@@ -123,6 +127,8 @@
   --room-window: #2b2414;
   --room-frame: #3d3320;
   --room-plant: #3a4530;
+  --shelf-back: #1c160e;
+  --shelf-frame: #4a3d28;
 
   --page-bg: #241c12;
   --page-bg-edge: #1e170e;
