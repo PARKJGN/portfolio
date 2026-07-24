@@ -30,13 +30,20 @@ test.describe('마우스 없이 (US3)', () => {
     await page.waitForSelector('html[data-book-ready]');
 
     const reached = new Set<string>();
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 40; i++) {
       await page.keyboard.press('Tab');
       const f = await focused(page);
       if (f.startsWith('spine:')) reached.add(f.slice(6));
     }
 
-    expect([...reached].sort()).toEqual(['hello', 'how-i-work', 'sample-project']);
+    expect([...reached].sort()).toEqual([
+      'a',
+      'b',
+      'c',
+      'hello',
+      'how-i-work',
+      'sample-project',
+    ]);
   });
 
   test('초점이 간 책등에는 보이는 표시가 있다', async ({ page }) => {

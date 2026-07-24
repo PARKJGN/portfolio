@@ -14,7 +14,8 @@ test.describe('JavaScript 없이', () => {
     await expect(page.getByRole('heading', { name: '프로젝트' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '방명록' })).toBeVisible();
 
-    await expect(page.locator('[data-book-slug]')).toHaveCount(3);
+    // 프로필 2 + 프로젝트 1 + 방명록 3(A·B·C) = 6권
+    await expect(page.locator('[data-book-slug]')).toHaveCount(6);
   });
 
   test('책을 누르면 모달이 아니라 책 페이지로 이동해 내용이 읽힌다', async ({ page }) => {

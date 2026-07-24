@@ -34,6 +34,9 @@ export function BookController() {
   useEffect(() => {
     const root = document.documentElement;
 
+    // 화분 상태: 남은 잎 수(3→2→1), 0 은 꽃이 핀 상태. 클릭마다 진행하고 다시 처음으로.
+    let plantStage = 3;
+
     // 선언 순서에 주의 — 아래 초기화 호출은 이 파일 맨 끝에 있다.
     // applyMode 가 updateProgress 를, 그것이 visibleBody 를 부르므로
     // 셋이 모두 선언된 뒤에 첫 호출이 일어나야 한다.
@@ -116,6 +119,40 @@ export function BookController() {
       }
       if (action === 'page-prev') return turnPage(-1);
       if (action === 'page-next') return turnPage(1);
+
+      // 창 — 해가 떴다 진다 (토글)
+      if (action === 'toggle-sky') {
+        const day = root.dataset.sky === 'day';
+        root.dataset.sky = day ? 'night' : 'day';
+        target
+          ?.closest<HTMLElement>('[data-action="toggle-sky"]')
+          ?.setAttribute('aria-label', day ? '해 띄우기' : '해 지우기');
+        return;
+      }
+
+      // 화분 — 잎이 하나씩 떨어지고, 한 장 남았을 때 누르면 꽃이 핀다. 다시 누르면 처음으로.
+      if (action === 'plant') {
+        const plant = target?.closest<HTMLElement>('[data-action="plant"]');
+        if (!plant) return;
+        const fall = (n: string) =>
+          plant.querySelector<SVGElement>(`[data-leaf="${n}"]`)?.classList.add('leaf--fallen');
+
+        if (plantStage === 3) {
+          fall('3');
+          plantStage = 2;
+        } else if (plantStage === 2) {
+          fall('2');
+          plantStage = 1;
+        } else if (plantStage === 1) {
+          plant.classList.add('is-bloomed'); // 마지막 잎은 남기고 꽃이 핀다
+          plantStage = 0;
+        } else {
+          plant.classList.remove('is-bloomed');
+          for (const leaf of plant.querySelectorAll('.leaf')) leaf.classList.remove('leaf--fallen');
+          plantStage = 3;
+        }
+        return;
+      }
 
       // 책장 바로가기 (FR-019).
       // 조각 링크만으로도 이동은 되지만, 스크롤 스냅과 겹치면 목표 책장이

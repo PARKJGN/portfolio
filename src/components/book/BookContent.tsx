@@ -24,7 +24,7 @@ export function BookContent({
     <article className="book">
       <header className="book__header">
         <h1 className="book__title">{book.title}</h1>
-        {book.callNumber ? <span className="book__call">{book.callNumber}</span> : null}
+        {book.year ? <span className="book__call">{book.year}</span> : null}
       </header>
 
       <div

@@ -30,9 +30,18 @@
   z-index: 1;
 }
 
+/* 책장 줄의 빈 부분(책장 사이·바깥)은 클릭을 통과시켜, 그 뒤 장면의 창·화분
+   버튼이 눌리게 한다. 실제 책장 칸만 클릭을 받는다. */
+.shelf-row {
+  pointer-events: none;
+}
+.shelf-row__item {
+  pointer-events: auto;
+}
+
 /* ── 배경 장면 — 모던 서재 (RoomScene) ──────────────────────────────
-   전부 장식. pointer-events 없음, aria-hidden. 벽은 .room 배경이 맡고
-   여기서 바닥·창·빛·화분을 얹는다. */
+   대부분 장식(pointer-events 없음). 창·화분만 만질 수 있는 버튼이다. 벽은
+   .room 배경이 맡고 여기서 바닥·창·빛·화분을 얹는다. */
 .scene {
   position: absolute;
   inset: 0;
@@ -52,20 +61,58 @@
   border-top: 1px solid var(--room-frame);
 }
 
-/* 창 — 오른쪽 위 벽. 책장이 주인공이므로 창은 방을 암시하는 조연으로 둔다.
-   3열×2행 문설주가 모던 그리드를 만든다. */
+/* 창 — 오른쪽 위 벽. 누르면 해가 떴다 진다. 3열×2행 문설주가 모던 그리드.
+   버튼이지만 창 유리처럼 보이게 기본 버튼 모양을 지운다. */
 .scene__window {
   position: absolute;
   top: clamp(56px, 10vh, 120px);
   right: clamp(32px, 5vw, 110px);
   width: clamp(140px, 20vw, 280px);
   height: clamp(150px, 28vh, 300px);
+  padding: 0;
+  overflow: hidden;
   background: var(--room-window);
   border: 2px solid var(--room-frame);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background var(--motion-slow) ease;
+}
+
+.scene__window:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 3px;
+}
+
+/* 해 — 기본은 창 아래에 잠겨 안 보이다가, 낮이면 떠오른다 */
+.scene__sun {
+  position: absolute;
+  left: calc(50% - 24px);
+  top: 82%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--room-sun);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--room-sun) 70%, transparent);
+  opacity: 0;
+  transition:
+    top var(--motion-slow) ease,
+    opacity var(--motion-slow) ease;
+}
+
+[data-sky='day'] .scene__window {
+  background: var(--sky-day);
+}
+[data-sky='day'] .scene__sun {
+  top: 12%;
+  opacity: 1;
+}
+[data-sky='night'] .scene__window {
+  background: var(--sky-night);
 }
 
 .scene__mullion {
   position: absolute;
+  z-index: 1;
   background: var(--room-frame);
 }
 /* 세로 문설주 2개(3열) */
@@ -100,14 +147,65 @@
   );
 }
 
-/* 화분 — 왼쪽 바닥에 선 실루엣. 바닥선 위에 놓아 창(오른쪽)과 좌우 균형을 준다. */
+/* 화분 — 왼쪽 바닥에 선 실루엣. 누르면 잎이 하나씩 떨어지고 마지막에 꽃이 핀다.
+   버튼이지만 배경 없이 도형만 보이게 한다. */
 .scene__plant {
   position: absolute;
   left: clamp(24px, 7vw, 170px);
   bottom: var(--floor-h);
   width: clamp(84px, 10vw, 140px);
-  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
   color: var(--room-plant);
+  line-height: 0;
+}
+
+.scene__plant svg {
+  width: 100%;
+  height: auto;
+}
+
+.scene__plant:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 4px;
+}
+
+/* 잎 — 떨어질 때 아래로 쏠리며 사라진다. transform-box:fill-box 라야 잎 자체를
+   기준으로 회전한다. 시간은 --motion 토큰이라 움직임 최소화에선 즉시 사라진다. */
+.leaf {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  transition:
+    transform var(--motion-slow) ease,
+    opacity var(--motion-slow) ease;
+}
+.leaf--fallen {
+  opacity: 0;
+  transform: translateY(46px) rotate(20deg);
+}
+
+/* 꽃 — 기본은 접혀 있다가 마지막 클릭에 핀다 */
+.scene__flower {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  transform: scale(0);
+  transition:
+    transform var(--motion-base) ease,
+    opacity var(--motion-base) ease;
+}
+.scene__flower .petal {
+  fill: var(--room-flower);
+}
+.scene__flower .pip {
+  fill: var(--room-sun);
+}
+.scene__plant.is-bloomed .scene__flower {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* 좁은 화면에서는 물체를 가장자리로 물려 답답하지 않게 한다 */

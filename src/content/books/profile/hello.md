@@ -6,7 +6,6 @@ spine:
   height: tall
   width: medium
 year: '2026'
-callNumber: AB · 001
 summary: 이 방의 주인을 소개하는 첫 번째 책입니다.
 ---
 

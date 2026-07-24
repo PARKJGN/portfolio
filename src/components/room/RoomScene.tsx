@@ -1,37 +1,48 @@
 /**
- * 배경 장면 — 모던 서재. 평면 벡터 일러스트다(사진 없음, 자체 렌더).
+ * 배경 장면 — 모던 서재. 평면 벡터 일러스트(사진 없음).
  *
- * 큰 창으로 자연광이 들고, 바닥선과 화분이 공간을 만든다. 책장은 이 벽에 걸린
- * 플로팅 선반으로 읽힌다.
+ * 대부분 장식이지만 두 요소는 만질 수 있다:
+ *  - 창: 누르면 해가 떴다가 다시 누르면 진다 (data-action="toggle-sky")
+ *  - 화분: 누르면 잎이 하나씩 떨어지고, 한 장 남았을 때 누르면 꽃이 핀다
+ *          (data-action="plant"). 동작은 BookController 가 위임받는다.
  *
- * 전체가 장식이므로 aria-hidden 이고 pointer-events 는 CSS 에서 끈다 — 낭독기와
- * 클릭 모두에 관여하지 않는다. 색은 tokens.css 의 --room-* 를 참조한다(원칙 V).
- * 화면 비율에 상관없이 벽·바닥·창은 CSS 로 채우고, 화분·창틀 같은 물체만 얹는다.
+ * 그래서 창·화분은 접근 가능한 <button>(aria-label + 키보드)이고, 나머지 장식은
+ * 개별적으로 aria-hidden 이다. 색은 tokens.css 의 room·sky 토큰 참조(원칙 V).
  */
 export function RoomScene() {
   return (
-    <div className="scene" aria-hidden="true">
-      <div className="scene__floor" />
-      <div className="scene__window">
-        <span className="scene__mullion scene__mullion--v" />
-        <span className="scene__mullion scene__mullion--v2" />
-        <span className="scene__mullion scene__mullion--h" />
-      </div>
-      <div className="scene__beam" />
+    <div className="scene">
+      <div className="scene__floor" aria-hidden="true" />
+      <div className="scene__beam" aria-hidden="true" />
 
-      {/* 화분 — 단순한 실루엣. 잎은 유기적이라 SVG 가 깔끔하다.
-          viewBox 아래끝을 화분 바닥(y150)에 맞춰야 바닥선에 붙는다 — 전에는
-          viewBox 가 200 이라 아래 50 만큼 빈 공간이 생겨 공중에 뜬 것처럼 보였다. */}
-      <svg className="scene__plant" viewBox="0 0 120 150" preserveAspectRatio="xMidYMax meet">
-        <g fill="currentColor">
-          {/* 잎 */}
-          <path d="M60 96 C40 70 40 40 58 16 C64 44 64 70 60 96 Z" />
-          <path d="M60 100 C34 84 22 60 24 34 C46 50 58 74 60 100 Z" />
-          <path d="M60 100 C86 84 98 60 96 34 C74 50 62 74 60 100 Z" />
-          {/* 화분 */}
-          <path d="M40 100 L80 100 L74 150 L46 150 Z" />
-        </g>
-      </svg>
+      <button type="button" className="scene__window" data-action="toggle-sky" aria-label="해 띄우기">
+        <span className="scene__sun" aria-hidden="true" />
+        <span className="scene__mullion scene__mullion--v" aria-hidden="true" />
+        <span className="scene__mullion scene__mullion--v2" aria-hidden="true" />
+        <span className="scene__mullion scene__mullion--h" aria-hidden="true" />
+      </button>
+
+      <button type="button" className="scene__plant" data-action="plant" aria-label="화분 만지기">
+        <svg viewBox="0 0 120 150" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+          <g fill="currentColor">
+            {/* 잎 — 바깥부터 떨어지고 가운데 한 장이 남는다 */}
+            <path className="leaf" data-leaf="2" d="M60 100 C34 84 22 60 24 34 C46 50 58 74 60 100 Z" />
+            <path className="leaf" data-leaf="3" d="M60 100 C86 84 98 60 96 34 C74 50 62 74 60 100 Z" />
+            <path className="leaf" data-leaf="1" d="M60 96 C40 70 40 40 58 16 C64 44 64 70 60 96 Z" />
+            {/* 화분 */}
+            <path d="M40 100 L80 100 L74 150 L46 150 Z" />
+          </g>
+          {/* 꽃 — 기본은 접혀 있다가(scale 0) 마지막에 핀다 */}
+          <g className="scene__flower">
+            <circle className="petal" cx="60" cy="16" r="6" />
+            <circle className="petal" cx="70" cy="22" r="6" />
+            <circle className="petal" cx="67" cy="33" r="6" />
+            <circle className="petal" cx="53" cy="33" r="6" />
+            <circle className="petal" cx="50" cy="22" r="6" />
+            <circle className="pip" cx="60" cy="25" r="5" />
+          </g>
+        </svg>
+      </button>
     </div>
   );
 }

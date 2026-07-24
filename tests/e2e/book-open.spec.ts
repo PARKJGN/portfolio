@@ -99,9 +99,11 @@ test.describe('책 열기와 닫기', () => {
     expect(spineFocused).toBe(false);
   });
 
-  test('빈 책장은 열 수 있는 책을 보여주지 않는다 (FR-014)', async ({ page }) => {
+  test('방명록 책장에 책 3권(A·B·C)이 있다', async ({ page }) => {
     const guestbook = page.locator('section.shelf', { hasText: '방명록' });
-    await expect(guestbook.locator('[data-book-slug]')).toHaveCount(0);
-    await expect(guestbook.getByText('아직 준비 중입니다')).toBeVisible();
+    await expect(guestbook.locator('[data-book-slug]')).toHaveCount(3);
+    for (const slug of ['a', 'b', 'c']) {
+      await expect(guestbook.locator(`[data-book-slug="${slug}"]`)).toBeVisible();
+    }
   });
 });

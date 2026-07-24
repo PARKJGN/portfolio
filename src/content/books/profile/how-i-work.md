@@ -6,7 +6,6 @@ spine:
   height: medium
   width: narrow
 year: '2026'
-callNumber: AB · 002
 summary: 무엇을 중요하게 여기며 일하는지 적은 더미 책입니다.
 ---
 

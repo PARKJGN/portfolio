@@ -6,7 +6,6 @@ spine:
   height: short
   width: wide
 year: '2026'
-callNumber: MS · 004.6
 summary: 프로젝트 책장이 비어 있지 않을 때의 모습을 확인하기 위한 더미 책입니다.
 ---
 
