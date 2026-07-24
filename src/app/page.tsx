@@ -2,6 +2,7 @@ import { getShelves, getBookNeighbors } from '@/lib/content';
 import { assertFeatureReadiness } from '@/lib/schema';
 import { Shelf } from '@/components/room/Shelf';
 import { ShelfNav } from '@/components/room/ShelfNav';
+import { RoomScene } from '@/components/room/RoomScene';
 import { BookContent } from '@/components/book/BookContent';
 import { BookController } from '@/components/book/BookController';
 
@@ -22,6 +23,8 @@ export default function RoomPage() {
 
   return (
     <main className="room">
+      <RoomScene />
+
       <h1 className="room__title">서재</h1>
 
       <ShelfNav shelves={shelves} />

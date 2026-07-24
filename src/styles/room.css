@@ -7,6 +7,7 @@
  */
 
 .room {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15,6 +16,102 @@
   padding: clamp(var(--space-8), 8vh, var(--space-16)) var(--space-4);
   background: var(--room-bg);
   color: var(--room-wall-text);
+  overflow: hidden;
+}
+
+/* 앞쪽 요소(제목·바로가기·책장)는 장면 위에 놓는다 */
+.room__title,
+.shelf-nav,
+.shelf-row {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 배경 장면 — 모던 서재 (RoomScene) ──────────────────────────────
+   전부 장식. pointer-events 없음, aria-hidden. 벽은 .room 배경이 맡고
+   여기서 바닥·창·빛·화분을 얹는다. */
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 바닥 — 벽과 얇은 선(걸레받이)으로 나뉜다 */
+.scene__floor {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: clamp(90px, 20vh, 200px);
+  background: var(--room-floor);
+  border-top: 1px solid var(--room-frame);
+}
+
+/* 큰 창 — 오른쪽 벽면. 얇은 창틀과 십자 문설주(모던 그리드). */
+.scene__window {
+  position: absolute;
+  top: clamp(40px, 9vh, 110px);
+  right: clamp(24px, 7vw, 150px);
+  width: clamp(120px, 20vw, 300px);
+  height: min(58vh, 520px);
+  background: var(--room-window);
+  border: 2px solid var(--room-frame);
+}
+
+.scene__mullion {
+  position: absolute;
+  background: var(--room-frame);
+}
+.scene__mullion--v {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-1px);
+}
+.scene__mullion--h {
+  left: 0;
+  right: 0;
+  top: 46%;
+  height: 2px;
+}
+
+/* 창에서 비껴 드는 자연광 — 아주 옅은 사선 띠 */
+.scene__beam {
+  position: absolute;
+  top: 0;
+  right: clamp(24px, 7vw, 150px);
+  width: min(46vw, 620px);
+  height: 100%;
+  background: linear-gradient(
+    252deg,
+    color-mix(in srgb, var(--room-window) 60%, transparent) 0%,
+    transparent 42%
+  );
+  mix-blend-mode: normal;
+}
+
+/* 화분 — 왼쪽 바닥에 선 실루엣 */
+.scene__plant {
+  position: absolute;
+  left: clamp(16px, 5vw, 120px);
+  bottom: clamp(78px, 18vh, 176px);
+  width: clamp(64px, 8vw, 104px);
+  height: auto;
+  color: var(--room-plant);
+}
+
+/* 좁은 화면에서는 물체를 덜어 장면이 답답하지 않게 한다 */
+@media (max-width: 640px) {
+  .scene__window {
+    right: -40px;
+    width: clamp(90px, 30vw, 140px);
+  }
+  .scene__plant {
+    left: -12px;
+    width: 72px;
+  }
 }
 
 .room__title {
