@@ -27,8 +27,9 @@ test.describe('창 — 해가 떴다 진다', () => {
     await expect(win).toHaveAttribute('aria-label', '해 지우기');
     await expect(page.locator('.scene__sun')).toBeVisible();
 
+    // 해가 지면 처음 상태로 돌아간다(밤 없음)
     await win.click();
-    expect(await sky(page)).toBe('night');
+    expect(await sky(page)).toBeNull();
     await expect(win).toHaveAttribute('aria-label', '해 띄우기');
   });
 

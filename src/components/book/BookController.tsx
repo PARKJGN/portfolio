@@ -120,10 +120,11 @@ export function BookController() {
       if (action === 'page-prev') return turnPage(-1);
       if (action === 'page-next') return turnPage(1);
 
-      // 창 — 해가 떴다 진다 (토글)
+      // 창 — 해가 떴다 진다. 지면 처음 상태(기본 창)로 돌아간다. 밤(어두운 하늘) 없음.
       if (action === 'toggle-sky') {
         const day = root.dataset.sky === 'day';
-        root.dataset.sky = day ? 'night' : 'day';
+        if (day) delete root.dataset.sky;
+        else root.dataset.sky = 'day';
         target
           ?.closest<HTMLElement>('[data-action="toggle-sky"]')
           ?.setAttribute('aria-label', day ? '해 띄우기' : '해 지우기');

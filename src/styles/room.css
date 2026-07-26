@@ -106,9 +106,8 @@
   top: 12%;
   opacity: 1;
 }
-[data-sky='night'] .scene__window {
-  background: var(--sky-night);
-}
+/* 해가 지면 data-sky 가 제거되어 창이 기본(--room-window)으로, 해는 다시 잠긴다.
+   밤(어두운 하늘) 상태는 두지 않는다 — 사용자 요청. */
 
 .scene__mullion {
   position: absolute;
