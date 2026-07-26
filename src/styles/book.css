@@ -272,18 +272,9 @@
   perspective: 2400px;
 }
 
-/* 책이 책장에서 빠져나오는 느낌 — 뒤·아래에서 살짝 돌아 앞으로 나온다.
-   easeOutExpo 에 가까운 곡선이라 끝에서 부드럽게 잦아든다(딱딱하지 않게). */
-@keyframes bookPull {
-  0% {
-    opacity: 0;
-    transform: translateY(34px) translateZ(-160px) rotateY(13deg) scale(0.92);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) translateZ(0) rotateY(0deg) scale(1);
-  }
-}
+/* 책이 책장(누른 책등)에서 커지며 빠져나오는 등장은 JS(FLIP)가 맡는다 —
+   누른 책등의 실제 위치·크기에서 시작해 가운데로 온다. BookController 참조.
+   표지 열림만 CSS 로 둔다. */
 
 /* 표지가 왼쪽 책등을 경첩으로 부드럽게 열린다. */
 @keyframes coverOpen {
@@ -293,10 +284,6 @@
   100% {
     transform: rotateY(-162deg);
   }
-}
-
-dialog[open] .book {
-  animation: bookPull var(--motion-book) cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* 표지 — 책 위를 덮고 있다가 왼쪽(책등) 경첩으로 열린다. 색은 spine--X 가 준다. */
@@ -338,8 +325,8 @@ dialog[open] .book {
 }
 
 dialog[open] .book__cover {
-  /* 책이 어느 정도 빠져나온 뒤(약 45%) 표지가 열리기 시작한다. 부드러운 곡선. */
+  /* 책이 거의 다 나온 뒤(약 60%) 표지가 열리기 시작한다. 부드러운 곡선. */
   animation: coverOpen var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
-    calc(var(--motion-book) * 0.45) both;
+    calc(var(--motion-book) * 0.6) both;
   pointer-events: none;
 }

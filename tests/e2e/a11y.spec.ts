@@ -11,6 +11,18 @@ import AxeBuilder from '@axe-core/playwright';
 const scan = (page: import('@playwright/test').Page) =>
   new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
 
+/** 열림 애니메이션(FLIP·표지 펼침)이 끝나길 기다린다 — 애니메이션 중에는 책이
+ *  작게 축소돼 버튼이 24px 미만으로 보여 target-size 에 걸린다. 정지 상태를 검사한다. */
+async function settleOpen(page: import('@playwright/test').Page) {
+  await expect(page.locator('dialog[open]')).toBeVisible();
+  await page.evaluate(async () => {
+    const open = document.querySelector('dialog[open]');
+    if (!open) return;
+    const anims = open.getAnimations({ subtree: true });
+    await Promise.all(anims.map((a) => a.finished.catch(() => undefined)));
+  });
+}
+
 function report(violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']) {
   return violations
     .map((v) => `[${v.impact}] ${v.id}: ${v.help}\n    ${v.nodes.map((n) => n.target).join('\n    ')}`)
@@ -33,7 +45,7 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
   test('책 창이 열린 상태', async ({ page }) => {
     await page.goto('/');
     await page.locator('[data-book-slug="hello"]').click();
-    await expect(page.locator('#book-dialog-hello')).toBeVisible();
+    await settleOpen(page);
 
     const { violations } = await scan(page).analyze();
     expect(report(violations)).toBe('');
@@ -42,6 +54,7 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
   test('전체 이어보기 모드', async ({ page }) => {
     await page.goto('/');
     await page.locator('[data-book-slug="hello"]').click();
+    await settleOpen(page);
     await page.getByRole('button', { name: '전체 이어보기' }).click();
 
     const { violations } = await scan(page).analyze();
@@ -59,6 +72,7 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
     await page.locator('[data-book-slug="hello"]').click();
+    await settleOpen(page);
 
     const { violations } = await scan(page).analyze();
     expect(report(violations)).toBe('');

@@ -85,12 +85,39 @@ export function BookController() {
     const dialogFor = (slug: string) =>
       document.getElementById(`book-dialog-${slug}`) as HTMLDialogElement | null;
 
+    // 누른 책등의 실제 위치·크기에서 책이 커지며 나오는 등장(FLIP).
+    // 책장에서 책을 뽑는 느낌을 준다. 움직임 최소화면 건너뛴다(즉시 등장).
+    const animateOpenFromSpine = (dialog: HTMLDialogElement, slug: string) => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const stage = dialog.querySelector<HTMLElement>('.book-stage');
+      const spine = document.querySelector<HTMLElement>(`[data-book-slug="${slug}"]`);
+      if (!stage || !spine) return;
+      const s = spine.getBoundingClientRect();
+      const b = stage.getBoundingClientRect();
+      if (!b.width || !b.height) return;
+
+      const dx = s.left + s.width / 2 - (b.left + b.width / 2);
+      const dy = s.top + s.height / 2 - (b.top + b.height / 2);
+      const scale = Math.min(1, Math.max(0.05, s.width / b.width));
+
+      stage.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.4, offset: 0 },
+          { opacity: 1, offset: 0.35 },
+          { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 1 },
+        ],
+        // ease-in-out 이라 시작에서 튀지 않고 커지는 과정이 보인다(책장에서 뽑히듯).
+        { duration: 720, easing: 'cubic-bezier(0.5, 0, 0.2, 1)' },
+      );
+    };
+
     const openDialog = (slug: string, pushHistory: boolean) => {
       const dialog = dialogFor(slug);
       if (!dialog || dialog.open) return false;
       dialog.showModal();
       if (pushHistory) history.pushState({ bookSlug: slug }, '', `/books/${slug}`);
       requestAnimationFrame(updateProgress);
+      animateOpenFromSpine(dialog, slug);
       return true;
     };
 
