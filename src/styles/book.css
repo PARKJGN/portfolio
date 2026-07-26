@@ -330,3 +330,67 @@ dialog[open] .book__cover {
     calc(var(--motion-book) * 0.6) both;
   pointer-events: none;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   펼친 책 모양(모달) — 하드커버 판 위에 두 페이지, 가운데 책등,
+   바깥에 페이지 두께(포어엣지). "책 펼친 모습".
+   .book-stage 는 모달에만 있으므로 정본 페이지엔 영향 없다.
+   ══════════════════════════════════════════════════════════════ */
+.book-dialog .book-stage {
+  padding: 7px 12px 16px; /* 하드커버가 페이지 둘레로 보이게(아래를 더) */
+  background: var(--book-board);
+  border-radius: 5px;
+  box-shadow: 0 26px 74px color-mix(in srgb, var(--backdrop) 55%, transparent);
+}
+
+.book-dialog .book {
+  border: 0;
+  border-radius: 2px;
+  /* 좌우 안쪽으로 페이지가 말리는 그늘 + 아래 페이지 뭉치 그늘 */
+  box-shadow:
+    inset 30px 0 40px -34px color-mix(in srgb, var(--backdrop) 65%, transparent),
+    inset -30px 0 40px -34px color-mix(in srgb, var(--backdrop) 65%, transparent),
+    inset 0 -18px 26px -22px color-mix(in srgb, var(--backdrop) 45%, transparent);
+}
+
+/* 포어엣지 — 페이지 뭉치의 단면. 좌우 바깥에 크림 줄무늬(낱장 결). */
+.book-dialog .book::before,
+.book-dialog .book::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  width: 5px;
+  z-index: 1;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--spine-pages) 0 1px,
+    color-mix(in srgb, var(--spine-pages) 55%, var(--backdrop)) 1px 2.5px
+  );
+}
+.book-dialog .book::before {
+  left: -5px;
+  border-radius: 2px 0 0 2px;
+}
+.book-dialog .book::after {
+  right: -5px;
+  border-radius: 0 2px 2px 0;
+}
+
+/* 가운데 책등(거터) — 얇고 짙은 크레아즈 + 넓고 옅은 그늘을 겹친다.
+   딱딱한 실선 대신 부드러운 책 접힘. 스크롤해도 가운데 고정. */
+[data-view-mode='paged'] .book-dialog .book__body {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 48.6%,
+      color-mix(in srgb, var(--backdrop) 42%, transparent) 50%,
+      transparent 51.4%
+    ),
+    linear-gradient(
+      90deg,
+      transparent 41%,
+      color-mix(in srgb, var(--backdrop) 20%, transparent) 50%,
+      transparent 59%
+    );
+}
