@@ -95,6 +95,7 @@
   --motion-fast: 180ms;
   --motion-base: 320ms;
   --motion-slow: 500ms;
+  --motion-book: 680ms; /* 책 펼침 — 느긋하고 부드럽게 */
 }
 
 /*
@@ -155,5 +156,6 @@
     --motion-fast: 0ms;
     --motion-base: 0ms;
     --motion-slow: 0ms;
+    --motion-book: 0ms;
   }
 }
