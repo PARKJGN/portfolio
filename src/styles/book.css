@@ -250,3 +250,83 @@
 [data-view-mode] .book__controls {
   display: flex;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   책 펼침 연출 — 누르면 책이 튀어나오고 표지가 경첩처럼 열린다.
+   모달에서만(정본 페이지엔 표지 없음). 시간은 --motion 토큰이라
+   움직임 최소화에선 0ms → 즉시 열린 상태가 된다.
+   ══════════════════════════════════════════════════════════════ */
+.book-stage {
+  position: relative;
+  perspective: 2200px;
+}
+
+@keyframes bookPull {
+  from {
+    opacity: 0;
+    transform: translateY(48px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes coverOpen {
+  0% {
+    transform: rotateY(0deg);
+  }
+  55% {
+    transform: rotateY(-32deg);
+  }
+  100% {
+    transform: rotateY(-158deg);
+  }
+}
+
+dialog[open] .book {
+  animation: bookPull var(--motion-base) cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* 표지 — 책 위를 덮고 있다가 왼쪽(책등) 경첩으로 열린다. 색은 spine--X 가 준다. */
+.book__cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  overflow: hidden;
+  transform-origin: left center;
+  backface-visibility: hidden;
+  box-shadow: 0 16px 54px rgb(0 0 0 / 42%);
+}
+
+.book__cover-cap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--spine-pages);
+}
+
+.book__cover-title {
+  padding-inline: var(--space-6);
+  font-size: var(--text-3xl);
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.book__cover-year {
+  font-size: var(--text-sm);
+  letter-spacing: 0.14em;
+}
+
+dialog[open] .book__cover {
+  animation: coverOpen var(--motion-slow) cubic-bezier(0.42, 0.02, 0.2, 1) 0.12s both;
+  pointer-events: none;
+}

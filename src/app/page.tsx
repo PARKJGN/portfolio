@@ -42,24 +42,27 @@ export default function RoomPage() {
       {books.map((book) => {
         const { prev, next } = getBookNeighbors(book.slug);
         return (
-          <dialog
-            key={book.slug}
-            id={`book-dialog-${book.slug}`}
-            className="book-dialog"
-            aria-labelledby={`book-title-${book.slug}`}
-          >
-            <BookContent
-              book={book}
-              prev={prev}
-              next={next}
-              onCloseSlot={
-                <form method="dialog">
-                  <button type="submit" className="book__close">
-                    덮기
-                  </button>
-                </form>
-              }
-            />
+          <dialog key={book.slug} id={`book-dialog-${book.slug}`} className="book-dialog">
+            {/* 열 때 이 표지가 경첩처럼 펼쳐지며 내용이 드러난다(book.css). 장식이라 aria-hidden. */}
+            <div className="book-stage">
+              <BookContent
+                book={book}
+                prev={prev}
+                next={next}
+                onCloseSlot={
+                  <form method="dialog">
+                    <button type="submit" className="book__close">
+                      덮기
+                    </button>
+                  </form>
+                }
+              />
+              <div className={`book__cover spine--${book.spine.color}`} aria-hidden="true">
+                <span className="book__cover-cap" />
+                <span className="book__cover-title">{book.title}</span>
+                {book.year ? <span className="book__cover-year">{book.year}</span> : null}
+              </div>
+            </div>
           </dialog>
         );
       })}
