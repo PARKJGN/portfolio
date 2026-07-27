@@ -73,6 +73,11 @@ export default function RoomPage() {
                       {book.year ? <span className="book__cover-year">{book.year}</span> : null}
                     </span>
                   </span>
+                  {/* 책등(옆면) — 책장에서 뽑힐 때 처음 보이는 면. 나오며 회전해 표지가
+                      정면을 향하고, 들어갈 때 다시 책등으로 돌아간다. 세로 제목. */}
+                  <span className={`book__cover-spine spine--${book.spine.color}`}>
+                    <span className="book__cover-spine-title">{book.title}</span>
+                  </span>
                 </span>
               </div>
             </div>

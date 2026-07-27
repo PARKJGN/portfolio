@@ -337,13 +337,15 @@
   pointer-events: none;
 }
 
-/* 넘어가는 잎 — 바깥은 페이드만, 3D 는 건드리지 않는다. */
+/* 넘어가는 잎(= 닫힌 책의 한 면). 등장 때 책등(왼쪽 모서리)을 축으로 회전해
+   책등 면 → 표지로 돌아온다. transform-origin 이 그 회전축이자 열림 경첩이다. */
 .book__cover-leaf {
   position: absolute;
   right: 0;
   top: 0;
   bottom: 0;
   width: 50%;
+  transform-origin: left center;
   transform-style: preserve-3d; /* 위 perspective 를 안쪽으로 통과시킨다 */
 }
 /* 안쪽 — 가운데 책등(왼쪽 모서리)을 경첩으로 왼쪽으로 넘어간다. 뒤집히면 뒷면(페이지)이 온다. */
@@ -390,18 +392,69 @@
   letter-spacing: 0.14em;
 }
 
-/* 책이 나온 뒤(약 55%) 앞장이 넘어가기 시작하고, 그와 함께 반쪽에서 전체로 벌어진다. */
-dialog[open] .book__cover-leaf-inner {
-  animation: coverLeafFlip var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
-    calc(var(--motion-book) * 0.55) both;
+/* 책등(옆면) — 잎 왼쪽 모서리에서 화면 안쪽으로 세운 면(책 두께). 등장 초반
+   회전하는 동안 정면을 향해 '책장에서 뽑히는 책등'으로 보인다. 옆면이라 살짝 어둡게. */
+.book__cover-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30px;
+  transform-origin: left center;
+  transform: rotateY(-90deg);
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: brightness(0.8);
 }
+.book__cover-spine-title {
+  writing-mode: vertical-rl;
+  font-size: var(--text-sm);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  overflow: hidden;
+  max-height: 82%;
+}
+
+/* 등장: 책등 면(약 78°)에서 표지(0°)로 회전 — 책장에서 뽑혀 정면으로 돌아온다.
+   JS(FLIP)의 위치·크기 변화와 함께 걸린다. */
+@keyframes bookRotateOut {
+  0% {
+    transform: rotateY(78deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+/* 등장 동안 보드+종이는 숨긴다 — 안 그러면 회전하는 표지 뒤로 내용이 새어 보인다.
+   표지가 정면(약 0°)에 다다르면 드러난다. */
+@keyframes bookEmergeReveal {
+  0%,
+  86% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 1단계(등장, 0~1.0): 책등→표지 회전 + 보드 숨김.
+   2단계(펼침, 1.0~2.0): 앞장이 넘어가고 반쪽에서 전체로 벌어진다. */
 dialog[open] .book__cover-leaf {
-  animation: coverLeafFade var(--motion-book) ease-out calc(var(--motion-book) * 0.55) both;
+  animation:
+    bookRotateOut var(--motion-book) cubic-bezier(0.33, 0, 0.2, 1) both,
+    coverLeafFade var(--motion-book) ease-out var(--motion-book) both;
+}
+dialog[open] .book__cover-leaf-inner {
+  animation: coverLeafFlip var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) var(--motion-book)
+    both;
 }
 /* 벌어짐은 .book(보드+종이)에만 건다 — 3D 표지는 스테이지의 형제라 clip 밖이다. */
 dialog[open] .book {
-  animation: bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
-    calc(var(--motion-book) * 0.55) both;
+  animation:
+    bookEmergeReveal var(--motion-book) linear both,
+    bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) var(--motion-book) both;
 }
 
 /* ── 덮기(닫힘) — 펼침의 역동작 ──
@@ -433,14 +486,39 @@ dialog[open] .book {
     clip-path: inset(0 0 0 50%);
   }
 }
+/* 2단계: 표지 → 책등으로 회전(펼침의 bookRotateOut 역), 그리고 보드는 다시 숨겨
+   책등만 남긴 채 책장으로 빨려 들어간다. */
+@keyframes bookRotateIn {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(78deg);
+  }
+}
+@keyframes bookSubmergeHide {
+  0% {
+    opacity: 1;
+  }
+  26%,
+  100% {
+    opacity: 0;
+  }
+}
+/* 1단계(0~1.0): 접힘 — 앞장이 되넘어오고 표지가 덮이며 반쪽으로.
+   2단계(1.0~2.0): 표지→책등 회전 + 보드 숨김. JS(FLIP)가 이때 책장으로 넣는다. */
 dialog[data-closing] .book__cover-leaf-inner {
   animation: coverLeafFold var(--motion-book) cubic-bezier(0.5, 0, 0.5, 1) both;
 }
 dialog[data-closing] .book__cover-leaf {
-  animation: coverLeafShow var(--motion-book) ease both;
+  animation:
+    coverLeafShow var(--motion-book) ease both,
+    bookRotateIn var(--motion-book) cubic-bezier(0.4, 0, 0.7, 1) var(--motion-book) both;
 }
 dialog[data-closing] .book {
-  animation: bookFold var(--motion-book) cubic-bezier(0.5, 0, 0.5, 1) both;
+  animation:
+    bookFold var(--motion-book) cubic-bezier(0.5, 0, 0.5, 1) both,
+    bookSubmergeHide var(--motion-book) linear var(--motion-book) both;
 }
 
 /* ══════════════════════════════════════════════════════════════

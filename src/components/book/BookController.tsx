@@ -139,7 +139,9 @@ export function BookController() {
       const dy = s.top + s.height / 2 - (b.top + b.height / 2);
       const scale = Math.min(1, Math.max(0.05, s.width / b.width));
 
-      // 접힘(CSS)이 먼저 진행되도록 살짝 늦게 시작해 책장으로 빨려 들어간다.
+      // 1단계(접힘)가 끝나는 시점(약  --motion-book)에 시작해, 표지→책등 회전과 함께
+      // 책장으로 빨려 들어간다. 토큰을 읽어 CSS 2단계와 맞춘다.
+      const mb = parseFloat(getComputedStyle(root).getPropertyValue('--motion-book')) || 680;
       return stage.animate(
         [
           { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 0 },
@@ -150,7 +152,7 @@ export function BookController() {
             offset: 1,
           },
         ],
-        { duration: 520, delay: 240, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' },
+        { duration: mb, delay: mb, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' },
       );
     };
 
