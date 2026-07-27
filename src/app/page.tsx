@@ -57,10 +57,17 @@ export default function RoomPage() {
                   </form>
                 }
               />
+              {/* 표지 — 가운데 책등에서 좌우 두 짝으로 펼쳐진다(게이트폴드). 장식이라 aria-hidden. */}
               <div className={`book__cover spine--${book.spine.color}`} aria-hidden="true">
-                <span className="book__cover-cap" />
-                <span className="book__cover-title">{book.title}</span>
-                {book.year ? <span className="book__cover-year">{book.year}</span> : null}
+                <span className={`book__cover-half book__cover-half--left spine--${book.spine.color}`} />
+                <span
+                  className={`book__cover-half book__cover-half--right spine--${book.spine.color}`}
+                />
+                <span className="book__cover-face">
+                  <span className="book__cover-cap" />
+                  <span className="book__cover-title">{book.title}</span>
+                  {book.year ? <span className="book__cover-year">{book.year}</span> : null}
+                </span>
               </div>
             </div>
           </dialog>
