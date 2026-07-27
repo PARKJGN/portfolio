@@ -92,6 +92,9 @@ export function BookController() {
       const stage = dialog.querySelector<HTMLElement>('.book-stage');
       const spine = document.querySelector<HTMLElement>(`[data-book-slug="${slug}"]`);
       if (!stage || !spine) return;
+      // 닫힘 FLIP 이 fill:forwards 로 남긴 값(반투명·축소)을 지운다 — 안 지우면
+      // 다시 열 때 책이 그 opacity 를 물려받아 투명하게 나온다.
+      for (const a of stage.getAnimations()) a.cancel();
       const s = spine.getBoundingClientRect();
       const b = stage.getBoundingClientRect();
       if (!b.width || !b.height) return;
@@ -100,11 +103,12 @@ export function BookController() {
       const dy = s.top + s.height / 2 - (b.top + b.height / 2);
       const scale = Math.min(1, Math.max(0.05, s.width / b.width));
 
+      // 크기만 커지며 나온다(불투명). 투명 페이드는 두지 않는다 — 반투명하게 나오는
+      // 것처럼 보였다.
       stage.animate(
         [
-          { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.4, offset: 0 },
-          { opacity: 1, offset: 0.35 },
-          { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 1 },
+          { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
+          { transform: 'translate(0, 0) scale(1)' },
         ],
         // ease-in-out 이라 시작에서 튀지 않고 커지는 과정이 보인다(책장에서 뽑히듯).
         { duration: 720, easing: 'cubic-bezier(0.5, 0, 0.2, 1)' },
