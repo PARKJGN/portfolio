@@ -4,8 +4,8 @@
  */
 
 .book-dialog {
-  width: min(920px, 94vw);
-  max-height: 90svh;
+  width: min(1080px, 95vw);
+  max-height: 92svh;
   padding: 0;
   border: 0;
   background: transparent;
@@ -537,7 +537,16 @@ dialog[open] .book__cover-face {
   padding: var(--space-5) var(--space-8) var(--space-2);
 }
 .book-dialog .book__title {
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
+}
+
+/* 모달에서는 읽기 글자를 키운다(책을 펼쳐 읽는 느낌). 정본 페이지는 그대로. */
+.book-dialog .book__body {
+  font-size: var(--text-lg);
+  line-height: 1.9;
+}
+.book-dialog .book__body h2 {
+  font-size: var(--text-2xl);
 }
 
 /* 데스크톱 + 한 장씩 = 진짜 두 면. 두 단으로 나누고 가운데를 '틈'으로 갈라
