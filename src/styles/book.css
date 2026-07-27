@@ -4,8 +4,8 @@
  */
 
 .book-dialog {
-  width: min(1080px, 95vw);
-  max-height: 92svh;
+  width: min(1240px, 96vw);
+  max-height: 94svh;
   padding: 0;
   border: 0;
   background: transparent;
@@ -472,7 +472,7 @@ dialog[open] .book__cover-face {
 /* .book = 보드 위에서 세로로: 두 면(위, 늘어남) + 도구 막대(아래). */
 .book-dialog .book {
   gap: 12px;
-  max-height: 88svh;
+  max-height: 92svh;
 }
 
 /* 두 면(종이) — 보드 위에 얹힌 크림 스프레드. */
@@ -537,16 +537,7 @@ dialog[open] .book__cover-face {
   padding: var(--space-5) var(--space-8) var(--space-2);
 }
 .book-dialog .book__title {
-  font-size: var(--text-2xl);
-}
-
-/* 모달에서는 읽기 글자를 키운다(책을 펼쳐 읽는 느낌). 정본 페이지는 그대로. */
-.book-dialog .book__body {
-  font-size: var(--text-lg);
-  line-height: 1.9;
-}
-.book-dialog .book__body h2 {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
 }
 
 /* 데스크톱 + 한 장씩 = 진짜 두 면. 두 단으로 나누고 가운데를 '틈'으로 갈라
@@ -561,7 +552,7 @@ dialog[open] .book__cover-face {
        두 면을 넘치면 옆으로 넘겨 다음 두 면 — 넘김은 조작부 ←/→ 가 맡는다. */
     column-fill: auto;
     padding-inline: var(--space-8);
-    height: 58svh;
+    height: 68svh;
     overflow-x: auto;
     overflow-y: hidden;
     /* scroll-behavior 는 기본 규칙(0,2,0)에 맡긴다 — 여기(0,3,0)서 smooth 를 주면
