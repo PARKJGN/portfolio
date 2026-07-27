@@ -353,27 +353,19 @@
   transform-origin: left center;
   transform-style: preserve-3d;
 }
-.book__cover-leaf-front,
-.book__cover-leaf-back {
+/* 앞면 = 표지(글자). 넘어가 90°를 지나면 뒷면(backface-visibility:hidden)이라
+   사라지고, 그 아래 실제 두 면 내용이 바로 보인다. 빈 뒷면 페이지는 두지 않는다. */
+.book__cover-leaf-front {
   position: absolute;
   inset: 0;
   backface-visibility: hidden;
   border-radius: 0 2px 2px 0;
-}
-/* 앞면 = 표지(글자). 닫힌 책에서 보이는 한 면. */
-.book__cover-leaf-front {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
   box-shadow: 0 18px 56px rgb(0 0 0 / 42%);
-}
-/* 뒷면 = 페이지(넘어가면 왼쪽 페이지가 된다) */
-.book__cover-leaf-back {
-  transform: rotateY(180deg);
-  background: var(--page-bg);
-  box-shadow: inset -30px 0 40px -34px color-mix(in srgb, var(--backdrop) 60%, transparent);
 }
 
 .book__cover-cap {
@@ -410,6 +402,45 @@ dialog[open] .book__cover-leaf {
 dialog[open] .book {
   animation: bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
     calc(var(--motion-book) * 0.55) both;
+}
+
+/* ── 덮기(닫힘) — 펼침의 역동작 ──
+   덮기/바깥 클릭 시 앞장이 되넘어와 표지가 덮이고(전체→반쪽), 이어서 JS(FLIP)가
+   책을 책장으로 되돌려 넣는다. data-closing 이 [open] 규칙을 같은 명시도로
+   뒤에서 덮어써 접힘 애니메이션으로 바꾼다. */
+@keyframes coverLeafFold {
+  0% {
+    transform: rotateY(-176deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+@keyframes coverLeafShow {
+  0% {
+    opacity: 0;
+  }
+  24%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes bookFold {
+  0% {
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 50%);
+  }
+}
+dialog[data-closing] .book__cover-leaf-inner {
+  animation: coverLeafFold var(--motion-book) cubic-bezier(0.5, 0, 0.5, 1) both;
+}
+dialog[data-closing] .book__cover-leaf {
+  animation: coverLeafShow var(--motion-book) ease both;
+}
+dialog[data-closing] .book {
+  animation: bookFold var(--motion-book) cubic-bezier(0.5, 0, 0.5, 1) both;
 }
 
 /* ══════════════════════════════════════════════════════════════

@@ -65,14 +65,13 @@ export default function RoomPage() {
                     opacity 가 3D 를 평면화하지 않아 뒷면(페이지) 전환이 된다. */}
                 <span className="book__cover-leaf">
                   <span className="book__cover-leaf-inner">
-                    {/* 앞면 = 표지(글자). 닫힌 책에서 보이는 한 면. */}
+                    {/* 앞면 = 표지(글자). 넘어가 90°를 지나면 사라지며 그 아래 실제
+                        내용이 바로 드러난다(빈 뒷면을 두지 않는다). */}
                     <span className={`book__cover-leaf-front spine--${book.spine.color}`}>
                       <span className="book__cover-cap" />
                       <span className="book__cover-title">{book.title}</span>
                       {book.year ? <span className="book__cover-year">{book.year}</span> : null}
                     </span>
-                    {/* 뒷면 = 페이지 — 넘어가면 왼쪽 페이지가 된다. */}
-                    <span className="book__cover-leaf-back" />
                   </span>
                 </span>
               </div>

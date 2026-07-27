@@ -114,11 +114,58 @@ export function BookController() {
     const openDialog = (slug: string, pushHistory: boolean) => {
       const dialog = dialogFor(slug);
       if (!dialog || dialog.open) return false;
+      delete dialog.dataset.closing; // 접힘 도중 재열림 대비
       dialog.showModal();
       if (pushHistory) history.pushState({ bookSlug: slug }, '', `/books/${slug}`);
       requestAnimationFrame(updateProgress);
       animateOpenFromSpine(dialog, slug);
       return true;
+    };
+
+    // 덮기 — 펼침의 역동작으로 책이 접히며(전체→반쪽) 책장으로 되돌아 들어간다.
+    const animateCloseToSpine = (dialog: HTMLDialogElement, slug: string) => {
+      const stage = dialog.querySelector<HTMLElement>('.book-stage');
+      const spine = document.querySelector<HTMLElement>(`[data-book-slug="${slug}"]`);
+      if (!stage || !spine) return null;
+      const s = spine.getBoundingClientRect();
+      const b = stage.getBoundingClientRect();
+      if (!b.width || !b.height) return null;
+
+      const dx = s.left + s.width / 2 - (b.left + b.width / 2);
+      const dy = s.top + s.height / 2 - (b.top + b.height / 2);
+      const scale = Math.min(1, Math.max(0.05, s.width / b.width));
+
+      // 접힘(CSS)이 먼저 진행되도록 살짝 늦게 시작해 책장으로 빨려 들어간다.
+      return stage.animate(
+        [
+          { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 0 },
+          { opacity: 1, offset: 0.5 },
+          {
+            transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
+            opacity: 0.2,
+            offset: 1,
+          },
+        ],
+        { duration: 520, delay: 240, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' },
+      );
+    };
+
+    // 덮기 요청 — 접힘 연출을 재생한 뒤 실제로 닫는다. 움직임 최소화면 즉시 닫는다.
+    const requestClose = (dialog: HTMLDialogElement) => {
+      if (!dialog.open || dialog.dataset.closing != null) return;
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        dialog.close();
+        return;
+      }
+      dialog.dataset.closing = '';
+      const slug = dialog.id.slice('book-dialog-'.length);
+      const flip = animateCloseToSpine(dialog, slug);
+      const finish = () => {
+        delete dialog.dataset.closing;
+        dialog.close();
+      };
+      if (flip) flip.finished.then(finish).catch(finish);
+      else window.setTimeout(finish, 680);
     };
 
     let closingFromHistory = false;
@@ -209,8 +256,29 @@ export function BookController() {
       }
 
       // <dialog> 는 ::backdrop 클릭을 스스로 처리하지 않는다. 클릭 대상이
-      // dialog 요소 자신이면 내용 바깥을 누른 것이다 (R-5).
-      if (target instanceof HTMLDialogElement && target.open) target.close();
+      // dialog 요소 자신이면 내용 바깥을 누른 것이다 (R-5). 즉시 닫지 않고
+      // 접힘 연출을 거쳐 닫는다.
+      if (target instanceof HTMLDialogElement && target.open) requestClose(target);
+    };
+
+    // 덮기 버튼(form method=dialog) — 즉시 닫히는 대신 접힘 연출 뒤 닫는다.
+    const onSubmit = (e: Event) => {
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement) || form.getAttribute('method') !== 'dialog') return;
+      const dialog = form.closest('dialog');
+      if (dialog instanceof HTMLDialogElement && dialog.open) {
+        e.preventDefault();
+        requestClose(dialog);
+      }
+    };
+
+    // Esc — 기본 취소(즉시 닫힘)를 막고 접힘 연출을 거친다.
+    const onCancel = (e: Event) => {
+      const dialog = e.target;
+      if (dialog instanceof HTMLDialogElement && dialog.open) {
+        e.preventDefault();
+        requestClose(dialog);
+      }
     };
 
     const onClose = () => {
@@ -227,6 +295,8 @@ export function BookController() {
     const onScrollOrResize = () => updateProgress();
 
     document.addEventListener('click', onClick);
+    document.addEventListener('submit', onSubmit);
+    document.addEventListener('cancel', onCancel, true);
     document.addEventListener('close', onClose, true);
     document.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('popstate', onPopState);
@@ -267,6 +337,8 @@ export function BookController() {
     return () => {
       delete root.dataset.bookReady;
       document.removeEventListener('click', onClick);
+      document.removeEventListener('submit', onSubmit);
+      document.removeEventListener('cancel', onCancel, true);
       document.removeEventListener('close', onClose, true);
       document.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('popstate', onPopState);
