@@ -333,7 +333,10 @@
   position: absolute;
   inset: 0;
   z-index: 2;
-  perspective: 2000px;
+  /* 원근을 가깝게(강하게) 줘 회전이 평면이 아니라 입체로 보이게 한다.
+     시점을 살짝 위·왼쪽에 둬 책등이 서 있는 3/4 각도로 읽힌다. */
+  perspective: 1100px;
+  perspective-origin: 42% 38%;
   pointer-events: none;
 }
 
@@ -406,7 +409,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: brightness(0.8);
+  /* 옆면이라 어둡게 + 안쪽(책등 골)으로 갈수록 더 어두워지는 그러데이션 → 두께·깊이감.
+     위 모서리에 얇은 하이라이트를 얹어 각진 3D 모서리로 읽히게 한다. */
+  filter: brightness(0.72);
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--backdrop) 40%, transparent),
+    transparent 45%
+  );
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--spine-pages) 40%, transparent);
 }
 .book__cover-spine-title {
   writing-mode: vertical-rl;
