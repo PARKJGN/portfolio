@@ -21,6 +21,15 @@
   display: flex;
   flex-direction: column;
   max-height: 90svh;
+  color: var(--page-text);
+}
+
+/* 펼친 두 면(종이) — 배경·테두리·그림자는 여기로. .book 은 종이+도구를 담는 틀. */
+.book__pages {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   background: var(--page-bg);
   border: 1px solid var(--page-rule);
   /* 띄움 그림자 + 좌우 바깥 가장자리로 페이지가 말리는 안쪽 그늘(펼친 책 느낌) */
@@ -28,7 +37,6 @@
     0 14px 52px color-mix(in srgb, var(--backdrop) 34%, transparent),
     inset 22px 0 30px -28px color-mix(in srgb, var(--backdrop) 55%, transparent),
     inset -22px 0 30px -28px color-mix(in srgb, var(--backdrop) 55%, transparent);
-  color: var(--page-text);
 }
 
 .book__header {
@@ -83,6 +91,14 @@
 /* 표·이미지·인용은 단 경계를 넘지 않게 (R-2 잔여 위험) */
 .book__body :is(table, img, figure, blockquote, pre) {
   break-inside: avoid;
+}
+
+/* 도구 막대 — 조작부(넘기기·이어보기)와 이동/닫기를 묶는다. 단독 페이지에선
+   세로로 쌓이고, 모달에선 보드 위 가로 막대가 된다(아래 .book-dialog 스코프). */
+.book__tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .book__footer {
@@ -402,17 +418,18 @@ dialog[open] .book__cover-face {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   펼친 책 모양(모달) — 색 하드커버 트레이 위에 두 페이지, 가운데로 모이는
-   페이지 곡선, 위·아래·바깥 페이지 단면, 책등 아래 탭. 참고: 펼침.png
-   .book-stage 는 모달에만 있으므로 정본 페이지엔 영향 없다.
+   펼친 책(모달) — 하드커버 보드 위에 진짜 두 면 스프레드.
+   가운데 책등이 세로 전체를 관통하고, 좌우가 두 페이지가 된다.
+   도구(넘기기·이동·덮기)는 종이에서 빼 보드 위에 얹는다 → 두 면은 순수한 책.
+   .book-stage 는 모달에만 있으므로 정본 페이지엔 영향 없다. 참고: 펼침.png
    ══════════════════════════════════════════════════════════════ */
 
-/* 하드커버 트레이 — 페이지 둘레로 보이는 판. 위·아래 여백은 페이지 단면(부채)을 둘 공간. */
+/* 하드커버 보드 — 종이(두 면) + 도구 막대를 담는 트레이. */
 .book-dialog .book-stage {
-  padding: 14px 13px 20px;
+  padding: 16px 16px 10px;
   background: var(--book-board);
-  border-radius: 9px 9px 11px 11px;
-  box-shadow: 0 28px 78px color-mix(in srgb, var(--backdrop) 58%, transparent);
+  border-radius: 10px 10px 13px 13px;
+  box-shadow: 0 28px 82px color-mix(in srgb, var(--backdrop) 60%, transparent);
 }
 
 /* 책등 아래 탭 — 하드커버 바닥 가운데에서 살짝 내려온 작은 혀. */
@@ -429,20 +446,28 @@ dialog[open] .book__cover-face {
   z-index: -1;
 }
 
+/* .book = 보드 위에서 세로로: 두 면(위, 늘어남) + 도구 막대(아래). */
 .book-dialog .book {
-  border: 0;
-  border-radius: 2px;
-  /* 좌우 안쪽으로 페이지가 가운데 책등으로 말려 드는 그늘 + 위·아래 뭉치 그늘 */
-  box-shadow:
-    inset 36px 0 46px -36px color-mix(in srgb, var(--backdrop) 62%, transparent),
-    inset -36px 0 46px -36px color-mix(in srgb, var(--backdrop) 62%, transparent),
-    inset 0 -16px 24px -20px color-mix(in srgb, var(--backdrop) 42%, transparent),
-    inset 0 14px 22px -18px color-mix(in srgb, var(--backdrop) 28%, transparent);
+  gap: 12px;
+  max-height: 88svh;
 }
 
-/* 바깥 좌우 페이지 단면 — 낱장 결. */
-.book-dialog .book::before,
-.book-dialog .book::after {
+/* 두 면(종이) — 보드 위에 얹힌 크림 스프레드. */
+.book-dialog .book__pages {
+  position: relative;
+  border: 0;
+  border-radius: 2px 2px 3px 3px;
+  /* 좌우 바깥으로 페이지가 말리는 그늘 + 위·아래 뭉치 그늘 */
+  box-shadow:
+    inset 40px 0 48px -40px color-mix(in srgb, var(--backdrop) 58%, transparent),
+    inset -40px 0 48px -40px color-mix(in srgb, var(--backdrop) 58%, transparent),
+    inset 0 -14px 22px -18px color-mix(in srgb, var(--backdrop) 40%, transparent),
+    inset 0 12px 20px -16px color-mix(in srgb, var(--backdrop) 26%, transparent);
+}
+
+/* 바깥 좌우 페이지 단면 — 낱장 결(페이지 뭉치 두께). */
+.book-dialog .book__pages::before,
+.book-dialog .book__pages::after {
   content: '';
   position: absolute;
   top: 6px;
@@ -455,56 +480,109 @@ dialog[open] .book__cover-face {
     color-mix(in srgb, var(--spine-pages) 55%, var(--backdrop)) 1px 2.5px
   );
 }
-.book-dialog .book::before {
+.book-dialog .book__pages::before {
   left: -5px;
   border-radius: 2px 0 0 2px;
 }
-.book-dialog .book::after {
+.book-dialog .book__pages::after {
   right: -5px;
   border-radius: 0 2px 2px 0;
 }
 
-/* 위·아래 페이지 단면(부채) — 가운데(책등)로 V 처럼 모인다. clip-path 라 글자엔 안 닿고
-   페이지 여백에만 얹힌다. 가운데 파인 곳으로 하드커버 색이 비쳐 책등이 된다. */
-.book-dialog .book-stage::before,
-.book-dialog .book-stage::after {
+/* 위 페이지 단면(부채) — 가운데(책등)로 V 처럼 모인다. 보드 위 여백(종이 위)에 얹히고
+   clip-path 라 글자엔 안 닿는다. 파인 곳으로 보드색이 비쳐 책등 머리가 된다. */
+.book-dialog .book-stage::before {
   content: '';
   position: absolute;
-  left: 13px;
-  right: 13px;
-  height: 11px;
-  z-index: 1;
+  left: 16px;
+  right: 16px;
+  top: 5px;
+  height: 10px;
+  z-index: 1; /* 페이지 위, 표지(z-index:2) 아래 — 닫힌 표지가 가린다 */
   background: repeating-linear-gradient(
     0deg,
     var(--spine-pages) 0 1.5px,
     color-mix(in srgb, var(--spine-pages) 58%, var(--backdrop)) 1.5px 3px
   );
-}
-.book-dialog .book-stage::before {
-  /* 위 — 가운데가 아래로 파인 V(책등으로 페이지가 모임) */
-  top: 3px;
-  clip-path: polygon(0 0, 46% 62%, 50% 100%, 54% 62%, 100% 0, 100% 100%, 0 100%);
-}
-.book-dialog .book-stage::after {
-  /* 아래 — 가운데가 아래로 늘어진 V(펼친 책 바닥의 부채) */
-  bottom: 8px;
-  clip-path: polygon(0 0, 100% 0, 100% 38%, 50% 100%, 0 38%);
+  clip-path: polygon(0 0, 46% 60%, 50% 100%, 54% 60%, 100% 0, 100% 100%, 0 100%);
 }
 
-/* 가운데 책등(거터) — 얇고 짙은 크레아즈 + 넓고 옅은 그늘을 겹친다.
-   딱딱한 실선 대신 부드러운 책 접힘. 스크롤해도 가운데 고정. */
-[data-view-mode='paged'] .book-dialog .book__body {
-  background:
-    linear-gradient(
-      90deg,
-      transparent 48.4%,
-      color-mix(in srgb, var(--backdrop) 46%, transparent) 50%,
-      transparent 51.6%
-    ),
-    linear-gradient(
-      90deg,
-      transparent 40%,
-      color-mix(in srgb, var(--backdrop) 22%, transparent) 50%,
-      transparent 60%
-    );
+/* 머리글 — 전체폭 밑줄을 없애 '패널' 느낌을 지운다. 제목(왼쪽 면)·연도(오른쪽 면)
+   가 얇은 러닝헤드로 얹히고, 가운데는 책등이 지난다. */
+.book-dialog .book__header {
+  border-bottom: 0;
+  padding: var(--space-5) var(--space-8) var(--space-2);
+}
+.book-dialog .book__title {
+  font-size: var(--text-xl);
+}
+
+/* 데스크톱 + 한 장씩 = 진짜 두 면. 반드시 두 단으로 나누고 가운데를 책등으로 비운다. */
+@media (min-width: 720px) {
+  [data-view-mode='paged'] .book-dialog .book__body {
+    column-count: 2;
+    column-width: auto;
+    column-gap: var(--space-12); /* 가운데 책등 공간 */
+    /* balance: 내용이 짧아도 두 면에 고르게 나눠 담는다 — 오른쪽 면이 비어
+       '한 페이지'처럼 보이던 문제를 없앤다. 긴 글은 세로로 스크롤. */
+    column-fill: balance;
+    padding-inline: var(--space-8);
+    height: auto;
+    max-height: 58svh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* 가운데 책등 — 두 면 사이 세로 접힘(머리글까지 관통). 얇은 크레아즈 + 넓은 그늘.
+     .book__pages 배경이라 본문을 스크롤해도 가운데에 고정된다. */
+  [data-view-mode='paged'] .book-dialog .book__pages {
+    background:
+      linear-gradient(
+        90deg,
+        transparent 48.4%,
+        color-mix(in srgb, var(--backdrop) 48%, transparent) 50%,
+        transparent 51.6%
+      ),
+      linear-gradient(
+        90deg,
+        transparent 42%,
+        color-mix(in srgb, var(--backdrop) 16%, transparent) 50%,
+        transparent 58%
+      ),
+      var(--page-bg);
+  }
+}
+
+/* 도구 막대 — 어두운 보드 위. 종이가 아니므로 크림 글자·크림 테두리(테마 공통 토큰). */
+.book-dialog .book__tools {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  padding: 0 var(--space-2);
+  color: var(--tool-text);
+}
+.book-dialog .book__footer {
+  flex: 1;
+  gap: var(--space-6);
+  justify-content: flex-end;
+  padding: 0;
+  border-top: 0;
+}
+.book-dialog .book__progress {
+  color: color-mix(in srgb, var(--tool-text) 72%, transparent);
+}
+.book-dialog :is(.book__btn, .book__close) {
+  color: var(--tool-text);
+  border-color: color-mix(in srgb, var(--tool-text) 38%, transparent);
+}
+.book-dialog :is(.book__btn:hover:not(:disabled), .book__close:hover) {
+  background: color-mix(in srgb, var(--tool-text) 12%, transparent);
+}
+.book-dialog :is(.book__nav a, .book__link) {
+  color: var(--tool-accent);
+}
+.book-dialog :is(.book__close, .book__body, .book__nav a, .book__btn):focus-visible {
+  outline-color: var(--tool-accent);
 }

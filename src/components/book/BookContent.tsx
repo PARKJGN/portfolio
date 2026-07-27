@@ -22,60 +22,73 @@ export function BookContent({
 }) {
   return (
     <article className="book">
-      <header className="book__header">
-        <h1 className="book__title">{book.title}</h1>
-        {book.year ? <span className="book__call">{book.year}</span> : null}
-      </header>
+      {/* 펼친 두 면 — 크림 종이. 제목은 왼쪽 면 머리글, 본문은 가운데 책등을
+          기준으로 좌우 두 면에 흐른다. 도구(chrome)는 이 안에 두지 않는다. */}
+      <div className="book__pages">
+        <header className="book__header">
+          <h1 className="book__title">{book.title}</h1>
+          {book.year ? <span className="book__call">{book.year}</span> : null}
+        </header>
 
-      <div
-        className="book__body"
-        tabIndex={0}
-        role="region"
-        aria-label={`${book.title} 본문`}
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }}
-      />
+        <div
+          className="book__body"
+          tabIndex={0}
+          role="region"
+          aria-label={`${book.title} 본문`}
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }}
+        />
+      </div>
 
-      <div className="book__controls">
-        {/* 조작부 마크업은 서버에서 렌더하고 동작만 BookController 가 위임받는다.
-            버튼마다 클라이언트 컴포넌트를 두면 책 권수만큼 늘어난다. */}
-        <span className="book__paging">
+      {/* 도구 막대 — 종이 밖(모달에서는 하드커버 보드) 에 얹힌다. 그래야 두 면이
+          순수한 책 페이지로 보인다. */}
+      <div className="book__tools">
+        <div className="book__controls">
+          {/* 조작부 마크업은 서버에서 렌더하고 동작만 BookController 가 위임받는다.
+              버튼마다 클라이언트 컴포넌트를 두면 책 권수만큼 늘어난다. */}
+          <span className="book__paging">
+            <button
+              type="button"
+              className="book__btn"
+              data-action="page-prev"
+              aria-label="이전 장"
+            >
+              ←
+            </button>
+            <span className="book__progress" data-progress aria-live="polite">
+              1 / 1
+            </span>
+            <button
+              type="button"
+              className="book__btn"
+              data-action="page-next"
+              aria-label="다음 장"
+            >
+              →
+            </button>
+          </span>
           <button
             type="button"
             className="book__btn"
-            data-action="page-prev"
-            aria-label="이전 장"
+            data-action="toggle-view"
+            aria-pressed="false"
+            data-toggle-label
           >
-            ←
+            전체 이어보기
           </button>
-          <span className="book__progress" data-progress aria-live="polite">
-            1 / 1
-          </span>
-          <button type="button" className="book__btn" data-action="page-next" aria-label="다음 장">
-            →
-          </button>
-        </span>
-        <button
-          type="button"
-          className="book__btn"
-          data-action="toggle-view"
-          aria-pressed="false"
-          data-toggle-label
-        >
-          전체 이어보기
-        </button>
-      </div>
+        </div>
 
-      <footer className="book__footer">
-        <nav className="book__nav" aria-label="같은 책장의 다른 책">
-          {prev ? <a href={`/books/${prev.slug}`}>← {prev.title}</a> : null}
-          {next ? <a href={`/books/${next.slug}`}>{next.title} →</a> : null}
-        </nav>
-        {onCloseSlot ?? (
-          <a href="/" className="book__link">
-            방으로 돌아가기
-          </a>
-        )}
-      </footer>
+        <footer className="book__footer">
+          <nav className="book__nav" aria-label="같은 책장의 다른 책">
+            {prev ? <a href={`/books/${prev.slug}`}>← {prev.title}</a> : null}
+            {next ? <a href={`/books/${next.slug}`}>{next.title} →</a> : null}
+          </nav>
+          {onCloseSlot ?? (
+            <a href="/" className="book__link">
+              방으로 돌아가기
+            </a>
+          )}
+        </footer>
+      </div>
     </article>
   );
 }
