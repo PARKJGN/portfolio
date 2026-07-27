@@ -540,12 +540,14 @@ dialog[open] .book__cover-face {
   font-size: var(--text-xl);
 }
 
-/* 데스크톱 + 한 장씩 = 진짜 두 면. 반드시 두 단으로 나누고 가운데를 책등으로 비운다. */
-@media (min-width: 720px) {
+/* 데스크톱 + 한 장씩 = 진짜 두 면. 두 단으로 나누고 가운데를 '틈'으로 갈라
+   좌·우가 뚜렷이 다른 두 페이지로 보이게 한다. */
+@media (min-width: 680px) {
   [data-view-mode='paged'] .book-dialog .book__body {
     column-count: 2;
     column-width: auto;
-    column-gap: var(--space-12); /* 가운데 책등 공간 */
+    column-gap: var(--space-16); /* 가운데 책등 틈 — 글이 책등에 붙지 않게 넓게 */
+    column-rule: 1px solid color-mix(in srgb, var(--page-rule) 55%, transparent);
     /* balance: 내용이 짧아도 두 면에 고르게 나눠 담는다 — 오른쪽 면이 비어
        '한 페이지'처럼 보이던 문제를 없앤다. 긴 글은 세로로 스크롤. */
     column-fill: balance;
@@ -556,23 +558,18 @@ dialog[open] .book__cover-face {
     overflow-y: auto;
   }
 
-  /* 가운데 책등 — 두 면 사이 세로 접힘(머리글까지 관통). 얇은 크레아즈 + 넓은 그늘.
+  /* 가운데 책등 — 두 면 사이를 '틈'으로 가른다. 가운데는 투명이라 뒤의 하드커버
+     보드가 비쳐 짙은 책등 골이 되고, 양옆은 페이지가 골로 말려 드는 그늘.
      .book__pages 배경이라 본문을 스크롤해도 가운데에 고정된다. */
   [data-view-mode='paged'] .book-dialog .book__pages {
-    background:
-      linear-gradient(
-        90deg,
-        transparent 48.4%,
-        color-mix(in srgb, var(--backdrop) 48%, transparent) 50%,
-        transparent 51.6%
-      ),
-      linear-gradient(
-        90deg,
-        transparent 42%,
-        color-mix(in srgb, var(--backdrop) 16%, transparent) 50%,
-        transparent 58%
-      ),
-      var(--page-bg);
+    background: linear-gradient(
+      90deg,
+      var(--page-bg) 0 45%,
+      color-mix(in srgb, var(--backdrop) 32%, var(--page-bg)) 49%,
+      transparent 49.5% 50.5%,
+      color-mix(in srgb, var(--backdrop) 32%, var(--page-bg)) 51%,
+      var(--page-bg) 55% 100%
+    );
   }
 }
 
