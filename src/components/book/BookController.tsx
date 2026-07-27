@@ -101,7 +101,9 @@ export function BookController() {
 
       const dx = s.left + s.width / 2 - (b.left + b.width / 2);
       const dy = s.top + s.height / 2 - (b.top + b.height / 2);
-      const scale = Math.min(1, Math.max(0.05, s.width / b.width));
+      // 책등 '높이'에 맞춰 시작한다(너비 기준이면 점처럼 작아져 회전이 안 보인다).
+      // 그러면 책장의 책등만 한 크기에서 회전하며 뽑혀 나오는 게 보인다.
+      const scale = Math.min(1, Math.max(0.28, s.height / b.height));
 
       // 크기만 커지며 나온다(불투명). 투명 페이드는 두지 않는다 — 반투명하게 나오는
       // 것처럼 보였다.
@@ -137,7 +139,7 @@ export function BookController() {
 
       const dx = s.left + s.width / 2 - (b.left + b.width / 2);
       const dy = s.top + s.height / 2 - (b.top + b.height / 2);
-      const scale = Math.min(1, Math.max(0.05, s.width / b.width));
+      const scale = Math.min(1, Math.max(0.28, s.height / b.height));
 
       // 1단계(접힘)가 끝나는 시점(약  --motion-book)에 시작해, 표지→책등 회전과 함께
       // 책장으로 빨려 들어간다. 토큰을 읽어 CSS 2단계와 맞춘다.

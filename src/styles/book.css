@@ -399,7 +399,7 @@
   top: 0;
   bottom: 0;
   left: 0;
-  width: 30px;
+  width: 36px;
   transform-origin: left center;
   transform: rotateY(-90deg);
   backface-visibility: hidden;
@@ -421,7 +421,7 @@
    JS(FLIP)의 위치·크기 변화와 함께 걸린다. */
 @keyframes bookRotateOut {
   0% {
-    transform: rotateY(78deg);
+    transform: rotateY(86deg);
   }
   100% {
     transform: rotateY(0deg);
@@ -493,7 +493,7 @@ dialog[open] .book {
     transform: rotateY(0deg);
   }
   100% {
-    transform: rotateY(78deg);
+    transform: rotateY(86deg);
   }
 }
 @keyframes bookSubmergeHide {
