@@ -106,14 +106,16 @@ export function BookController() {
       const scale = Math.min(1, Math.max(0.28, s.height / b.height));
 
       // 크기만 커지며 나온다(불투명). 투명 페이드는 두지 않는다 — 반투명하게 나오는
-      // 것처럼 보였다.
+      // 것처럼 보였다. 지속은 --motion-book(1단계) 에 맞춰 CSS 회전(2단계)과 순차가
+      // 되게 한다 — 나오는 것과 회전이 겹치지 않아 회전이 또렷이 보인다.
+      const mb = parseFloat(getComputedStyle(root).getPropertyValue('--motion-book')) || 680;
       stage.animate(
         [
           { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
           { transform: 'translate(0, 0) scale(1)' },
         ],
         // ease-in-out 이라 시작에서 튀지 않고 커지는 과정이 보인다(책장에서 뽑히듯).
-        { duration: 720, easing: 'cubic-bezier(0.5, 0, 0.2, 1)' },
+        { duration: mb, easing: 'cubic-bezier(0.5, 0, 0.2, 1)' },
       );
     };
 
@@ -141,8 +143,8 @@ export function BookController() {
       const dy = s.top + s.height / 2 - (b.top + b.height / 2);
       const scale = Math.min(1, Math.max(0.28, s.height / b.height));
 
-      // 1단계(접힘)가 끝나는 시점(약  --motion-book)에 시작해, 표지→책등 회전과 함께
-      // 책장으로 빨려 들어간다. 토큰을 읽어 CSS 2단계와 맞춘다.
+      // 닫기 3단계: 1접힘 → 2제자리 회전(표지→책등) → 3책장으로. FLIP 은 3단계라
+      // 회전이 끝난 뒤(2*--motion-book) 시작해, 책등이 그대로 책장으로 들어간다.
       const mb = parseFloat(getComputedStyle(root).getPropertyValue('--motion-book')) || 680;
       return stage.animate(
         [
@@ -154,7 +156,7 @@ export function BookController() {
             offset: 1,
           },
         ],
-        { duration: mb, delay: mb, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' },
+        { duration: mb, delay: mb * 2, easing: 'cubic-bezier(0.5, 0, 0.2, 1)', fill: 'forwards' },
       );
     };
 

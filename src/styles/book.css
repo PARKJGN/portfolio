@@ -432,40 +432,43 @@
    JS(FLIP)의 위치·크기 변화와 함께 걸린다. */
 @keyframes bookRotateOut {
   0% {
-    transform: rotateY(86deg);
+    transform: rotateY(74deg);
   }
   100% {
     transform: rotateY(0deg);
   }
 }
-/* 등장 동안 보드+종이는 숨긴다 — 안 그러면 회전하는 표지 뒤로 내용이 새어 보인다.
-   표지가 정면(약 0°)에 다다르면 드러난다. */
+/* 등장·회전 동안 보드+종이는 숨긴다 — 안 그러면 회전하는 표지 뒤로 내용이 샌다.
+   펼침(3단계) 시작에서 빠르게 드러난다. */
 @keyframes bookEmergeReveal {
-  0%,
-  86% {
+  0% {
     opacity: 0;
   }
+  14%,
   100% {
     opacity: 1;
   }
 }
 
-/* 1단계(등장, 0~1.0): 책등→표지 회전 + 보드 숨김.
-   2단계(펼침, 1.0~2.0): 앞장이 넘어가고 반쪽에서 전체로 벌어진다. */
+/* 등장을 세 단계로 나눠 '책등이 먼저 나오고 → 제자리에서 회전 → 펼침' 이 각각
+   또렷이 보이게 한다. 단계 길이는 --motion-book.
+     1단계(0~1.0): 책등이 책장에서 나온다(JS FLIP). 이 동안 잎은 86°(책등)로 고정.
+     2단계(1.0~2.0): 제자리에서 책등→표지로 회전.
+     3단계(2.0~3.0): 앞장이 넘어가고 반쪽→전체로 벌어진다. */
 dialog[open] .book__cover-leaf {
   animation:
-    bookRotateOut var(--motion-book) cubic-bezier(0.33, 0, 0.2, 1) both,
-    coverLeafFade var(--motion-book) ease-out var(--motion-book) both;
+    bookRotateOut var(--motion-book) cubic-bezier(0.33, 0, 0.2, 1) var(--motion-book) both,
+    coverLeafFade var(--motion-book) ease-out calc(var(--motion-book) * 2) both;
 }
 dialog[open] .book__cover-leaf-inner {
-  animation: coverLeafFlip var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) var(--motion-book)
-    both;
+  animation: coverLeafFlip var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
+    calc(var(--motion-book) * 2) both;
 }
 /* 벌어짐은 .book(보드+종이)에만 건다 — 3D 표지는 스테이지의 형제라 clip 밖이다. */
 dialog[open] .book {
   animation:
-    bookEmergeReveal var(--motion-book) linear both,
-    bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) var(--motion-book) both;
+    bookEmergeReveal var(--motion-book) linear calc(var(--motion-book) * 2) both,
+    bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) calc(var(--motion-book) * 2) both;
 }
 
 /* ── 덮기(닫힘) — 펼침의 역동작 ──
@@ -504,7 +507,7 @@ dialog[open] .book {
     transform: rotateY(0deg);
   }
   100% {
-    transform: rotateY(86deg);
+    transform: rotateY(74deg);
   }
 }
 @keyframes bookSubmergeHide {
