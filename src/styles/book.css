@@ -292,82 +292,45 @@
    누른 책등의 실제 위치·크기에서 시작해 가운데로 온다. BookController 참조.
    표지 열림만 CSS 로 둔다. */
 
-/* 두 짝이 바깥 모서리를 경첩으로, 가운데(책등)부터 갈라지며 좌우로 열린다.
-   90°를 넘으면 뒷면(backface-visibility:hidden)이라 사라지며 두 페이지가 드러난다. */
-@keyframes coverSpreadLeft {
+/* 앞표지가 한쪽(왼쪽 책등) 경첩으로 젖혀지며 두 면을 드러낸다. 90°를 넘으면
+   뒷면(backface-visibility:hidden)이라 사라진다. */
+@keyframes coverOpen {
   0% {
     transform: rotateY(0deg);
   }
   100% {
-    transform: rotateY(-160deg);
+    transform: rotateY(-155deg);
   }
 }
 
-@keyframes coverSpreadRight {
-  0% {
-    transform: rotateY(0deg);
-  }
-  100% {
-    transform: rotateY(160deg);
-  }
-}
-
-/* 표지 글자는 두 짝이 갈라지기 시작할 때 먼저 사라진다. */
+/* 표지 글자는 표지가 젖혀지기 시작하면 먼저 사라진다. */
 @keyframes coverFaceFade {
   0%,
-  20% {
+  24% {
     opacity: 1;
   }
-  46%,
+  55%,
   100% {
     opacity: 0;
   }
 }
 
-/* 표지 — 책 위를 덮는 두 짝(왼/오른). 가운데 책등을 경첩으로 좌우로 펼쳐진다.
-   컨테이너는 두 짝에 원근(perspective)만 주고, 색은 각 짝의 spine--X 가 칠한다. */
+/* 표지 — 책 위를 덮는 단일 앞표지. 왼쪽 책등을 경첩으로 한쪽으로 열린다.
+   색·글자색은 spine--X 가 준다. */
 .book__cover {
   position: absolute;
   inset: 0;
   z-index: 2;
-  perspective: 2000px;
-}
-
-/* spine--X 가 컨테이너에도 배경을 주지만, 색은 두 짝이 칠하므로 배경만 지운다.
-   글자색(color)은 남겨 face 가 물려받는다. (0,2,0) 이라 spine--X(0,1,0)를 이긴다. */
-.book-stage .book__cover {
-  background: transparent;
-}
-
-.book__cover-half {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
+  transform-origin: left center;
   backface-visibility: hidden;
-  box-shadow: 0 16px 54px rgb(0 0 0 / 40%);
+  border-radius: 2px;
+  box-shadow: 0 18px 56px rgb(0 0 0 / 42%);
 }
 
-.book__cover-half--left {
-  left: 0;
-  transform-origin: left center; /* 바깥(왼쪽)에 경첩 → 안쪽 모서리가 먼저 젖혀진다 */
-  border-radius: 2px 0 0 2px;
-  /* 안쪽(책등)으로 갈수록 살짝 어둡게 — 접힘의 입체감 */
-  background-image: linear-gradient(90deg, transparent, rgb(0 0 0 / 16%));
-}
-
-.book__cover-half--right {
-  right: 0;
-  transform-origin: right center; /* 바깥(오른쪽)에 경첩 → 안쪽 모서리가 먼저 젖혀진다 */
-  border-radius: 0 2px 2px 0;
-  background-image: linear-gradient(90deg, rgb(0 0 0 / 16%), transparent);
-}
-
-/* 표지 위 글자 — 두 짝 위에 얹혀 가운데 정렬. cap 은 책 머리 단면. */
+/* 표지 위 글자 — 표지 면에 얹혀 가운데 정렬. cap 은 책 머리 단면. */
 .book__cover-face {
   position: absolute;
   inset: 0;
-  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -398,19 +361,11 @@
   letter-spacing: 0.14em;
 }
 
-/* 책이 거의 다 나온 뒤(약 55%) 표지가 좌우로 펼쳐지기 시작한다. */
+/* 책이 거의 다 나온 뒤(약 55%) 표지가 한쪽으로 젖혀지기 시작한다. */
 dialog[open] .book__cover {
+  animation: coverOpen var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
+    calc(var(--motion-book) * 0.55) both;
   pointer-events: none;
-}
-
-dialog[open] .book__cover-half--left {
-  animation: coverSpreadLeft var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
-    calc(var(--motion-book) * 0.55) both;
-}
-
-dialog[open] .book__cover-half--right {
-  animation: coverSpreadRight var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
-    calc(var(--motion-book) * 0.55) both;
 }
 
 dialog[open] .book__cover-face {
