@@ -57,25 +57,23 @@ export default function RoomPage() {
                   </form>
                 }
               />
-              {/* 표지 — 앞장이 가운데 책등을 경첩으로 왼쪽으로 넘어가며, 그 뒷면이
-                  왼쪽 페이지가 된다(진짜 책처럼). 장식이라 aria-hidden. 색은 spine--X. */}
-              <div className={`book__cover spine--${book.spine.color}`} aria-hidden="true">
-                {/* 왼쪽 면을 덮은 표지 절반 — 열리며 옅어져 왼쪽 페이지를 드러낸다 */}
-                <span className={`book__cover-shell spine--${book.spine.color}`} />
-                {/* 오른쪽 앞장 — 넘어가는 잎. 바깥(leaf)은 페이드, 안쪽(inner)은 회전.
-                    둘을 나눠야 opacity 가 3D 를 평면화하지 않아 뒷면(페이지) 전환이 된다.
-                    앞은 표지, 뒤는 페이지. */}
+              {/* 표지 — 닫힌 책은 오른쪽 한 면(가로 절반)뿐이다. 이 앞장이 가운데
+                  책등을 경첩으로 왼쪽으로 넘어가며 그 뒷면이 왼쪽 페이지가 되고,
+                  동시에 책이 반쪽에서 두 면 전체로 벌어진다. 장식이라 aria-hidden. */}
+              <div className="book__cover" aria-hidden="true">
+                {/* 넘어가는 잎 — 바깥(leaf)은 페이드, 안쪽(inner)은 회전. 둘을 나눠야
+                    opacity 가 3D 를 평면화하지 않아 뒷면(페이지) 전환이 된다. */}
                 <span className="book__cover-leaf">
                   <span className="book__cover-leaf-inner">
-                    <span className={`book__cover-leaf-front spine--${book.spine.color}`} />
+                    {/* 앞면 = 표지(글자). 닫힌 책에서 보이는 한 면. */}
+                    <span className={`book__cover-leaf-front spine--${book.spine.color}`}>
+                      <span className="book__cover-cap" />
+                      <span className="book__cover-title">{book.title}</span>
+                      {book.year ? <span className="book__cover-year">{book.year}</span> : null}
+                    </span>
+                    {/* 뒷면 = 페이지 — 넘어가면 왼쪽 페이지가 된다. */}
                     <span className="book__cover-leaf-back" />
                   </span>
-                </span>
-                {/* 표지 글자 — 넘어가기 시작하면 먼저 사라진다 */}
-                <span className="book__cover-face">
-                  <span className="book__cover-cap" />
-                  <span className="book__cover-title">{book.title}</span>
-                  {book.year ? <span className="book__cover-year">{book.year}</span> : null}
                 </span>
               </div>
             </div>
