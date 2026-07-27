@@ -292,45 +292,109 @@
    누른 책등의 실제 위치·크기에서 시작해 가운데로 온다. BookController 참조.
    표지 열림만 CSS 로 둔다. */
 
-/* 앞표지가 한쪽(왼쪽 책등) 경첩으로 젖혀지며 두 면을 드러낸다. 90°를 넘으면
-   뒷면(backface-visibility:hidden)이라 사라진다. */
-@keyframes coverOpen {
-  0% {
+/* 오른쪽 앞장이 가운데 책등을 경첩으로 왼쪽으로 넘어간다. 앞(표지)에서 90°를
+   넘어가면 뒤(페이지)가 위로 오며, 넘어간 자리가 곧 왼쪽 페이지가 된다. */
+@keyframes coverLeafFlip {
+  0%,
+  18% {
     transform: rotateY(0deg);
   }
   100% {
-    transform: rotateY(-155deg);
+    transform: rotateY(-176deg);
   }
 }
-
-/* 표지 글자는 표지가 젖혀지기 시작하면 먼저 사라진다. */
-@keyframes coverFaceFade {
+/* 다 넘어간 잎은 살짝 사라지며 아래의 진짜 왼쪽 페이지(본문)를 드러낸다. */
+@keyframes coverLeafFade {
+  0%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* 왼쪽 표지 절반은 옅어지며 왼쪽 페이지 자리를 비운다. */
+@keyframes coverShellAway {
   0%,
   24% {
     opacity: 1;
   }
-  55%,
+  52%,
+  100% {
+    opacity: 0;
+  }
+}
+/* 표지 글자는 넘어가기 시작하면 먼저 사라진다. */
+@keyframes coverFaceFade {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  44%,
   100% {
     opacity: 0;
   }
 }
 
-/* 표지 — 책 위를 덮는 단일 앞표지. 왼쪽 책등을 경첩으로 한쪽으로 열린다.
-   색·글자색은 spine--X 가 준다. */
+/* 표지 컨테이너 — 두 면을 덮는다. 원근(perspective)은 넘어가는 잎을 위해. 색은
+   spine--X 지만 배경은 절반·잎이 각자 칠하므로 컨테이너 배경은 지운다(글자색은 남김). */
 .book__cover {
   position: absolute;
   inset: 0;
   z-index: 2;
-  transform-origin: left center;
-  backface-visibility: hidden;
-  border-radius: 2px;
-  box-shadow: 0 18px 56px rgb(0 0 0 / 42%);
+  perspective: 2000px;
+  pointer-events: none;
+}
+.book-stage .book__cover {
+  background: transparent;
 }
 
-/* 표지 위 글자 — 표지 면에 얹혀 가운데 정렬. cap 은 책 머리 단면. */
+/* 왼쪽 면을 덮은 표지 절반 */
+.book__cover-shell {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 18px 56px rgb(0 0 0 / 40%);
+}
+
+/* 오른쪽 앞장(넘어가는 잎) — 바깥은 페이드만, 3D 는 건드리지 않는다. */
+.book__cover-leaf {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  transform-style: preserve-3d; /* 위 perspective 를 안쪽으로 통과시킨다 */
+}
+/* 안쪽 — 가운데 책등(왼쪽 모서리)을 경첩으로 왼쪽으로 넘어간다. 뒤집히면 뒷면(페이지)이 온다. */
+.book__cover-leaf-inner {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+}
+.book__cover-leaf-front,
+.book__cover-leaf-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 0 2px 2px 0;
+}
+/* 뒷면 = 페이지(넘어가면 왼쪽 페이지가 된다) */
+.book__cover-leaf-back {
+  transform: rotateY(180deg);
+  background: var(--page-bg);
+  box-shadow: inset -30px 0 40px -34px color-mix(in srgb, var(--backdrop) 60%, transparent);
+}
+
+/* 표지 위 글자 — 두 면 위에 얹혀 가운데 정렬. cap 은 책 머리 단면. */
 .book__cover-face {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -361,13 +425,17 @@
   letter-spacing: 0.14em;
 }
 
-/* 책이 거의 다 나온 뒤(약 55%) 표지가 한쪽으로 젖혀지기 시작한다. */
-dialog[open] .book__cover {
-  animation: coverOpen var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
+/* 책이 거의 다 나온 뒤(약 55%) 표지가 넘어가기 시작한다. */
+dialog[open] .book__cover-leaf-inner {
+  animation: coverLeafFlip var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1)
     calc(var(--motion-book) * 0.55) both;
-  pointer-events: none;
 }
-
+dialog[open] .book__cover-leaf {
+  animation: coverLeafFade var(--motion-book) ease-out calc(var(--motion-book) * 0.55) both;
+}
+dialog[open] .book__cover-shell {
+  animation: coverShellAway var(--motion-book) ease-out calc(var(--motion-book) * 0.55) both;
+}
 dialog[open] .book__cover-face {
   animation: coverFaceFade var(--motion-book) ease-out calc(var(--motion-book) * 0.55) both;
 }
