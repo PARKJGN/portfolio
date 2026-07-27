@@ -544,18 +544,19 @@ dialog[open] .book__cover-face {
    좌·우가 뚜렷이 다른 두 페이지로 보이게 한다. */
 @media (min-width: 680px) {
   [data-view-mode='paged'] .book-dialog .book__body {
-    column-count: 2;
+    column-count: 2; /* 한 번에 두 면(왼·오른) */
     column-width: auto;
     column-gap: var(--space-16); /* 가운데 책등 틈 — 글이 책등에 붙지 않게 넓게 */
     column-rule: 1px solid color-mix(in srgb, var(--page-rule) 55%, transparent);
-    /* balance: 내용이 짧아도 두 면에 고르게 나눠 담는다 — 오른쪽 면이 비어
-       '한 페이지'처럼 보이던 문제를 없앤다. 긴 글은 세로로 스크롤. */
-    column-fill: balance;
+    /* auto: 왼쪽 면을 끝까지 채우고 오른쪽 면으로 이어진다(진짜 책 읽는 순서).
+       두 면을 넘치면 옆으로 넘겨 다음 두 면 — 넘김은 조작부 ←/→ 가 맡는다. */
+    column-fill: auto;
     padding-inline: var(--space-8);
-    height: auto;
-    max-height: 58svh;
-    overflow-x: hidden;
-    overflow-y: auto;
+    height: 58svh;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* scroll-behavior 는 기본 규칙(0,2,0)에 맡긴다 — 여기(0,3,0)서 smooth 를 주면
+       움직임 최소화의 auto 재정의를 이겨버려 FR-016 이 깨진다(E2E 가 잡음). */
   }
 
   /* 가운데 책등 — 두 면 사이를 '틈'으로 가른다. 가운데는 투명이라 뒤의 하드커버
