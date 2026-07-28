@@ -183,12 +183,18 @@ function drawContentPage(
     y += bl.h ? lineH * 0.15 : lineH * 0.5;
   }
 
-  const gx = gutter === 'left' ? c.width : 0;
-  const grad = g.createLinearGradient(gx, 0, gutter === 'left' ? c.width * 0.72 : c.width * 0.28, 0);
-  grad.addColorStop(0, 'rgba(40,26,10,0.26)');
-  grad.addColorStop(1, 'rgba(40,26,10,0)');
+  // 책등 쪽(안쪽) 그늘 — 페이지가 골로 말려 드는 느낌. 진하게 해서 가운데가
+  // 책처럼 확실히 나뉘어 보이게 한다.
+  const inner = gutter === 'left' ? c.width : 0; // 안쪽(책등) 가장자리
+  const grad = g.createLinearGradient(inner, 0, gutter === 'left' ? c.width * 0.6 : c.width * 0.4, 0);
+  grad.addColorStop(0, 'rgba(35,22,8,0.5)');
+  grad.addColorStop(0.5, 'rgba(35,22,8,0.14)');
+  grad.addColorStop(1, 'rgba(35,22,8,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, c.width, c.height);
+  // 안쪽 가장자리에 얇은 짙은 선(접힘 골)
+  g.fillStyle = 'rgba(30,18,6,0.55)';
+  g.fillRect(gutter === 'left' ? c.width - 4 : 0, 0, 4, c.height);
 
   return { tex: tex(THREE, c), next: i };
 }
@@ -385,6 +391,27 @@ export class Book3D {
 
   /** 등장+펼침: 책장에서 뽑혀 회전하고 표지가 열려 첫 스프레드를 편다. 끝나도 유지. */
   playOpen(opts: {
+    spineRect: Rect;
+    v: BookVisual;
+    coverW: number;
+    coverH: number;
+    thickness: number;
+    duration: number;
+    onDone: () => void;
+  }) {
+    // 페이지 텍스처를 그리기 전에 본문 글꼴을 확실히 로드한다 — 안 그러면 canvas 가
+    // 시스템 명조로 폴백해 HTML 과 글꼴이 달라 보인다.
+    const build = () => this.startOpen(opts);
+    const fonts = (document as unknown as { fonts?: FontFaceSet }).fonts;
+    if (fonts?.load) {
+      Promise.all([
+        fonts.load('600 40px "Noto Serif KR Subset"'),
+        fonts.load('400 40px "Noto Serif KR Subset"'),
+      ]).then(build, build);
+    } else build();
+  }
+
+  private startOpen(opts: {
     spineRect: Rect;
     v: BookVisual;
     coverW: number;
