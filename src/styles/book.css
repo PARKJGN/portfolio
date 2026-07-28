@@ -25,10 +25,12 @@
    data-open3d 는 그 사이 CSS 등장 애니메이션(회전·펼침)을 끄고 '이미 펼친' 정적
    상태로 둔다 — 등장은 3D 가 이미 했으므로. (3D 불가·움직임최소화면 이 속성들이
    붙지 않아 기존 CSS 연출로 동작한다.) */
+/* 인트로(뽑기→회전→펼침) 동안: 모달 전체를 숨겨 방·3D 책만 보인다. */
 .book-dialog[data-intro] .book-stage {
   opacity: 0;
 }
-.book-dialog[data-intro]::backdrop {
+.book-dialog[data-intro]::backdrop,
+.book-dialog[data-reader]::backdrop {
   background: transparent;
 }
 .book-dialog[data-open3d] .book__cover {
@@ -36,6 +38,37 @@
 }
 .book-dialog[data-open3d] .book {
   animation: none;
+}
+
+/* 3D 리더 유지 동안: 종이·하드커버는 3D 가 그리므로 HTML 크롬은 투명/숨김.
+   본문은 낭독기·검색용으로 DOM 에 두되 눈에는 안 보이게(opacity 0, 클릭 불가).
+   조작 막대(넘기기·덮기)만 3D 위에 보인다. 전체 이어보기는 3D 에 안 맞아 숨긴다. */
+.book-dialog[data-reader] .book {
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+.book-dialog[data-reader] .book-stage {
+  background: transparent;
+  box-shadow: none;
+}
+.book-dialog[data-reader] .book-stage::before,
+.book-dialog[data-reader] .book__cover,
+.book-dialog[data-reader]::after {
+  display: none;
+}
+.book-dialog[data-reader] .book__pages {
+  opacity: 0;
+  pointer-events: none;
+}
+.book-dialog[data-reader] [data-action='toggle-view'] {
+  display: none;
+}
+/* 조작 막대는 3D 위에서 읽히도록 옅은 판을 깐다. */
+.book-dialog[data-reader] .book__tools {
+  background: color-mix(in srgb, var(--backdrop) 46%, transparent);
+  border-radius: 10px;
+  padding: var(--space-2) var(--space-4);
 }
 
 /* 책이 3D 로 빠져나오면 책장의 그 책(책등)을 감춘다 — 자리는 빈 채로 둔다.

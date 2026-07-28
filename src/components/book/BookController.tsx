@@ -9,6 +9,7 @@ import {
   writeStoredMode,
   type ViewMode,
 } from '@/lib/view-mode';
+import type { Book3D } from './book3d';
 
 /**
  * 이 사이트의 **유일한** 클라이언트 컴포넌트다.
@@ -37,6 +38,21 @@ export function BookController() {
     // 화분 상태: 남은 잎 수(3→2→1), 0 은 꽃이 핀 상태. 클릭마다 진행하고 다시 처음으로.
     let plantStage = 3;
 
+    // 3D 리더가 켜져 있으면 여기에 담긴다. 넘김·닫기·진행표시가 이걸 통해 3D 로 간다.
+    let activeReader: Book3D | null = null;
+    const readerProgress = (i: number, total: number) => {
+      const open = document.querySelector<HTMLElement>('dialog[open]');
+      if (!open) return;
+      const label = open.querySelector<HTMLElement>('[data-progress]');
+      if (label) label.textContent = `${i + 1} / ${total}`;
+      open
+        .querySelector<HTMLButtonElement>('[data-action="page-prev"]')
+        ?.toggleAttribute('disabled', i <= 0);
+      open
+        .querySelector<HTMLButtonElement>('[data-action="page-next"]')
+        ?.toggleAttribute('disabled', i >= total - 1);
+    };
+
     // 선언 순서에 주의 — 아래 초기화 호출은 이 파일 맨 끝에 있다.
     // applyMode 가 updateProgress 를, 그것이 visibleBody 를 부르므로
     // 셋이 모두 선언된 뒤에 첫 호출이 일어나야 한다.
@@ -58,6 +74,7 @@ export function BookController() {
     };
 
     function updateProgress() {
+      if (activeReader) return; // 3D 리더가 진행표시를 직접 관리한다
       const body = visibleBody();
       if (!body) return;
       const { current, total } = pageProgress(body.scrollLeft, body.clientWidth, body.scrollWidth);
@@ -182,22 +199,25 @@ export function BookController() {
         .then((m) => m.getBook3D())
         .then((eng) => {
           if (!dialog.open || dialog.dataset.intro == null) return; // 이미 닫힘
+          eng.onProgress = readerProgress;
           eng.show();
           eng.playOpen({
             spineRect: spineRect!,
             v,
             ...dims,
             duration: 1300,
-            onFacing: () => {}, // (표지가 정면에 다다르는 순간 — 지금은 미사용)
-            // 3D 가 표지를 완전히 세운 뒤 모달을 크로스페이드로 드러내고 캔버스를 끈다.
+            // 다 펼친 뒤에도 3D 를 유지한다(리더). HTML 종이·표지는 감추고 낭독기용으로만
+            // DOM 에 남기며, 조작 막대만 3D 위에 보인다. 넘김·닫기가 이 엔진으로 간다.
             onDone: () => {
               delete dialog.dataset.intro;
-              eng.hide();
+              dialog.dataset.reader = '';
+              activeReader = eng;
             },
           });
         })
         .catch(() => {
-          delete dialog.dataset.intro; // WebGL 불가 → 정적으로 즉시 표시
+          delete dialog.dataset.intro; // WebGL 불가 → 정적으로 즉시 표시(폴백)
+          delete dialog.dataset.open3d;
         });
       return true;
     };
@@ -239,6 +259,7 @@ export function BookController() {
       const finish = () => {
         delete dialog.dataset.closing;
         delete dialog.dataset.open3d;
+        delete dialog.dataset.reader;
         setPulled(slug, false); // 책장에 책을 되돌린다
         dialog.close();
       };
@@ -249,28 +270,23 @@ export function BookController() {
       }
       dialog.dataset.closing = '';
 
-      // 3D 로 열렸으면 3D 로 닫는다 — 표지→책등 회전하며 책장으로 들어간다.
+      // 3D 리더로 열려 있으면 3D 로 닫는다 — 표지 덮고 회전하며 책장으로 들어간다.
+      const reader = activeReader;
       const spineRect = spineRectOf(slug);
-      if (dialog.dataset.open3d != null && spineRect) {
-        const v = readVisual(dialog);
-        const dims = bookDims();
-        dialog.dataset.intro = ''; // 모달을 숨기고 3D 책을 보인다
-        import('./book3d')
-          .then((m) => m.getBook3D())
-          .then((eng) => {
-            eng.show();
-            eng.playClose({
-              spineRect,
-              v,
-              ...dims,
-              duration: 1100,
-              onDone: () => {
-                eng.hide();
-                finish();
-              },
-            });
-          })
-          .catch(finish);
+      if (reader && spineRect) {
+        activeReader = null;
+        delete dialog.dataset.reader;
+        dialog.dataset.intro = ''; // 조작 막대까지 감추고 3D 책만 보인다
+        reader.playClose({
+          spineRect,
+          coverH: bookDims().coverH,
+          duration: 1000,
+          onDone: () => {
+            reader.hide();
+            reader.clear();
+            finish();
+          },
+        });
         return;
       }
 
@@ -287,6 +303,12 @@ export function BookController() {
       closingFromHistory = true;
       clearPulled();
       delete open.dataset.open3d;
+      delete open.dataset.reader;
+      if (activeReader) {
+        activeReader.hide();
+        activeReader.clear();
+        activeReader = null;
+      }
       open.close();
       closingFromHistory = false;
     };
@@ -305,8 +327,8 @@ export function BookController() {
         writeStoredMode(globalThis.localStorage, next);
         return;
       }
-      if (action === 'page-prev') return turnPage(-1);
-      if (action === 'page-next') return turnPage(1);
+      if (action === 'page-prev') return activeReader ? activeReader.turn(-1) : turnPage(-1);
+      if (action === 'page-next') return activeReader ? activeReader.turn(1) : turnPage(1);
 
       // 창 — 해가 떴다 진다. 지면 처음 상태(기본 창)로 돌아간다. 밤(어두운 하늘) 없음.
       if (action === 'toggle-sky') {
@@ -406,7 +428,10 @@ export function BookController() {
       else closeOpenDialog();
     };
 
-    const onScrollOrResize = () => updateProgress();
+    const onScrollOrResize = () => {
+      activeReader?.onResize();
+      updateProgress();
+    };
 
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
