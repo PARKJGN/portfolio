@@ -39,6 +39,14 @@
   animation: none;
 }
 
+/* 책이 3D 로 빠져나오면 책장의 그 책(책등)을 감춘다 — 자리는 빈 채로 둔다.
+   닫으면 다시 나타난다. BookController 가 .is-pulled 를 토글. transition 은 두지
+   않는다(책등의 기존 transform transition 만 유지 — 움직임 최소화 검사가 단일 '0s'
+   를 기대). 숨는·나타나는 순간은 3D 책이 그 자리를 덮어 자연스럽다. */
+[data-book-slug].is-pulled {
+  opacity: 0;
+}
+
 .book {
   position: relative;
   display: flex;

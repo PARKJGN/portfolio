@@ -137,8 +137,15 @@ export function BookController() {
       const coverH = Math.min(560, window.innerHeight * 0.7);
       return { coverW: coverH * 0.72, coverH, thickness: coverH * 0.085 };
     };
-    const spineRectOf = (slug: string) =>
-      document.querySelector(`[data-book-slug="${slug}"]`)?.getBoundingClientRect();
+    const spineElOf = (slug: string) => document.querySelector(`[data-book-slug="${slug}"]`);
+    const spineRectOf = (slug: string) => spineElOf(slug)?.getBoundingClientRect();
+    // 3D 로 빠져나온 책은 책장에서 감춘다(자리는 빈 채). 닫으면 되돌린다.
+    const setPulled = (slug: string, on: boolean) =>
+      spineElOf(slug)?.classList.toggle('is-pulled', on);
+    const clearPulled = () => {
+      for (const el of document.querySelectorAll('[data-book-slug].is-pulled'))
+        el.classList.remove('is-pulled');
+    };
 
     const openDialog = (slug: string, pushHistory: boolean) => {
       const dialog = dialogFor(slug);
@@ -151,6 +158,7 @@ export function BookController() {
         // 3D 가 등장을 그리는 동안 모달은 숨기고(정적 펼침 상태로) 방·3D 책을 보인다.
         dialog.dataset.open3d = '';
         dialog.dataset.intro = '';
+        setPulled(slug, true); // 책장의 그 책을 감춘다
       }
       dialog.showModal();
       if (pushHistory) history.pushState({ bookSlug: slug }, '', `/books/${slug}`);
@@ -224,9 +232,11 @@ export function BookController() {
       const finish = () => {
         delete dialog.dataset.closing;
         delete dialog.dataset.open3d;
+        setPulled(slug, false); // 책장에 책을 되돌린다
         dialog.close();
       };
       if (reduced()) {
+        setPulled(slug, false);
         dialog.close();
         return;
       }
@@ -268,6 +278,8 @@ export function BookController() {
       const open = document.querySelector<HTMLDialogElement>('dialog[open]');
       if (!open) return;
       closingFromHistory = true;
+      clearPulled();
+      delete open.dataset.open3d;
       open.close();
       closingFromHistory = false;
     };
