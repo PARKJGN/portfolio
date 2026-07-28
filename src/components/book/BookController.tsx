@@ -125,12 +125,19 @@ export function BookController() {
     const readVisual = (dialog: HTMLDialogElement) => {
       const front = dialog.querySelector<HTMLElement>('.book__cover-leaf-front');
       const cs = front ? getComputedStyle(front) : null;
+      const body = dialog.querySelector('.book__body');
+      const blocks = body
+        ? Array.from(body.querySelectorAll('h2, p'))
+            .map((el) => ({ h: el.tagName === 'H2', text: el.textContent?.trim() || '' }))
+            .filter((b) => b.text)
+        : [];
       return {
         cover: cs?.backgroundColor || '#7d3b2a',
         ink: cs?.color || '#f3e6dc',
         pages: getComputedStyle(root).getPropertyValue('--spine-pages').trim() || '#ece0c4',
         title: dialog.querySelector('.book__cover-title')?.textContent?.trim() || '',
         year: dialog.querySelector('.book__cover-year')?.textContent?.trim() || undefined,
+        blocks,
       };
     };
     const bookDims = () => {

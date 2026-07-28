@@ -24,6 +24,8 @@ export interface BookVisual {
   pages: string;
   title: string;
   year?: string;
+  /** 펼친 3D 페이지에 그릴 본문(머리글·문단). 크로스페이드가 매끄럽도록 실제 내용을 미리 보인다. */
+  blocks?: { h: boolean; text: string }[];
 }
 
 export interface Rect {
@@ -91,28 +93,89 @@ function spineTexture(THREE: THREE, v: BookVisual, w: number, h: number) {
   return tex(THREE, c);
 }
 
-/** 페이지 면(크림 + 낱장 결). side: 왼/오른쪽에 따라 안쪽(책등)에 옅은 그늘. */
-function pageTexture(THREE: THREE, v: BookVisual, w: number, h: number, gutter: 'left' | 'right') {
+/** 글자 폭에 맞춰 줄바꿈(한글은 글자 단위로 끊어도 자연스럽다). */
+function wrapLines(g: CanvasRenderingContext2D, text: string, maxW: number) {
+  const lines: string[] = [];
+  let cur = '';
+  for (const ch of [...text]) {
+    if (ch === '\n') {
+      lines.push(cur);
+      cur = '';
+      continue;
+    }
+    const test = cur + ch;
+    if (g.measureText(test).width > maxW && cur) {
+      lines.push(cur);
+      cur = ch;
+    } else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** 한 페이지(크림 + 그늘 + 본문). startIdx 부터 담을 수 있는 만큼 담고 다음 인덱스를 돌려준다. */
+function drawContentPage(
+  THREE: THREE,
+  v: BookVisual,
+  w: number,
+  h: number,
+  gutter: 'left' | 'right',
+  blocks: { h: boolean; text: string }[],
+  startIdx: number,
+  withTitle: boolean,
+) {
   const c = makeCanvas(w, h);
   const g = c.getContext('2d')!;
   g.fillStyle = v.pages;
   g.fillRect(0, 0, c.width, c.height);
-  g.strokeStyle = 'rgba(90,70,40,0.10)';
-  g.lineWidth = 1;
-  for (let i = Math.round(c.height * 0.16); i < c.height * 0.9; i += Math.round(c.height * 0.05)) {
+
+  const padX = Math.round(c.width * 0.11);
+  const colW = c.width - padX * 2;
+  const bottom = c.height * 0.93;
+  const ink = '#463714';
+  g.fillStyle = ink;
+  g.textAlign = 'left';
+  g.textBaseline = 'alphabetic';
+  let y = c.height * 0.09;
+
+  if (withTitle) {
+    const ts = Math.round(c.width * 0.052);
+    g.font = `600 ${ts}px "Noto Serif KR Subset", serif`;
+    g.fillText(v.title, padX, y + ts);
+    y += ts * 2.1;
+    g.strokeStyle = 'rgba(70,55,20,0.25)';
     g.beginPath();
-    g.moveTo(c.width * 0.12, i);
-    g.lineTo(c.width * 0.88, i);
+    g.moveTo(padX, y);
+    g.lineTo(c.width - padX, y);
     g.stroke();
+    y += ts * 0.9;
   }
-  // 책등 쪽 그늘(페이지가 골로 말려 드는 느낌)
+
+  let i = startIdx;
+  for (; i < blocks.length; i++) {
+    const bl = blocks[i];
+    const fs = bl.h ? Math.round(c.width * 0.05) : Math.round(c.width * 0.038);
+    const lineH = fs * 1.62;
+    g.font = `${bl.h ? 600 : 400} ${fs}px "Noto Serif KR Subset", serif`;
+    if (bl.h) y += lineH * 0.5;
+    if (y + fs > bottom) break; // 시작할 자리도 없으면 다음 페이지로
+    for (const ln of wrapLines(g, bl.text, colW)) {
+      if (y + fs > bottom) break;
+      g.fillText(ln, padX, y + fs);
+      y += lineH;
+    }
+    y += bl.h ? lineH * 0.15 : lineH * 0.5;
+  }
+
+  // 책등 쪽 그늘(페이지가 골로 말려 드는 느낌) — 글자 위에.
   const gx = gutter === 'left' ? c.width : 0;
-  const grad = g.createLinearGradient(gx, 0, gutter === 'left' ? c.width * 0.7 : c.width * 0.3, 0);
-  grad.addColorStop(0, 'rgba(40,26,10,0.30)');
+  const grad = g.createLinearGradient(gx, 0, gutter === 'left' ? c.width * 0.72 : c.width * 0.28, 0);
+  grad.addColorStop(0, 'rgba(40,26,10,0.28)');
   grad.addColorStop(1, 'rgba(40,26,10,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, c.width, c.height);
-  return tex(THREE, c);
+
+  return { tex: tex(THREE, c), next: i };
 }
 
 function edgeTexture(THREE: THREE, v: BookVisual, w: number, h: number, vertical: boolean) {
@@ -193,10 +256,16 @@ export class Book3D {
     const group = new T.Group();
 
     const ratio = (a: number, b: number) => Math.max(8, Math.round((a * 96) / b));
+    const pw = 640;
+    const ph = Math.round((pw * H) / W);
     const coverTex = coverTexture(T, v, 512, Math.round((512 * H) / W));
     const spineTex = spineTexture(T, v, 96, ratio(H, thickness));
-    const pageR = pageTexture(T, v, 512, Math.round((512 * H) / W), 'left'); // 오른쪽 면(골이 왼쪽)
-    const pageL = pageTexture(T, v, 512, Math.round((512 * H) / W), 'right'); // 왼쪽 면(골이 오른쪽)
+    // 왼쪽 면(머리글+본문 시작) → 오른쪽 면(이어지는 본문). 실제 내용을 미리 보여
+    // HTML 모달로의 크로스페이드가 매끄럽다.
+    const blocks = v.blocks ?? [];
+    const left = drawContentPage(T, v, pw, ph, 'right', blocks, 0, true);
+    const pageL = left.tex; // 표지 안쪽 = 왼쪽 페이지
+    const pageR = drawContentPage(T, v, pw, ph, 'left', blocks, left.next, false).tex;
     const headTail = edgeTexture(T, v, 512, 96, false);
     const foreEdge = edgeTexture(T, v, 96, ratio(H, thickness), true);
     const backTex = coverTexture(T, { ...v, title: '' }, 512, Math.round((512 * H) / W));
