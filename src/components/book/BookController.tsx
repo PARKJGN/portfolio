@@ -119,14 +119,71 @@ export function BookController() {
       );
     };
 
+    const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 3D 연출에 필요한 시각 정보를 이미 렌더된 표지 DOM 에서 읽는다(색·글자·제목).
+    const readVisual = (dialog: HTMLDialogElement) => {
+      const front = dialog.querySelector<HTMLElement>('.book__cover-leaf-front');
+      const cs = front ? getComputedStyle(front) : null;
+      return {
+        cover: cs?.backgroundColor || '#7d3b2a',
+        ink: cs?.color || '#f3e6dc',
+        pages: getComputedStyle(root).getPropertyValue('--spine-pages').trim() || '#ece0c4',
+        title: dialog.querySelector('.book__cover-title')?.textContent?.trim() || '',
+        year: dialog.querySelector('.book__cover-year')?.textContent?.trim() || undefined,
+      };
+    };
+    const bookDims = () => {
+      const coverH = Math.min(560, window.innerHeight * 0.7);
+      return { coverW: coverH * 0.72, coverH, thickness: coverH * 0.085 };
+    };
+    const spineRectOf = (slug: string) =>
+      document.querySelector(`[data-book-slug="${slug}"]`)?.getBoundingClientRect();
+
     const openDialog = (slug: string, pushHistory: boolean) => {
       const dialog = dialogFor(slug);
       if (!dialog || dialog.open) return false;
       delete dialog.dataset.closing; // 접힘 도중 재열림 대비
+
+      const spineRect = spineRectOf(slug);
+      const use3D = !reduced() && !!spineRect;
+      if (use3D) {
+        // 3D 가 등장을 그리는 동안 모달은 숨기고(정적 펼침 상태로) 방·3D 책을 보인다.
+        dialog.dataset.open3d = '';
+        dialog.dataset.intro = '';
+      }
       dialog.showModal();
       if (pushHistory) history.pushState({ bookSlug: slug }, '', `/books/${slug}`);
       requestAnimationFrame(updateProgress);
-      animateOpenFromSpine(dialog, slug);
+
+      if (!use3D) {
+        animateOpenFromSpine(dialog, slug); // 폴백: 기존 CSS 등장
+        return true;
+      }
+
+      const v = readVisual(dialog);
+      const dims = bookDims();
+      import('./book3d')
+        .then((m) => m.getBook3D())
+        .then((eng) => {
+          if (!dialog.open || dialog.dataset.intro == null) return; // 이미 닫힘
+          eng.show();
+          eng.playOpen({
+            spineRect: spineRect!,
+            v,
+            ...dims,
+            duration: 1300,
+            onFacing: () => {}, // (표지가 정면에 다다르는 순간 — 지금은 미사용)
+            // 3D 가 표지를 완전히 세운 뒤 모달을 크로스페이드로 드러내고 캔버스를 끈다.
+            onDone: () => {
+              delete dialog.dataset.intro;
+              eng.hide();
+            },
+          });
+        })
+        .catch(() => {
+          delete dialog.dataset.intro; // WebGL 불가 → 정적으로 즉시 표시
+        });
       return true;
     };
 
@@ -160,20 +217,48 @@ export function BookController() {
       );
     };
 
-    // 덮기 요청 — 접힘 연출을 재생한 뒤 실제로 닫는다. 움직임 최소화면 즉시 닫는다.
+    // 덮기 요청 — 연출을 재생한 뒤 실제로 닫는다. 움직임 최소화면 즉시 닫는다.
     const requestClose = (dialog: HTMLDialogElement) => {
       if (!dialog.open || dialog.dataset.closing != null) return;
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const slug = dialog.id.slice('book-dialog-'.length);
+      const finish = () => {
+        delete dialog.dataset.closing;
+        delete dialog.dataset.open3d;
+        dialog.close();
+      };
+      if (reduced()) {
         dialog.close();
         return;
       }
       dialog.dataset.closing = '';
-      const slug = dialog.id.slice('book-dialog-'.length);
+
+      // 3D 로 열렸으면 3D 로 닫는다 — 표지→책등 회전하며 책장으로 들어간다.
+      const spineRect = spineRectOf(slug);
+      if (dialog.dataset.open3d != null && spineRect) {
+        const v = readVisual(dialog);
+        const dims = bookDims();
+        dialog.dataset.intro = ''; // 모달을 숨기고 3D 책을 보인다
+        import('./book3d')
+          .then((m) => m.getBook3D())
+          .then((eng) => {
+            eng.show();
+            eng.playClose({
+              spineRect,
+              v,
+              ...dims,
+              duration: 1100,
+              onDone: () => {
+                eng.hide();
+                finish();
+              },
+            });
+          })
+          .catch(finish);
+        return;
+      }
+
+      // 폴백: 기존 CSS 접힘 + JS FLIP
       const flip = animateCloseToSpine(dialog, slug);
-      const finish = () => {
-        delete dialog.dataset.closing;
-        dialog.close();
-      };
       if (flip) flip.finished.then(finish).catch(finish);
       else window.setTimeout(finish, 680);
     };
