@@ -1,6 +1,31 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 2.0.0 → 3.0.0  (2026-07-29)
+Rationale: MAJOR. Principle I 에서 "JavaScript MUST be additive — 스크립트가 없어도
+핵심 내용과 이동이 읽히고 동작해야 한다" 조항을 삭제했다. 기준을 없애는 것은 완화이며,
+완화는 이전에 부적합했던 산출물(JS 를 전제로만 열리는 3D/모달 책 리더)을 소급해서
+적합으로 바꾼다. 이 문서의 versioning policy 가 그런 변경을 MAJOR 로 규정한다.
+
+삭제 근거: 책 읽기 경험이 3D/모달 리더로 굳어지면서, 무JS 도달을 위해 유지하던
+`/books/<slug>` 정적 페이지와 그 전용 테스트가 실제 독자 없이 라우트·테스트만 늘렸다.
+개인 포트폴리오라 검색 노출·무JS 접근성을 포기하기로 사용자가 명시적으로 결정했다.
+
+무엇이 남았나: 내용은 여전히 서버 렌더 HTML 로 <dialog> 안에 존재해 낭독기·검색이
+읽을 수 있다(원칙 II 는 그대로 게이트). 다만 그 내용을 '펼쳐 읽는' 조작은 JS 를
+전제로 한다. 잃은 것은 스크립트 실패 시의 열람 경로와 책별 딥링크·색인이다.
+
+Modified principles:
+  I. Content-First, Static by Default — 무JS 열람 보장 조항 삭제, 서버 렌더 HTML
+     존재 요구로 대체
+
+Templates requiring updates:
+  ✅ specs/001-room-bookshelf-shell/spec.md — FR-012(딥링크)·무JS 관련 항목 조정
+  ✅ .specify/templates/*                   — 원칙별 필수 섹션 변화 없음, 편집 불필요
+
+Deferred TODOs: none
+
+--- 이전 개정 기록 (2.0.0) ---
 Version change: 1.0.0 → 2.0.0  (2026-07-22)
 Rationale: MAJOR. Principle III 에서 "페이지당 압축 JS 100KB 이하" 조항을 삭제했다.
 기준을 없애는 것은 완화이며, 완화는 이전에 부적합했던 산출물을 소급해서 적합으로
@@ -57,15 +82,22 @@ Deferred TODOs: none
 ### I. Content-First, Static by Default
 
 The site exists to present work and background to a human reader; every technical decision
-serves that end. Pages MUST be usable with content rendered at build time. A runtime server,
-database, or client-side data fetch MUST NOT be introduced unless a specific user-facing
-requirement cannot be met statically, and that justification MUST be recorded in the plan's
-Complexity Tracking table. JavaScript MUST be additive: core content and navigation MUST
-remain readable and operable when scripts fail to load.
+serves that end. Content MUST be authored in plain text and rendered at build time. A runtime
+server, database, or client-side data fetch MUST NOT be introduced unless a specific
+user-facing requirement cannot be met statically, and that justification MUST be recorded in
+the plan's Complexity Tracking table. Every piece of reader-facing content MUST be present as
+real, server-rendered HTML in the delivered document, so that assistive technology and search
+tools can read it directly; content MUST NOT exist only inside client-side script. Interactive
+*presentation* of that content (opening, page-turning, 3D) MAY require JavaScript.
 
 **Rationale**: A portfolio's failure mode is being slow, broken, or unreachable when someone
 who matters is looking at it. Static output removes entire categories of outage, and the
-build-time constraint keeps scope honest on a project with no operations team.
+build-time constraint keeps scope honest on a project with no operations team. The earlier
+guarantee that content stays *operable* without JavaScript was dropped in 3.0.0: the reading
+experience is a JS-driven 3D/modal reader, and a parallel no-JS page path added routes and
+tests without a real audience for this personal site. Requiring the content to remain as
+server-rendered HTML preserves what mattered most — it is still readable by screen readers and
+crawlers even though *interacting* with it now needs script.
 
 ### II. Accessibility Is Non-Negotiable
 
@@ -191,4 +223,4 @@ justified in writing or removed. Unjustified violations MUST block the merge. Th
 MUST be re-read at the start of each new feature's planning; agent runtime guidance lives in
 `CLAUDE.md` and MUST NOT contradict this constitution.
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-21 | **Last Amended**: 2026-07-22
+**Version**: 3.0.0 | **Ratified**: 2026-07-21 | **Last Amended**: 2026-07-29

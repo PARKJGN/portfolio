@@ -12,9 +12,9 @@ const WIDTH_CLASS = {
  * 평면·미니멀: 색면 위에 세로 제목만. 연도·청구기호는 책등에서 빼 여백을 살리고,
  * 그 정보는 펼친 책 안에서 보여준다.
  *
- * next/link 가 아니라 평범한 <a> 를 쓴다. Link 는 자체 클릭 핸들러로 router.push 를
- * 호출해 문서 레벨 preventDefault 로 막을 수 없다 — 모달 가로채기(R-3)가 성립하지
- * 않는다. 정적 export 라 클라이언트 라우팅의 이득도 없다.
+ * <button> 이다. 책은 3D/모달로만 열리고 이동할 정적 페이지가 없으므로, 링크가
+ * 아니라 버튼이 의미상 옳다 — 이 자리에서 무언가를 여는 조작이다. 클릭 동작은
+ * BookController 가 문서 레벨에서 위임받는다(R-3).
  */
 export function BookSpine({ book }: { book: Book }) {
   const classes = [
@@ -25,13 +25,13 @@ export function BookSpine({ book }: { book: Book }) {
   ].join(' ');
 
   return (
-    <a href={`/books/${book.slug}`} className={classes} data-book-slug={book.slug}>
+    <button type="button" className={classes} data-book-slug={book.slug}>
       {/* 페이지 단면(책 머리) */}
       <span className="spine__cap" aria-hidden="true" />
       {/* 위에 연도. 아래는 빈 자리를 둬 제목이 가운데 오게 한다(청구기호 제거). */}
       <span className="spine__meta">{book.year ?? ''}</span>
       <span className="spine__title">{book.title}</span>
       <span className="spine__meta" aria-hidden="true" />
-    </a>
+    </button>
   );
 }
