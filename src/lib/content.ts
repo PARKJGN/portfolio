@@ -78,9 +78,19 @@ function parseShelf(file: string): Shelf {
 
 let cached: Shelf[] | null = null;
 
+/**
+ * 개발 중에는 캐시하지 않는다.
+ *
+ * 마크다운은 번들러의 모듈 그래프 밖에서 fs 로 읽으므로, 파일을 고쳐도 Next 개발
+ * 서버가 이 모듈을 다시 평가하지 않는다. 캐시를 그대로 두면 서버를 켤 때 읽은 내용이
+ * 세션 내내 남아, 글을 고쳐도 화면이 그대로인 것처럼 보인다. 빌드는 한 번만 도는
+ * 프로세스라 캐시가 그대로 의미 있다.
+ */
+const CACHE_ENABLED = process.env.NODE_ENV === 'production';
+
 /** 책장 셋을 배치 순서대로 반환한다. 컬렉션 규칙 위반은 여기서 던진다. */
 export function getShelves(): Shelf[] {
-  if (cached) return cached;
+  if (cached && CACHE_ENABLED) return cached;
 
   const shelves = markdownFilesIn(SHELVES_DIR)
     .map(parseShelf)
@@ -99,12 +109,12 @@ export function getBook(slug: string): Book | undefined {
   return getAllBooks().find((b) => b.slug === slug);
 }
 
-/** generateStaticParams 용. 모든 책의 슬러그. */
+/** 모든 책의 슬러그. 슬러그 고유성 검증·디버깅용. */
 export function getBookSlugs(): string[] {
   return getAllBooks().map((b) => b.slug);
 }
 
-/** 같은 책장 안에서의 이전·다음 책. 책 페이지의 이동 수단에 쓴다. */
+/** 같은 책장 안에서의 이전·다음 책. 열린 책에서 다른 책으로 갈아탈 때 쓴다. */
 export function getBookNeighbors(slug: string): { prev?: Book; next?: Book } {
   const book = getBook(slug);
   if (!book) return {};
@@ -117,7 +127,23 @@ export function getBookNeighbors(slug: string): { prev?: Book; next?: Book } {
 export function getUsedCharacters(): string {
   const shelves = getShelves();
   const text = shelves
-    .flatMap((s) => [s.name, s.description, s.emptyMessage ?? '', ...s.books.flatMap((b) => [b.title, b.summary, b.year ?? '', b.callNumber ?? '', b.body])])
+    .flatMap((s) => [
+      s.name,
+      s.description,
+      s.emptyMessage ?? '',
+      ...s.books.flatMap((b) => [
+        b.title,
+        b.summary,
+        b.year ?? '',
+        b.callNumber ?? '',
+        b.body,
+        // 소개 카드·기술 스택 텍스트도 화면(3D canvas 포함)에 나오므로 서브셋에 담는다.
+        b.profile?.name ?? '',
+        b.profile?.english ?? '',
+        ...(b.profile?.contacts ?? []),
+        ...(b.tech?.flatMap((t) => [t.name, t.desc]) ?? []),
+      ]),
+    ])
     .join('');
   return [...new Set(text)].sort().join('');
 }
