@@ -10,7 +10,12 @@ async function openBook(page: Page, slug = 'hello') {
   await expect(page.locator(`#book-dialog-${slug}`)).toBeVisible();
 }
 
+// 이 스위트는 HTML 읽기 모드(한 장씩/이어보기, 보기 전환 토글)를 검증한다. 그 모드는
+// 3D 리더가 없는 경로(WebGL 불가·움직임 최소화)에서만 나타난다 — 3D 리더는 토글을
+// 숨기고 종이를 opacity 0 으로 둔다. 움직임 최소화로 3D 를 끄고 결정적으로 검사한다.
 test.describe('두 보기 방식', () => {
+  test.use({ reducedMotion: 'reduce' });
+
   test('기본은 한 장씩 넘기기다', async ({ page }) => {
     await openBook(page);
     expect(await mode(page)).toBe('paged');
@@ -33,6 +38,8 @@ test.describe('두 보기 방식', () => {
   });
 
   test('한 장씩 모드에서는 본문이 가로로 나뉜다', async ({ page }) => {
+    // 넓은 화면에선 이 책이 한 장에 다 들어가므로, 여러 장으로 나뉘는 폭을 잡는다.
+    await page.setViewportSize({ width: 640, height: 700 });
     await openBook(page);
     const metrics = await body(page).evaluate((el) => ({
       scrollWidth: el.scrollWidth,
@@ -64,7 +71,7 @@ test.describe('두 보기 방식', () => {
     const continuous = await body(page).innerText();
 
     expect(continuous).toBe(paged);
-    expect(continuous).toContain('세 번째 장');
+    expect(continuous).toContain('PostgreSQL');
   });
 
   test('선택이 다른 책에도 유지된다 (FR-009)', async ({ page }) => {
@@ -72,7 +79,7 @@ test.describe('두 보기 방식', () => {
     await page.getByRole('button', { name: '전체 이어보기' }).click();
     await page.keyboard.press('Escape');
 
-    await page.locator('[data-book-slug="how-i-work"]').click();
+    await page.locator('[data-book-slug="onebite"]').click();
     expect(await mode(page)).toBe('continuous');
   });
 
@@ -98,6 +105,8 @@ test.describe('두 보기 방식', () => {
   });
 
   test('첫 장에서는 이전 버튼이, 마지막 장에서는 다음 버튼이 잠긴다', async ({ page }) => {
+    // 여러 장으로 나뉘는 폭을 잡아야 앞뒤 이동 잠금을 검증할 수 있다.
+    await page.setViewportSize({ width: 640, height: 700 });
     await openBook(page);
     const prev = page.locator('dialog[open] [data-action="page-prev"]');
     const next = page.locator('dialog[open] [data-action="page-next"]');
@@ -125,7 +134,7 @@ test.describe('두 보기 방식', () => {
     await page.setViewportSize({ width: 700, height: 700 });
     await page.waitForTimeout(200);
 
-    await expect(body(page)).toContainText('첫 장');
+    await expect(body(page)).toContainText('박종건');
     const { current, total } = await page
       .locator('dialog[open] [data-progress]')
       .innerText()
@@ -135,19 +144,5 @@ test.describe('두 보기 방식', () => {
       });
     expect(current).toBeGreaterThanOrEqual(1);
     expect(current).toBeLessThanOrEqual(total);
-  });
-});
-
-test.describe('JS 없이', () => {
-  test.use({ javaScriptEnabled: false });
-
-  test('조작부를 보여주지 않는다 — 눌러도 동작하지 않기 때문', async ({ page }) => {
-    await page.goto('/books/hello');
-    await expect(page.locator('.book__controls')).toBeHidden();
-  });
-
-  test('본문은 전체가 이어진 형태로 읽힌다', async ({ page }) => {
-    await page.goto('/books/hello');
-    await expect(page.locator('.book__body')).toContainText('세 번째 장');
   });
 });

@@ -30,19 +30,20 @@ test.describe('마우스 없이 (US3)', () => {
     await page.waitForSelector('html[data-book-ready]');
 
     const reached = new Set<string>();
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 60; i++) {
       await page.keyboard.press('Tab');
       const f = await focused(page);
       if (f.startsWith('spine:')) reached.add(f.slice(6));
     }
 
     expect([...reached].sort()).toEqual([
-      'a',
-      'b',
-      'c',
+      'about-guestbook',
+      'career',
+      'centerlocation',
+      'hadam',
       'hello',
-      'how-i-work',
-      'sample-project',
+      'kkotsasu',
+      'onebite',
     ]);
   });
 

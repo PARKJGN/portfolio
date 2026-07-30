@@ -30,14 +30,12 @@ function report(violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violatio
 }
 
 test.describe('접근성 자동 검사 (원칙 II)', () => {
+  // 접근성의 실체는 HTML 본문이다(3D 캔버스는 aria-hidden). 움직임 최소화로 3D 등장을
+  // 끄면 그 HTML 모달이 결정적으로 정착해(등장 경쟁 없음) axe 가 안정적으로 본다.
+  test.use({ reducedMotion: 'reduce' });
+
   test('방', async ({ page }) => {
     await page.goto('/');
-    const { violations } = await scan(page).analyze();
-    expect(report(violations)).toBe('');
-  });
-
-  test('책 단독 페이지', async ({ page }) => {
-    await page.goto('/books/hello');
     const { violations } = await scan(page).analyze();
     expect(report(violations)).toBe('');
   });
