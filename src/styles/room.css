@@ -209,14 +209,18 @@
 
 /* 좁은 화면에서는 물체를 가장자리로 물려 답답하지 않게 한다 */
 @media (max-width: 640px) {
+  /* 좁은 화면: 위쪽은 제목·책장 바로가기가 폭을 다 쓰므로, 창을 그 아래 '벽' 여백
+     (바로가기와 책장 사이)의 오른쪽에 온전히 앉힌다. 예전엔 right:-48px 로 화면 밖에
+     반쯤 걸쳐 잘린 격자처럼 보였다. */
   .scene__window {
-    right: -48px;
-    width: clamp(110px, 32vw, 160px);
-    height: clamp(180px, 34vh, 260px);
+    top: clamp(176px, 23vh, 226px);
+    right: clamp(14px, 4vw, 28px);
+    width: clamp(92px, 26vw, 116px);
+    height: clamp(108px, 15vh, 140px);
   }
   .scene__plant {
-    left: -16px;
-    width: 80px;
+    left: -14px;
+    width: 82px;
   }
 }
 
@@ -253,7 +257,11 @@
 }
 
 .shelf-row__item {
-  flex: 0 0 auto;
+  /* 좁은 화면: 한 화면에 책장 하나. 스냅으로 하나씩 넘기고, 바로가기(shelf-nav)로
+     정확히 그 책장으로 이동한다 — 그래야 바로가기가 의미를 가진다. */
+  flex: 0 0 100%;
+  display: flex;
+  justify-content: center;
   scroll-snap-align: center;
   scroll-margin-inline: var(--space-4);
   list-style: none;
@@ -264,6 +272,10 @@
     justify-content: center;
     overflow-x: visible;
   }
+  /* 넓은 화면: 세 책장을 내용 너비대로 나란히 */
+  .shelf-row__item {
+    flex: 0 0 auto;
+  }
 }
 
 /* ── 책장 ──────────────────────────────── */
@@ -271,7 +283,24 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  width: clamp(150px, 21vw, 220px);
+  /* 좁은 화면(한 화면에 책장 하나)에서는 칸을 책 수에 맞춘다 — 고정 폭이면 방명록(책 3권)
+     이 칸 밖으로 넘쳤다. 한 칸이 너무 좁아 보이지 않게 최소 폭만 준다. */
+  width: max-content;
+  min-width: clamp(150px, 44vw, 200px);
+}
+
+@media (min-width: 900px) {
+  /* 넓은 화면: 세 칸이 나란히 선다. 칸은 꽂힌 책만큼 넓어지되, 책이 적은 칸도
+     허전하지 않게 최소 폭을 지킨다. 폭이 고정이던 시절엔 책이 넷만 돼도(프로젝트
+     책장) 틀 밖으로 넘쳤다.
+     상한은 "세 칸이 어떤 경우에도 한 화면에 선다"에서 나온다 — 화면에서 좌우 여백과
+     칸 사이 틈(대략 8rem)을 뺀 나머지를 셋으로 나눈 몫. 책이 더 늘어 이 상한에 닿으면
+     넘치는 대신 아래 규칙에 따라 책이 얇아진다. */
+  .shelf {
+    width: max-content;
+    min-width: clamp(224px, 21vw, 240px);
+    max-width: max(240px, calc((100vw - 8rem) / 3));
+  }
 }
 
 .shelf__name {
@@ -304,12 +333,17 @@
   gap: 3px;
   margin: 0;
   padding: 0;
+  /* 칸이 상한 폭에 닿으면 책이 조금씩 얇아지며 안에 머문다 — 틀 밖으로 넘치는 것보다
+     낫다. 아래 min-width:0 이 있어야 실제로 줄어든다(플렉스 항목의 기본 최소 폭은
+     내용 크기라 그대로 두면 넘친다). */
+  max-width: 100%;
   list-style: none;
 }
 
 .shelf__books li {
   display: flex;
   align-items: flex-end;
+  min-width: 0;
 }
 
 .shelf__empty {
@@ -332,7 +366,15 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) 0 var(--space-3);
+  /* 칸이 꽉 차면 얇아질 수 있게 — 폭은 spine--narrow/medium-w/wide 가 정하고,
+     이건 그 폭을 줄일 여지를 열어 두는 것뿐이다. */
+  min-width: 0;
   overflow: hidden;
+  /* <button> 기본값 지우기 — 색·너비·높이는 spine--* 수식 클래스가 정한다 */
+  appearance: none;
+  border: 0;
+  font: inherit;
+  text-align: center;
   text-decoration: none;
   cursor: pointer;
   transition: transform var(--motion-fast) ease;

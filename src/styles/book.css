@@ -29,6 +29,9 @@
 .book-dialog[data-intro] .book-stage {
   opacity: 0;
 }
+/* 3D 동안 backdrop 은 투명해야 한다. ::backdrop 은 최상위 레이어라 z-index 와 무관하게
+   3D 캔버스까지 덮는다 — 여기에 색을 깔면 방이 아니라 책이 어두워진다. 종이와 벽의
+   명도가 비슷해 책이 묻히던 문제는 3D 쪽에서 책 뒤에 그림자를 깔아 해결했다. */
 .book-dialog[data-intro]::backdrop,
 .book-dialog[data-reader]::backdrop {
   background: transparent;
@@ -51,10 +54,20 @@
 .book-dialog[data-reader] .book-stage {
   background: transparent;
   box-shadow: none;
+  /* CSS 표지 원근은 리더에서 안 쓴다(3D 는 캔버스가 그림). perspective 가 남아 있으면
+     그게 containing block 이 되어 아래 도구 막대의 position:fixed 가 화면이 아니라
+     이 상자 기준으로 잡혀 책 위에 겹친다. 그래서 원근을 끈다. */
+  perspective: none;
 }
-.book-dialog[data-reader] .book-stage::before,
-.book-dialog[data-reader] .book__cover,
-.book-dialog[data-reader]::after {
+/* 하드커버 보드의 장식 가상요소들 — 3D 는 캔버스가 그리므로 HTML 장식은 숨긴다.
+   data-open3d 는 3D 수명 전체(등장 intro → 리더 → 닫힘)에 붙어 있고 data-reader 는
+   '펼쳐 읽는' 동안만 붙는다. .book-dialog::after(보드 바닥 탭)는 .book-stage 밖(다이얼로그
+   가상)이라 intro 의 stage opacity:0 로도 안 가려져, 등장·닫힘 애니메이션 동안 아래에
+   작은 사다리꼴로 남았다. 그래서 이 장식들은 data-reader 가 아니라 data-open3d 로 숨긴다. */
+.book-dialog[data-open3d] .book-stage::before,
+.book-dialog[data-open3d] .book__cover,
+.book-dialog[data-open3d]::after,
+.book-dialog[data-open3d] .book::before {
   display: none;
 }
 .book-dialog[data-reader] .book__pages {
@@ -64,11 +77,37 @@
 .book-dialog[data-reader] [data-action='toggle-view'] {
   display: none;
 }
-/* 조작 막대는 3D 위에서 읽히도록 옅은 판을 깐다. */
+/* 리더에서는 위치를 점으로 보이고, 숫자는 낭독기용으로만 남긴다(화면에서 숨김). */
+.book-dialog[data-reader] .book__pips {
+  display: flex;
+}
+.book-dialog[data-reader] .book__progress {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* 조작 막대 — 3D 책은 화면 중앙에 독립적으로(캔버스) 그려지므로, HTML 모달 흐름의
+   맨 아래에 두면 책 몸통을 가로지른다. 리더 모드에서는 화면 하단에 고정해 책 밑에
+   깔고, 3D 위에서 읽히도록 옅은 판+블러를 준다. width:max-content 로 내용만큼만 차지. */
 .book-dialog[data-reader] .book__tools {
-  background: color-mix(in srgb, var(--backdrop) 46%, transparent);
+  position: fixed;
+  left: 50%;
+  bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(680px, 92vw);
+  margin: 0;
+  background: color-mix(in srgb, var(--backdrop) 60%, transparent);
   border-radius: 10px;
   padding: var(--space-2) var(--space-4);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--backdrop) 42%, transparent);
 }
 
 /* 책이 3D 로 빠져나오면 책장의 그 책(책등)을 감춘다 — 자리는 빈 채로 둔다.
@@ -111,6 +150,19 @@
   border-bottom: 1px solid var(--page-rule);
 }
 
+/* 낭독기에만 남기는 머리글 — 창의 이름(aria-labelledby)이 여기서 나온다. */
+.book__header--sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .book__title {
   font-size: var(--text-2xl);
   line-height: var(--leading-tight);
@@ -130,15 +182,16 @@
   flex: 1;
   min-height: 0;
   padding: var(--space-6);
-  font-size: var(--text-base);
+  /* 3D 페이지와 같은 결 — 글자는 작게, 줄과 덩이 사이는 넉넉하게. */
+  font-size: var(--text-sm);
   line-height: var(--leading-body);
   overflow: auto;
   overscroll-behavior: contain;
 }
 
 .book__body h2 {
-  margin-block: var(--space-4) var(--space-2);
-  font-size: var(--text-xl);
+  margin-block: var(--space-6) var(--space-3);
+  font-size: var(--text-lg);
   line-height: var(--leading-tight);
   break-after: avoid;
 }
@@ -147,13 +200,176 @@
   margin-top: 0;
 }
 
+/* 성과 소제목 — 앞의 작은 표식이 눈이 걸릴 자리를 만든다. 표식은 글자가 아니라
+   그려 넣은 네모다(글꼴 서브셋에 없는 기호를 쓰면 3D 캔버스에서 빈칸이 된다).
+   3D 쪽(book3d 의 drawFlow)도 같은 자리에 같은 네모를 그린다. */
+.book__body h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  margin-block: var(--space-6) var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+  break-after: avoid;
+}
+.book__body h3::before {
+  content: '';
+  flex: none;
+  width: 0.42em;
+  height: 0.42em;
+  background: var(--page-accent);
+}
+
 .book__body p {
   margin-block: 0 var(--space-4);
+}
+
+/* ── 제품 머리 — 정사각 로고 자리 + 이름·회사·기간 ──
+   로고 파일이 들어오면 .product__logo 를 <img> 로 바꾸면 된다(HTML 은 바로 뜬다).
+   3D 캔버스는 그때 이미지 프리로드가 따로 필요하다 — book3d 의 drawProduct 참조. */
+.book__body .product {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  margin-block: var(--space-6) var(--space-5);
+  break-inside: avoid;
+}
+.book__body .product:first-child {
+  margin-top: 0;
+}
+.product__logo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(56px, 13%, 96px);
+  aspect-ratio: 1;
+  object-fit: contain;
+  border: 1px solid var(--page-rule);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--page-text) 6%, transparent);
+  color: var(--page-caption);
+  font-size: var(--text-xs);
+}
+.book__body .product__name {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+.book__body .product__when {
+  margin-block: 0.4em 0;
+  font-size: var(--text-xs);
+  color: var(--page-caption);
+}
+
+.book__body ul {
+  margin-block: 0 var(--space-4);
+  padding-left: 1.1em;
+}
+.book__body li {
+  margin-block: 0 0.25em;
 }
 
 /* 표·이미지·인용은 단 경계를 넘지 않게 (R-2 잔여 위험) */
 .book__body :is(table, img, figure, blockquote, pre) {
   break-inside: avoid;
+}
+
+/* ── 소개 카드 (프로필 책) — 왼쪽 사진 + 오른쪽 이름·연락처 ── */
+.profile-card {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--page-rule);
+  break-inside: avoid;
+}
+.profile-card__photo {
+  flex: none;
+  width: clamp(80px, 22%, 128px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--page-rule);
+  border-radius: 3px;
+}
+.profile-card__photo--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--page-text) 6%, transparent);
+  color: var(--page-caption);
+  font-size: var(--text-sm);
+}
+.profile-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.profile-card__name {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+}
+.profile-card__english {
+  color: var(--page-caption);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+}
+.profile-card__contacts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--page-text);
+  word-break: break-word;
+}
+
+/* ── 기술 스택 — 색 아이콘 + 이름 + 설명 ── */
+.tech-list {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.tech-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  break-inside: avoid;
+}
+.tech-item__icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 7px;
+  background: var(--page-text);
+  color: #fff;
+  font-weight: 700;
+}
+/* 실제 로고를 아는 기술 — 종이 위에 브랜드색 심벌만 놓는다. 색 네모 바탕이 없어야
+   크림색 종이와 다투지 않는다. */
+.tech-item__icon--logo {
+  background: none;
+  border-radius: 0;
+  padding: 1px 0;
+}
+.tech-item__name {
+  display: block;
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+  margin-bottom: 2px;
+}
+.tech-item__desc {
+  margin: 0;
+  /* 프론트매터의 명시적 개행(\n)을 그대로 줄바꿈으로 보인다. 3D 도 같은 텍스트를 읽는다. */
+  white-space: pre-line;
 }
 
 /* 도구 막대 — 조작부(넘기기·이어보기)와 이동/닫기를 묶는다. 단독 페이지에선
@@ -179,9 +395,22 @@
   gap: var(--space-4);
 }
 
-.book__nav a,
+/* 도구 막대가 좁을 때 글자가 중간에서 끊기지(덮/기) 않게 — 항목 단위로만 줄바꿈. */
+.book__nav button,
+.book__close {
+  white-space: nowrap;
+}
+
+.book__nav button,
 .book__link {
+  /* 링크처럼 보이는 버튼 — 다른 책으로 갈아탄다 */
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
   color: var(--page-accent);
+  cursor: pointer;
 }
 
 .book__close {
@@ -197,26 +426,9 @@
   background: color-mix(in srgb, var(--page-text) 8%, transparent);
 }
 
-:is(.book__close, .book__body, .book__nav a):focus-visible {
+:is(.book__close, .book__body, .book__nav button):focus-visible {
   outline: 2px solid var(--page-accent);
   outline-offset: 2px;
-}
-
-/* ── 책 단독 페이지 (JS 없이 도달하는 정본) ────────── */
-.book-page {
-  min-height: 100svh;
-  padding: var(--space-8) var(--space-4);
-  background: var(--room-bg);
-}
-
-.book-page .book {
-  max-width: 860px;
-  max-height: none;
-  margin-inline: auto;
-}
-
-.book-page .book__body {
-  overflow: visible;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -254,22 +466,12 @@
   );
 }
 
-.book-page[data-view-mode='paged'] .book__body,
-[data-view-mode='paged'] .book-page .book__body {
-  height: 70svh;
-}
-
 /* ── 전체 이어보기 ── */
 [data-view-mode='continuous'] .book__body {
   columns: auto;
   max-height: 70svh;
   overflow-x: hidden;
   overflow-y: auto;
-}
-
-.book-page [data-view-mode='continuous'] .book__body,
-.book-page.book__body {
-  max-height: none;
 }
 
 /* 움직임 최소화에서는 부드러운 스크롤도 끈다 (FR-016)
@@ -315,6 +517,25 @@
   outline-offset: 2px;
 }
 
+.book__paging {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 넘김 화살표는 동그란 아이콘 버튼(← →). 텍스트 버튼(전체 이어보기)엔 적용 안 함. */
+.book__paging .book__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 50%;
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
 .book__progress {
   min-width: 3.5rem;
   text-align: center;
@@ -322,6 +543,28 @@
   color: var(--page-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* 점 위치표시 — 장 하나에 점 하나, 현재 장은 강조색 알약으로 늘어난다. 기본은 숨기고
+   3D 리더에서만 보인다(평면 모달은 숫자를 쓴다). BookController 가 점을 채운다. */
+.book__pips {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+.book__pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tool-text, currentColor) 32%, transparent);
+  transition:
+    width var(--motion-fast) ease,
+    background var(--motion-fast) ease;
+}
+.book__pip.is-current {
+  width: 18px;
+  border-radius: 3px;
+  background: var(--tool-accent, currentColor);
 }
 
 /* 전체 이어보기에서는 장 이동과 위치 표시가 의미 없다.
@@ -760,9 +1003,9 @@ dialog[data-closing] .book {
 .book-dialog :is(.book__btn:hover:not(:disabled), .book__close:hover) {
   background: color-mix(in srgb, var(--tool-text) 12%, transparent);
 }
-.book-dialog :is(.book__nav a, .book__link) {
+.book-dialog :is(.book__nav button, .book__link) {
   color: var(--tool-accent);
 }
-.book-dialog :is(.book__close, .book__body, .book__nav a, .book__btn):focus-visible {
+.book-dialog :is(.book__close, .book__body, .book__nav button, .book__btn):focus-visible {
   outline-color: var(--tool-accent);
 }

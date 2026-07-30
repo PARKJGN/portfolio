@@ -42,7 +42,12 @@ export default function RoomPage() {
       {books.map((book) => {
         const { prev, next } = getBookNeighbors(book.slug);
         return (
-          <dialog key={book.slug} id={`book-dialog-${book.slug}`} className="book-dialog">
+          <dialog
+            key={book.slug}
+            id={`book-dialog-${book.slug}`}
+            className="book-dialog"
+            aria-labelledby={`book-title-${book.slug}`}
+          >
             {/* 열 때 이 표지가 경첩처럼 펼쳐지며 내용이 드러난다(book.css). 장식이라 aria-hidden. */}
             <div className="book-stage">
               <BookContent
