@@ -9,7 +9,7 @@ import {
   writeStoredMode,
   type ViewMode,
 } from '@/lib/view-mode';
-import type { Book3D } from './book3d';
+import type { Block, Book3D } from './book3d';
 
 /**
  * 이 사이트의 **유일한** 클라이언트 컴포넌트다.
@@ -18,9 +18,10 @@ import type { Book3D } from './book3d';
  * 버튼·표시기 마크업은 서버가 렌더한다.
  *
  * 하는 일:
- *  - 책 링크 클릭을 가로채 <dialog> 를 연다 (R-3, FR-004)
- *  - 주소를 /books/<slug> 로 바꾸고 뒤로 가기로 닫는다 (FR-012)
+ *  - 책 버튼 클릭을 가로채 <dialog> 를 연다 (R-3, FR-004)
+ *  - 뒤로 가기로 닫는다 — 주소는 바꾸지 않고 히스토리 항목만 남긴다
  *  - 바깥 영역 클릭으로 닫는다 (FR-005 — <dialog> 가 주지 않는 유일한 항목)
+ *  - 다른 책 버튼을 누르면 지금 책을 접고 그 책을 연다(책 사이 이동)
  *  - 두 보기 방식을 전환하고 선택을 유지한다 (FR-007~009)
  *  - 장 이동과 현재 위치 표시 (FR-010)
  *
@@ -28,8 +29,8 @@ import type { Book3D } from './book3d';
  *  - Esc 닫기, 포커스 트랩, 배경 비활성화, 초점 복원
  *  - **장 나눔**. CSS 다단이 화면 크기에 맞춰 처리한다 (R-2)
  *
- * JS 가 없으면 책 링크는 평범한 <a> 로 동작해 정적 페이지로 이동하고,
- * 본문은 전체가 이어진 형태로 읽힌다 (헌장 원칙 I).
+ * 책 읽기는 JS(3D/모달)를 전제로 한다. 본문 HTML 은 <dialog> 안에 남아 낭독기·
+ * 검색이 읽을 수 있으나, JS 가 없으면 책은 열리지 않는다.
  */
 export function BookController() {
   useEffect(() => {
@@ -38,13 +39,44 @@ export function BookController() {
     // 화분 상태: 남은 잎 수(3→2→1), 0 은 꽃이 핀 상태. 클릭마다 진행하고 다시 처음으로.
     let plantStage = 3;
 
-    // 3D 리더가 켜져 있으면 여기에 담긴다. 넘김·닫기·진행표시가 이걸 통해 3D 로 간다.
+    // 점 표시(3D 리더의 위치 표시). 장 수만큼 점을 두고 현재 장을 채운다. current 는
+    // 0-based. 순수 장식이라(컨테이너가 aria-hidden) 낭독기용 숫자(aria-live)와 별개다.
+    const renderPips = (scope: Element, current: number, total: number) => {
+      const box = scope.querySelector<HTMLElement>('[data-pips]');
+      if (!box) return;
+      if (box.childElementCount !== total) {
+        const pips = Array.from({ length: total }, () => {
+          const s = document.createElement('span');
+          s.className = 'book__pip';
+          return s;
+        });
+        box.replaceChildren(...pips);
+      }
+      for (let k = 0; k < box.children.length; k++) {
+        (box.children[k] as HTMLElement).classList.toggle('is-current', k === current);
+      }
+    };
+
+    // activeReader: '다 펼쳐진' 리더(넘김·진행표시·3D 닫기 연출용). 등장이 끝나야 담긴다.
+    // readerEngine: 화면에 올라온 3D 엔진(show() 순간부터). 등장 '도중'에 닫아도 3D 를
+    // 반드시 걷어내려고 따로 둔다 — 이게 없으면 등장 중 닫을 때 activeReader 가 아직
+    // 없어 폴백 경로로 빠지고, 곧 등장이 끝나며 캔버스에 책만 덩그러니 남는다(조작 불가).
     let activeReader: Book3D | null = null;
+    let readerEngine: Book3D | null = null;
+    const teardownEngine = () => {
+      if (!readerEngine) return;
+      readerEngine.cancel(); // 등장/닫기 트윈이 돌고 있으면 멈춘다
+      readerEngine.hide();
+      readerEngine.clear();
+      readerEngine = null;
+      activeReader = null;
+    };
     const readerProgress = (i: number, total: number) => {
       const open = document.querySelector<HTMLElement>('dialog[open]');
       if (!open) return;
       const label = open.querySelector<HTMLElement>('[data-progress]');
       if (label) label.textContent = `${i + 1} / ${total}`;
+      renderPips(open, i, total);
       open
         .querySelector<HTMLButtonElement>('[data-action="page-prev"]')
         ?.toggleAttribute('disabled', i <= 0);
@@ -138,16 +170,68 @@ export function BookController() {
 
     const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // 3D 연출에 필요한 시각 정보를 이미 렌더된 표지 DOM 에서 읽는다(색·글자·제목).
+    // 3D 연출에 필요한 시각 정보를 이미 렌더된 DOM 에서 읽는다(색·제목·소개·기술·본문).
+    const txt = (el: Element | null | undefined) => el?.textContent?.trim() || '';
     const readVisual = (dialog: HTMLDialogElement) => {
       const front = dialog.querySelector<HTMLElement>('.book__cover-leaf-front');
       const cs = front ? getComputedStyle(front) : null;
       const body = dialog.querySelector('.book__body');
-      const blocks = body
-        ? Array.from(body.querySelectorAll('h2, p'))
-            .map((el) => ({ h: el.tagName === 'H2', text: el.textContent?.trim() || '' }))
-            .filter((b) => b.text)
-        : [];
+      const blocks: Block[] = [];
+      if (body) {
+        // 소개 카드(사진·이름·연락처)가 있으면 첫 블록으로.
+        const card = body.querySelector('.profile-card');
+        if (card) {
+          blocks.push({
+            kind: 'header',
+            name: txt(card.querySelector('.profile-card__name')),
+            english: txt(card.querySelector('.profile-card__english')) || undefined,
+            contacts: Array.from(card.querySelectorAll('.profile-card__contacts li'))
+              .map((li) => txt(li))
+              .filter(Boolean),
+          });
+        }
+        // 본문 산문(소제목·문단·목록). querySelectorAll 은 문서 순서로 주므로
+        // 마크다운에 쓴 차례가 그대로 유지된다.
+        const prose = body.querySelector('.book__prose') ?? body;
+        // 목록 항목은 중첩된 하위 목록을 뺀 제 몫만 읽는다 — 안 그러면 자식 항목이
+        // 부모에도 한 번, 자기 차례에 또 한 번 들어간다.
+        const ownText = (el: Element) => {
+          const clone = el.cloneNode(true) as Element;
+          for (const nested of Array.from(clone.querySelectorAll('ul, ol'))) nested.remove();
+          return clone.textContent?.trim() ?? '';
+        };
+        for (const el of Array.from(prose.querySelectorAll('.product, h2, h3, p, li'))) {
+          // 제품 머리(로고 + 이름 + 회사·기간)는 통째로 한 덩이다. 그 안의 h2·p 를
+          // 따로 또 읽으면 같은 말이 두 번 들어간다.
+          const head = el.closest('.product');
+          if (head && head !== el) continue;
+          if (head === el) {
+            blocks.push({
+              kind: 'product',
+              name: txt(el.querySelector('.product__name')),
+              meta: txt(el.querySelector('.product__when')) || undefined,
+            });
+            continue;
+          }
+          // 느슨한 목록(marked 가 <li><p>…</p></li> 로 감싼 경우)의 문단은 건너뛴다.
+          if (el.tagName === 'P' && el.closest('li')) continue;
+          const text = el.tagName === 'LI' ? ownText(el) : txt(el);
+          if (!text) continue;
+          if (el.tagName === 'LI') blocks.push({ kind: 'li', text });
+          else if (el.tagName === 'H2') blocks.push({ kind: 'h', text });
+          else if (el.tagName === 'H3') blocks.push({ kind: 'h', text, sub: true });
+          else blocks.push({ kind: 'p', text });
+        }
+        // 기술 스택.
+        for (const item of Array.from(body.querySelectorAll('.tech-item'))) {
+          blocks.push({
+            kind: 'tech',
+            name: txt(item.querySelector('.tech-item__name')),
+            color: item.getAttribute('data-tech-color') || undefined,
+            desc: txt(item.querySelector('.tech-item__desc')),
+          });
+        }
+      }
       return {
         cover: cs?.backgroundColor || '#7d3b2a',
         ink: cs?.color || '#f3e6dc',
@@ -157,9 +241,26 @@ export function BookController() {
         blocks,
       };
     };
+    // 책 크기와 보기 모드. 넓은 화면은 두 면 펼침, 두 면(2×coverW)이 폭에 편히 안
+    // 들어가는 좁은 화면(모바일)은 한 면만 폭에 꽉 채우는 single 모드로 연다.
     const bookDims = () => {
-      const coverH = Math.min(560, window.innerHeight * 0.7);
-      return { coverW: coverH * 0.72, coverH, thickness: coverH * 0.085 };
+      // 방(제목·여백)이 보이는 적당한 크기 — 화면 높이의 78%, 상한 700. 두 면 폭도
+      // 화면 폭을 넘지 않게 제한. 화면 정중앙에 놓인다(restCenter 이동 없음).
+      const spreadH = Math.min(700, window.innerHeight * 0.78, (window.innerWidth * 0.94) / (2 * 0.72));
+      const spreadW = spreadH * 0.72;
+      const single = window.innerWidth < spreadW * 2 * 1.08;
+      if (!single) {
+        return { coverW: spreadW, coverH: spreadH, thickness: spreadH * 0.085, single: false };
+      }
+      // 한 면: 폭을 90%까지 채우되 세로가 82%를 넘지 않게. 종횡비 0.72(세로가 김) 유지.
+      let pageW = window.innerWidth * 0.9;
+      let pageH = pageW / 0.72;
+      const maxH = window.innerHeight * 0.82;
+      if (pageH > maxH) {
+        pageH = maxH;
+        pageW = pageH * 0.72;
+      }
+      return { coverW: pageW, coverH: pageH, thickness: pageH * 0.06, single: true };
     };
     const spineElOf = (slug: string) => document.querySelector(`[data-book-slug="${slug}"]`);
     const spineRectOf = (slug: string) => spineElOf(slug)?.getBoundingClientRect();
@@ -185,7 +286,9 @@ export function BookController() {
         setPulled(slug, true); // 책장의 그 책을 감춘다
       }
       dialog.showModal();
-      if (pushHistory) history.pushState({ bookSlug: slug }, '', `/books/${slug}`);
+      // 주소는 바꾸지 않는다 — 뒤로 가기로 덮기 위한 히스토리 항목만 남긴다.
+      // (책은 3D/모달로만 열리므로 딥링크·정적 페이지가 없다.)
+      if (pushHistory) history.pushState({ bookSlug: slug }, '');
       requestAnimationFrame(updateProgress);
 
       if (!use3D) {
@@ -201,6 +304,7 @@ export function BookController() {
           if (!dialog.open || dialog.dataset.intro == null) return; // 이미 닫힘
           eng.onProgress = readerProgress;
           eng.show();
+          readerEngine = eng; // 화면에 올랐다 — 이제부터 어느 경로로 닫든 걷어낸다
           eng.playOpen({
             spineRect: spineRect!,
             v,
@@ -209,6 +313,11 @@ export function BookController() {
             // 다 펼친 뒤에도 3D 를 유지한다(리더). HTML 종이·표지는 감추고 낭독기용으로만
             // DOM 에 남기며, 조작 막대만 3D 위에 보인다. 넘김·닫기가 이 엔진으로 간다.
             onDone: () => {
+              // 등장이 끝나기 전에 닫혔으면(경합) 3D 만 걷어내고 리더로 승격하지 않는다.
+              if (!dialog.open) {
+                teardownEngine();
+                return;
+              }
               delete dialog.dataset.intro;
               dialog.dataset.reader = '';
               activeReader = eng;
@@ -270,11 +379,12 @@ export function BookController() {
       }
       dialog.dataset.closing = '';
 
-      // 3D 리더로 열려 있으면 3D 로 닫는다 — 표지 덮고 회전하며 책장으로 들어간다.
+      // 다 펼쳐진 3D 리더 → 3D 로 곱게 닫는다(표지 덮고 회전하며 책장으로).
       const reader = activeReader;
       const spineRect = spineRectOf(slug);
       if (reader && spineRect) {
         activeReader = null;
+        readerEngine = null; // 아래 playClose 의 onDone 에서 직접 hide/clear 한다
         delete dialog.dataset.reader;
         dialog.dataset.intro = ''; // 조작 막대까지 감추고 3D 책만 보인다
         reader.playClose({
@@ -290,10 +400,32 @@ export function BookController() {
         return;
       }
 
+      // 아직 3D 등장 중(activeReader 는 아직 없지만 엔진은 화면에 있음) → 등장을 멈추고
+      // 3D 를 즉시 걷어낸 뒤 닫는다. 안 그러면 닫아도 캔버스에 책이 남아 조작이 안 된다.
+      if (readerEngine) {
+        teardownEngine();
+        finish();
+        return;
+      }
+
       // 폴백: 기존 CSS 접힘 + JS FLIP
       const flip = animateCloseToSpine(dialog, slug);
       if (flip) flip.finished.then(finish).catch(finish);
       else window.setTimeout(finish, 680);
+    };
+
+    // <dialog>.close() 의 close 이벤트는 비동기로 발생한다. 책을 갈아탈 때 닫은
+    // 이전 책의 뒤늦은 close 가 onClose 를 타고 history.back() 을 불러 새 책까지
+    // 닫아버린다. 이 카운터로 '그 한 번의 close 는 히스토리를 건드리지 않는다'를 표시한다.
+    let swallowCloseHistory = 0;
+
+    // 책 사이 이동 — 지금 열린 책을 즉시(연출 없이) 접고 다른 책을 연다.
+    // 히스토리는 항목 하나로 유지한다(replace) — 뒤로 가기 한 번이면 방으로 나간다.
+    const switchBook = (slug: string) => {
+      swallowCloseHistory++; // 닫히는 책의 close 이벤트가 history.back 을 부르지 않게
+      closeOpenDialog(); // 현재 책 닫기
+      history.replaceState({ bookSlug: slug }, '');
+      openDialog(slug, false);
     };
 
     let closingFromHistory = false;
@@ -304,18 +436,55 @@ export function BookController() {
       clearPulled();
       delete open.dataset.open3d;
       delete open.dataset.reader;
-      if (activeReader) {
-        activeReader.hide();
-        activeReader.clear();
-        activeReader = null;
-      }
+      delete open.dataset.intro;
+      teardownEngine(); // 등장 중이든 다 펼쳤든 3D 를 걷어낸다
       open.close();
       closingFromHistory = false;
+    };
+
+    // ── 스와이프로 넘김 (3D 리더에서) ──────────────────────────────
+    // 한 면 모드는 위/아래로 넘기는 게 자연스럽고, 두 면 모드는 좌/우. 어느 축이든 큰
+    // 쪽으로 판정한다: 위·왼쪽=다음, 아래·오른쪽=이전. 스와이프 뒤 따라오는 click(배경
+    // 탭=닫기)이 오작동하지 않게 한 번 삼킨다.
+    let touchX = 0;
+    let touchY = 0;
+    let touching = false;
+    let swallowClick = false;
+    const onTouchStart = (e: TouchEvent) => {
+      if (!activeReader || e.touches.length !== 1) return;
+      touching = true;
+      touchX = e.touches[0].clientX;
+      touchY = e.touches[0].clientY;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!touching) return;
+      touching = false;
+      if (!activeReader) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchX;
+      const dy = t.clientY - touchY;
+      const TH = 44; // 이보다 작으면 탭으로 본다
+      let dir: 1 | -1 | 0 = 0;
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        if (dy <= -TH) dir = 1; // 위로 = 다음
+        else if (dy >= TH) dir = -1; // 아래로 = 이전
+      } else {
+        if (dx <= -TH) dir = 1; // 왼쪽 = 다음
+        else if (dx >= TH) dir = -1; // 오른쪽 = 이전
+      }
+      if (dir !== 0) {
+        swallowClick = true; // 이 스와이프 뒤 click 은 무시(배경 탭 닫기 방지)
+        activeReader.turn(dir);
+      }
     };
 
     // ── 이벤트 ──────────────────────────────
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      if (swallowClick) {
+        swallowClick = false; // 스와이프 직후의 click 한 번을 흘려보낸다
         return;
       }
       const target = e.target as Element | null;
@@ -384,10 +553,19 @@ export function BookController() {
         return;
       }
 
-      const spine = target?.closest<HTMLElement>('[data-book-slug]');
-      if (spine) {
-        const slug = spine.dataset.bookSlug;
-        if (slug && openDialog(slug, true)) e.preventDefault();
+      // 책장 책등(data-book-slug) 또는 열린 책 안의 '다른 책' 버튼(data-book-goto).
+      const trigger = target?.closest<HTMLElement>('[data-book-slug], [data-book-goto]');
+      if (trigger) {
+        const slug = trigger.dataset.bookSlug ?? trigger.dataset.bookGoto;
+        if (!slug) return;
+        const openNow = document.querySelector<HTMLDialogElement>('dialog[open]');
+        if (openNow && openNow.id !== `book-dialog-${slug}`) {
+          // 이미 다른 책이 열려 있다 — '다른 책' 버튼을 누른 경우. 갈아탄다.
+          e.preventDefault();
+          switchBook(slug);
+        } else if (!openNow && openDialog(slug, true)) {
+          e.preventDefault();
+        }
         return;
       }
 
@@ -418,6 +596,10 @@ export function BookController() {
     };
 
     const onClose = () => {
+      if (swallowCloseHistory > 0) {
+        swallowCloseHistory--; // 갈아타기로 닫힌 책 — 히스토리는 그대로 둔다
+        return;
+      }
       if (closingFromHistory) return;
       if (history.state?.bookSlug) history.back();
     };
@@ -429,7 +611,8 @@ export function BookController() {
     };
 
     const onScrollOrResize = () => {
-      activeReader?.onResize();
+      // 등장 중(readerEngine)이든 다 펼쳤든(activeReader) 화면에 올라온 3D 를 맞춘다.
+      readerEngine?.onResize();
       updateProgress();
     };
 
@@ -438,6 +621,8 @@ export function BookController() {
     document.addEventListener('cancel', onCancel, true);
     document.addEventListener('close', onClose, true);
     document.addEventListener('scroll', onScrollOrResize, true);
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
     window.addEventListener('popstate', onPopState);
     window.addEventListener('resize', onScrollOrResize);
 
@@ -480,6 +665,8 @@ export function BookController() {
       document.removeEventListener('cancel', onCancel, true);
       document.removeEventListener('close', onClose, true);
       document.removeEventListener('scroll', onScrollOrResize, true);
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('resize', onScrollOrResize);
       shelfObserver.disconnect();

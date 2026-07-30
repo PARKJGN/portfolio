@@ -15,8 +15,18 @@
  *  - turnHinge/turnLeaf: 넘기는 한 장. 평소 숨김. 앞/뒤 면 텍스처를 갈아 끼워 회전.
  */
 import type * as THREE_NS from 'three';
+import { logoFor } from '@/lib/tech-logos';
 
 type THREE = typeof THREE_NS;
+
+/** 페이지에 흐르는 한 덩이. 소개 카드(header)·소제목(h)·문단(p)·목록(li)·기술(tech). */
+export type Block =
+  | { kind: 'header'; name: string; english?: string; contacts: string[] }
+  | { kind: 'product'; name: string; meta?: string }
+  | { kind: 'h'; text: string; sub?: boolean }
+  | { kind: 'p'; text: string }
+  | { kind: 'li'; text: string }
+  | { kind: 'tech'; name: string; color?: string; desc: string };
 
 export interface BookVisual {
   cover: string;
@@ -24,7 +34,7 @@ export interface BookVisual {
   pages: string;
   title: string;
   year?: string;
-  blocks?: { h: boolean; text: string }[];
+  blocks?: Block[];
 }
 
 export interface Rect {
@@ -116,18 +126,331 @@ function edgeTexture(THREE: THREE, v: BookVisual, w: number, h: number, vertical
   return tex(THREE, c);
 }
 
+/**
+ * 접기 단위로 쪼갠다. 한글은 글자마다 끊어도 되지만 라틴 낱말은 그러면 안 된다
+ * (`React Native` 가 `Nativ`/`e` 로 갈라진다). 낱말은 한 덩어리로 묶고 나머지는
+ * 글자 단위로 둔다. 낱말 안에 섞이는 기호(`Next.js`·`n8n`·`amd64/arm64`)도 함께 묶는다.
+ */
+function tokenize(text: string): string[] {
+  const out: string[] = [];
+  let word = '';
+  for (const ch of text) {
+    // 낱말이 시작된 뒤에만 붙는 기호가 있다 — `min(sort)` 의 괄호가 그렇다.
+    // 낱말을 시작하지는 못하므로 `(카테고리` 같은 한글은 영향받지 않는다.
+    const cont = word ? /[0-9A-Za-z.\-_/+#@'()]/.test(ch) : /[0-9A-Za-z]/.test(ch);
+    if (cont) {
+      word += ch;
+      continue;
+    }
+    if (word) {
+      out.push(word);
+      word = '';
+    }
+    out.push(ch);
+  }
+  if (word) out.push(word);
+  return out;
+}
+
+/**
+ * 책 뒤 벽에 지는 그림자.
+ *
+ * 크림색 종이와 크림색 벽은 명도가 거의 같아, 그림자가 없으면 책이 물체로 읽히지 않고
+ * 벽에 글씨만 떠 있는 것처럼 보인다. 캔버스는 알파를 가지므로 이 어두운 판이 그대로
+ * 뒤쪽 HTML 방 위에 얹혀 진짜 그림자처럼 보인다.
+ */
+function shadowTexture(THREE: THREE, w: number, h: number) {
+  const c = makeCanvas(w, h);
+  const g = c.getContext('2d')!;
+  const pad = Math.round(w * 0.1);
+  g.filter = `blur(${Math.round(w * 0.05)}px)`;
+  g.fillStyle = 'rgba(38,24,8,0.45)';
+  g.fillRect(pad, pad, c.width - pad * 2, c.height - pad * 2);
+  g.filter = 'none';
+  return tex(THREE, c);
+}
+
+/** 줄 첫머리에 홀로 설 수 없는 문장부호(금칙). 넘치더라도 앞 줄에 붙인다. */
+const NO_LINE_START = /^[.,)\]}!?;:%·…’”]$/;
+
 function wrapLines(g: CanvasRenderingContext2D, text: string, maxW: number) {
   const lines: string[] = [];
   let cur = '';
-  for (const ch of [...text]) {
-    const test = cur + ch;
-    if (g.measureText(test).width > maxW && cur) {
-      lines.push(cur);
-      cur = ch;
-    } else cur = test;
+  const flush = () => {
+    if (cur) lines.push(cur);
+    cur = '';
+  };
+  for (const tk of tokenize(text)) {
+    if (!cur && tk === ' ') continue; // 줄 첫머리로 밀려난 공백은 버린다
+    // 마침표 하나가 다음 줄로 떨어지는 것보다 한 글자 넘치는 편이 낫다.
+    if (cur && NO_LINE_START.test(tk)) {
+      cur += tk;
+      continue;
+    }
+    // 한 줄보다 긴 덩어리(긴 주소 같은 것)는 어쩔 수 없이 글자로 쪼갠다.
+    if (g.measureText(tk).width > maxW) {
+      for (const ch of tk) {
+        if (cur && g.measureText(cur + ch).width > maxW) flush();
+        cur += ch;
+      }
+      continue;
+    }
+    if (cur && g.measureText(cur + tk).width > maxW) {
+      flush();
+      if (tk === ' ') continue;
+    }
+    cur += tk;
   }
-  if (cur) lines.push(cur);
+  flush();
   return lines;
+}
+
+const INK = '#463714';
+/** 성과 소제목 앞 표식 색 — CSS 의 --page-accent 와 같은 값. */
+const ACCENT = '#ae1800';
+const serif = (weight: number, px: number) => `${weight} ${px}px "Noto Serif KR Subset", serif`;
+
+/** 소개 카드: 왼쪽 사진(자리표시) + 오른쪽 이름·영문·연락처. 쓴 높이를 돌려준다. */
+function drawHeader(
+  g: CanvasRenderingContext2D,
+  b: Extract<Block, { kind: 'header' }>,
+  x: number,
+  colW: number,
+  y: number,
+  cw: number,
+) {
+  const ps = Math.round(cw * 0.22); // 사진 정사각 한 변
+  // 사진 자리표시 — 옅은 네모 + 테두리 + '사진'
+  g.fillStyle = 'rgba(70,55,20,0.08)';
+  g.fillRect(x, y, ps, ps);
+  g.strokeStyle = 'rgba(70,55,20,0.35)';
+  g.lineWidth = 2;
+  g.strokeRect(x + 1, y + 1, ps - 2, ps - 2);
+  g.fillStyle = 'rgba(70,55,20,0.5)';
+  g.textAlign = 'center';
+  g.font = serif(500, Math.round(cw * 0.03));
+  g.fillText('사진', x + ps / 2, y + ps / 2 + cw * 0.011);
+  g.textAlign = 'left';
+
+  // 오른쪽 메타
+  const mx = x + ps + Math.round(cw * 0.05);
+  let my = y + Math.round(cw * 0.02);
+  g.fillStyle = INK;
+  const nameS = Math.round(cw * 0.054);
+  g.font = serif(600, nameS);
+  g.fillText(b.name, mx, my + nameS);
+  my += nameS * 1.28;
+  if (b.english) {
+    const es = Math.round(cw * 0.03);
+    g.fillStyle = 'rgba(70,55,20,0.7)';
+    g.font = serif(500, es);
+    g.fillText(b.english, mx, my + es);
+    my += es * 1.7;
+  }
+  const cs = Math.round(cw * 0.028);
+  g.font = serif(400, cs);
+  g.fillStyle = 'rgba(70,55,20,0.82)';
+  for (const line of b.contacts) {
+    my += cs * 0.2;
+    g.fillText(line, mx, my + cs, colW - (mx - x));
+    my += cs * 1.5;
+  }
+
+  let used = Math.max(ps, my - y) + Math.round(cw * 0.03);
+  // 카드 아래 얇은 구분선
+  g.strokeStyle = 'rgba(70,55,20,0.25)';
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(x, y + used);
+  g.lineTo(x + colW, y + used);
+  g.stroke();
+  used += Math.round(cw * 0.04);
+  return used;
+}
+
+/**
+ * 제품 머리: 정사각 로고 자리 + 오른쪽에 제품명·회사·기간.
+ *
+ * 로고 이미지는 아직 없다. 자리만 네모로 잡아 두고, 파일이 들어오면 소개 사진과 같은
+ * 방식(이미지 비동기 프리로드)이 필요하다 — path 로 그리는 기술 로고와 달리 그림이라
+ * 그리기 전에 다 받아 놔야 한다.
+ */
+function drawProduct(
+  g: CanvasRenderingContext2D,
+  b: Extract<Block, { kind: 'product' }>,
+  x: number,
+  colW: number,
+  y: number,
+  cw: number,
+  measureOnly = false,
+) {
+  const ls = Math.round(cw * 0.13); // 로고 정사각 한 변
+  const ns = Math.round(cw * 0.046);
+  const ms = Math.round(cw * 0.028);
+  const textH = ns * 1.45 + (b.meta ? ms * 1.6 : 0) + Math.round(cw * 0.012);
+  const height = Math.max(ls, textH) + Math.round(cw * 0.05);
+  if (measureOnly) return height;
+
+  g.fillStyle = 'rgba(70,55,20,0.07)';
+  g.fillRect(x, y, ls, ls);
+  g.strokeStyle = 'rgba(70,55,20,0.3)';
+  g.lineWidth = 2;
+  g.strokeRect(x + 1, y + 1, ls - 2, ls - 2);
+  g.fillStyle = 'rgba(70,55,20,0.45)';
+  g.textAlign = 'center';
+  g.font = serif(500, Math.round(cw * 0.026));
+  g.fillText('로고', x + ls / 2, y + ls / 2 + cw * 0.009);
+  g.textAlign = 'left';
+
+  const mx = x + ls + Math.round(cw * 0.045);
+  let my = y + Math.round(cw * 0.012);
+  g.fillStyle = INK;
+  g.font = serif(600, ns);
+  g.fillText(b.name, mx, my + ns);
+  my += ns * 1.45;
+  if (b.meta) {
+    g.font = serif(400, ms);
+    g.fillStyle = 'rgba(70,55,20,0.7)';
+    g.fillText(b.meta, mx, my + ms, colW - (mx - x));
+  }
+  return height;
+}
+
+/** 기술 한 항목: 색 아이콘(자리표시) + 이름 + 2줄 설명. measureOnly 면 안 그리고 높이만. */
+function drawTech(
+  g: CanvasRenderingContext2D,
+  b: Extract<Block, { kind: 'tech' }>,
+  x: number,
+  colW: number,
+  y: number,
+  cw: number,
+  measureOnly = false,
+) {
+  const ic = Math.round(cw * 0.075); // 아이콘 한 변
+  const tx = x + ic + Math.round(cw * 0.035); // 글자 시작
+  const tw = colW - (tx - x);
+  const ns = Math.round(cw * 0.037);
+  const ds = Math.round(cw * 0.028);
+  const lh = ds * 1.42;
+  g.font = serif(400, ds);
+  // 설명의 명시적 개행(\n)을 지킨 뒤, 각 줄을 폭에 맞춰 다시 접는다.
+  const lines = b.desc.split('\n').flatMap((seg) => wrapLines(g, seg, tw));
+  const textH = ns * 1.5 + lines.length * lh;
+  const height = Math.max(ic, textH) + Math.round(cw * 0.03);
+  if (measureOnly) return height;
+
+  // 아이콘 — 로고를 아는 기술이면 브랜드색 심벌(24×24 path 를 아이콘 크기로 축소),
+  // 모르면 색 둥근 네모 + 이니셜. HTML 쪽(BookContent)과 같은 판단이다.
+  const logo = logoFor(b.name);
+  if (logo) {
+    g.save();
+    g.translate(x, y);
+    g.scale(ic / 24, ic / 24);
+    g.fillStyle = b.color || logo.color;
+    g.fill(new Path2D(logo.path));
+    g.restore();
+  } else {
+    g.fillStyle = b.color || '#8a6d3b';
+    const r = Math.round(ic * 0.22);
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + ic, y, x + ic, y + ic, r);
+    g.arcTo(x + ic, y + ic, x, y + ic, r);
+    g.arcTo(x, y + ic, x, y, r);
+    g.arcTo(x, y, x + ic, y, r);
+    g.fill();
+    g.fillStyle = '#fff';
+    g.textAlign = 'center';
+    g.font = serif(700, Math.round(ic * 0.52));
+    g.fillText(b.name.slice(0, 1), x + ic / 2, y + ic / 2 + ic * 0.18);
+    g.textAlign = 'left';
+  }
+
+  g.fillStyle = INK;
+  g.font = serif(600, ns);
+  g.fillText(b.name, tx, y + ns);
+  let yy = y + ns * 1.5;
+  g.font = serif(400, ds);
+  g.fillStyle = 'rgba(70,55,20,0.9)';
+  for (const ln of lines) {
+    g.fillText(ln, tx, yy + ds, tw);
+    yy += lh;
+  }
+  return height;
+}
+
+/** 산문 한 덩이(소제목·문단·목록)를 접어 놓은 결과. 재기 따로, 그리기 따로 쓴다. */
+interface Flow {
+  font: string;
+  fs: number;
+  lineH: number;
+  gap: number;
+  after: number;
+  indent: number;
+  lines: string[];
+  /** 앞뒤 여백까지 포함한 총 높이. */
+  blockH: number;
+  isLi: boolean;
+  /** 성과 소제목(h3) — 앞에 표식 네모를 그린다. */
+  isSub: boolean;
+}
+
+type FlowBlock = Extract<Block, { kind: 'h' | 'p' | 'li' }>;
+
+/** 덩이를 폭에 맞춰 접고 크기를 잰다. 재는 동안 g.font 가 그 덩이의 글꼴로 바뀐다. */
+function measureFlow(g: CanvasRenderingContext2D, bl: FlowBlock, cw: number, colW: number): Flow {
+  const isH = bl.kind === 'h';
+  const isLi = bl.kind === 'li';
+  const sub = bl.kind === 'h' && bl.sub;
+  // 글자는 작게, 사이는 넉넉하게. 빽빽한 큰 글씨보다 이쪽이 훨씬 잘 읽힌다.
+  const fs = isH ? Math.round(cw * (sub ? 0.036 : 0.042)) : Math.round(cw * 0.03);
+  const lineH = fs * 1.62;
+  const font = serif(isH ? 600 : 400, fs);
+  g.font = font;
+  // 목록의 글머리 기호, 소제목의 표식 네모 — 그 자리만큼 안으로 들이고 폭이 줄어든다.
+  const indent = isLi ? Math.round(cw * 0.032) : sub ? Math.round(cw * 0.028) : 0;
+  // 소제목 앞은 크게 벌려 덩이의 시작이 눈에 띄게 한다.
+  const gap = isH ? lineH * (sub ? 0.9 : 1.05) : 0;
+  // 목록 항목끼리는 문단 사이보다 촘촘히 붙인다.
+  const after = isH ? lineH * 0.3 : isLi ? lineH * 0.22 : lineH * 0.6;
+  const lines = wrapLines(g, bl.text, colW - indent);
+  return {
+    font,
+    fs,
+    lineH,
+    gap,
+    after,
+    indent,
+    lines,
+    blockH: gap + lines.length * lineH + after,
+    isLi,
+    isSub: !!sub,
+  };
+}
+
+/** 잰 덩이를 그리고 실제로 쓴 높이를 돌려준다. */
+function drawFlow(g: CanvasRenderingContext2D, f: Flow, x: number, y: number, bottom: number) {
+  let yy = y + f.gap;
+  g.font = f.font;
+  // 앞선 소개 카드·기술 항목이 흐린 색을 남겨 두므로 본문 색을 되돌린다.
+  g.fillStyle = INK;
+  if (f.isLi) {
+    g.beginPath();
+    g.arc(x + f.fs * 0.22, yy + f.fs * 0.62, Math.max(1.5, f.fs * 0.09), 0, PI * 2);
+    g.fill();
+  } else if (f.isSub) {
+    // 소제목 표식 — HTML 의 h3::before 와 같은 네모. 글자 높이의 42%.
+    const s = f.fs * 0.42;
+    g.fillStyle = ACCENT;
+    g.fillRect(x, yy + f.fs - s, s, s);
+    g.fillStyle = INK;
+  }
+  for (const ln of f.lines) {
+    if (yy + f.fs > bottom) break;
+    g.fillText(ln, x + f.indent, yy + f.fs);
+    yy += f.lineH;
+  }
+  return yy + f.after - y;
 }
 
 /** 한 페이지를 그린다. startIdx 부터 담기는 만큼 담고 다음 인덱스를 돌려준다. */
@@ -138,63 +461,86 @@ function drawContentPage(
   h: number,
   gutter: 'left' | 'right',
   startIdx: number,
-  withTitle: boolean,
 ) {
   const blocks = v.blocks ?? [];
   const c = makeCanvas(w, h);
   const g = c.getContext('2d')!;
+  const cw = c.width;
   g.fillStyle = v.pages;
-  g.fillRect(0, 0, c.width, c.height);
+  g.fillRect(0, 0, cw, c.height);
 
-  const padX = Math.round(c.width * 0.11);
-  const colW = c.width - padX * 2;
+  const padX = Math.round(cw * 0.115);
+  const colW = cw - padX * 2;
   const bottom = c.height * 0.93;
-  g.fillStyle = '#463714';
+  const top = c.height * 0.09;
+  g.fillStyle = INK;
   g.textAlign = 'left';
   g.textBaseline = 'alphabetic';
-  let y = c.height * 0.09;
+  let y = top;
 
-  if (withTitle) {
-    const ts = Math.round(c.width * 0.052);
-    g.font = `600 ${ts}px "Noto Serif KR Subset", serif`;
-    g.fillText(v.title, padX, y + ts);
-    y += ts * 2.1;
-    g.strokeStyle = 'rgba(70,55,20,0.25)';
-    g.beginPath();
-    g.moveTo(padX, y);
-    g.lineTo(c.width - padX, y);
-    g.stroke();
-    y += ts * 0.9;
-  }
+  // 첫 면에 책 제목을 얹지 않는다. 책등과 표지가 이미 제목을 보여 준 뒤라 세 번째
+  // 반복이고, 밑줄까지 있어 본문이 시작되기 전에 한 덩이를 더 읽게 만들었다.
+  // 제목은 낭독기용으로 HTML 머리글(book__header)에만 남는다.
+
+  /** 덩이가 차지할 높이. 다음 덩이까지 들어가는지 미리 볼 때 쓴다. */
+  const heightOf = (b: Block, atY: number) =>
+    b.kind === 'tech'
+      ? drawTech(g, b, padX, colW, atY, cw, true)
+      : b.kind === 'product'
+        ? drawProduct(g, b, padX, colW, atY, cw, true)
+        : b.kind === 'header'
+          ? 0 // 소개 카드는 늘 첫 블록이라 무엇의 뒤에 올 일이 없다
+          : measureFlow(g, b, cw, colW).blockH;
 
   let i = startIdx;
+  let drew = false; // 이 페이지에 이미 뭔가 그렸나 — 안 들어가는 블록을 다음 장으로 미룰 기준
   for (; i < blocks.length; i++) {
     const bl = blocks[i];
-    const fs = bl.h ? Math.round(c.width * 0.05) : Math.round(c.width * 0.038);
-    const lineH = fs * 1.62;
-    g.font = `${bl.h ? 600 : 400} ${fs}px "Noto Serif KR Subset", serif`;
-    if (bl.h) y += lineH * 0.5;
-    if (y + fs > bottom) break;
-    for (const ln of wrapLines(g, bl.text, colW)) {
-      if (y + fs > bottom) break;
-      g.fillText(ln, padX, y + fs);
-      y += lineH;
+    if (bl.kind === 'header') {
+      y += drawHeader(g, bl, padX, colW, y, cw);
+    } else if (bl.kind === 'tech' || bl.kind === 'product') {
+      // 한 항목이 통째로 들어갈 자리가 없으면(그리고 페이지에 이미 뭔가 있으면) 다음 장으로.
+      const h0 = heightOf(bl, y);
+      if (drew && y + h0 > bottom) break;
+      // 제품 머리만 페이지 끝에 남지 않게 — 뒤따르는 덩이까지 들어가야 그린다.
+      const after = bl.kind === 'product' && drew ? blocks[i + 1] : undefined;
+      if (after && y + h0 + heightOf(after, y + h0) > bottom) break;
+      y +=
+        bl.kind === 'tech'
+          ? drawTech(g, bl, padX, colW, y, cw)
+          : drawProduct(g, bl, padX, colW, y, cw);
+    } else {
+      const flow = measureFlow(g, bl, cw, colW);
+      // 문단이 통째로 안 들어가면 다음 장으로 미룬다(꼬리 잘림 방지). 단 페이지 처음에
+      // 온 초장문(한 장보다 긴 문단)은 부분이라도 그린다(무한 루프 방지).
+      if (drew && y + flow.blockH > bottom) break;
+      // 소제목이 페이지 끝에 홀로 남지 않게 — 뒤따르는 덩이까지 통째로 들어가야 그린다.
+      const next = bl.kind === 'h' && drew ? blocks[i + 1] : undefined;
+      if (next && y + flow.blockH + heightOf(next, y + flow.blockH) > bottom) break;
+      y += drawFlow(g, flow, padX, y, bottom);
     }
-    y += bl.h ? lineH * 0.15 : lineH * 0.5;
+    drew = true;
   }
 
-  // 책등 쪽(안쪽) 그늘 — 페이지가 골로 말려 드는 느낌. 진하게 해서 가운데가
-  // 책처럼 확실히 나뉘어 보이게 한다.
-  const inner = gutter === 'left' ? c.width : 0; // 안쪽(책등) 가장자리
-  const grad = g.createLinearGradient(inner, 0, gutter === 'left' ? c.width * 0.6 : c.width * 0.4, 0);
-  grad.addColorStop(0, 'rgba(35,22,8,0.5)');
-  grad.addColorStop(0.5, 'rgba(35,22,8,0.14)');
-  grad.addColorStop(1, 'rgba(35,22,8,0)');
+  // 책등 쪽(안쪽) 그늘 — 종이가 골로 말려 드는 느낌.
+  //
+  // 텍스처 x 는 화면 x 와 그대로 대응한다(왼 면도 뒤집히지 않는다 — 표지를 180° 젖히며
+  // 생기는 뒤집힘과 -z 면의 UV 뒤집힘이 서로 상쇄된다). 따라서 책등은 gutter 가 가리키는
+  // 그 쪽 끝이다. 예전엔 반대편에 그려 바깥이 어둡고 가운데가 밝은, 책과 정반대인 그늘이
+  // 생겼다.
+  const atStart = gutter === 'left'; // 책등이 텍스처의 왼쪽 끝인가
+  const edge = atStart ? 0 : cw;
+  // 골 그늘은 좁다 — 페이지 폭의 5분의 1 안에서 사라져야 종이가 넓어 보인다.
+  const grad = g.createLinearGradient(edge, 0, atStart ? cw * 0.2 : cw * 0.8, 0);
+  grad.addColorStop(0, 'rgba(60,42,16,0.34)');
+  grad.addColorStop(0.35, 'rgba(60,42,16,0.12)');
+  grad.addColorStop(1, 'rgba(60,42,16,0)');
   g.fillStyle = grad;
-  g.fillRect(0, 0, c.width, c.height);
-  // 안쪽 가장자리에 얇은 짙은 선(접힘 골)
-  g.fillStyle = 'rgba(30,18,6,0.55)';
-  g.fillRect(gutter === 'left' ? c.width - 4 : 0, 0, 4, c.height);
+  g.fillRect(0, 0, cw, c.height);
+  // 골 접힘선 — 예전의 4px 검은 막대는 종이에 그은 줄처럼 보였다. 얇고 옅게.
+  const crease = Math.max(1.5, cw * 0.004);
+  g.fillStyle = 'rgba(60,42,16,0.26)';
+  g.fillRect(atStart ? 0 : cw - crease, 0, crease, c.height);
 
   return { tex: tex(THREE, c), next: i };
 }
@@ -213,8 +559,16 @@ export class Book3D {
   private coverBackMat?: StdMat;
   private turnFrontMat?: StdMat;
   private turnBackMat?: StdMat;
+  /** 책 뒤 그림자. 펼침 정도에 따라 짙어진다. */
+  private shadowMat?: THREE_NS.MeshBasicMaterial;
   private pages: THREE_NS.Texture[] = [];
   private dims = { W: 0, H: 0, t: 0 };
+  // 좁은 화면(모바일)에서는 한 면만 폭에 꽉 채워 보여주고 한 장씩 넘긴다.
+  // 넓은 화면은 두 면 펼침(false). playOpen 에서 정해진다.
+  private single = false;
+  // 책이 쉬는 자리를 위·아래 여백만큼 비켜 잡는다(아래 도구 막대 자리 확보). 0 이면 화면 정중앙.
+  private reserveTop = 0;
+  private reserveBottom = 0;
   private index = 0;
   private busy = false;
   private raf = 0;
@@ -235,13 +589,15 @@ export class Book3D {
     this.camera = new THREE.PerspectiveCamera(38, 1, 1, 100000);
     this.resize();
 
-    const key = new THREE.DirectionalLight(0xfff4e2, 2.0);
+    // 조명은 종이색이 CSS 토큰(--spine-pages) 그대로 보이는 지점에 맞춰 놨다. 예전엔
+    // 키 라이트가 세고 누래서 종이가 #ece0c4 대신 #deceb0 로 내려앉아 칙칙했다.
+    const key = new THREE.DirectionalLight(0xfffaf2, 1.9);
     key.position.set(-0.35, 0.7, 1).multiplyScalar(1000);
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xdfe6ff, 0.5);
+    const fill = new THREE.DirectionalLight(0xeaf0ff, 0.57);
     fill.position.set(0.8, 0.2, 0.6).multiplyScalar(1000);
     this.scene.add(fill);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.38));
   }
 
   private resize() {
@@ -258,9 +614,23 @@ export class Book3D {
   private toWorld(px: number, py: number) {
     return new this.THREE.Vector3(px, this.h - py, 0);
   }
+  /** 위·아래 여백을 비켜 잡을 화면 여백(px). 컨트롤러가 도구막대 자리에 맞춰 준다. */
+  setReserve(top: number, bottom: number) {
+    this.reserveTop = top;
+    this.reserveBottom = bottom;
+  }
+  /** 책이 쉬는(펼쳐 읽는) 화면상의 중심. 여백이 있으면 그 사이 가운데로 올려 잡는다. */
+  private restCenter() {
+    const cy =
+      this.reserveTop || this.reserveBottom
+        ? (this.reserveTop + (this.h - this.reserveBottom)) / 2
+        : this.h / 2;
+    return this.toWorld(this.w / 2, cy);
+  }
 
   get total() {
-    return Math.max(1, Math.ceil(this.pages.length / 2));
+    // 한 면 모드는 페이지 하나가 한 화면, 두 면 모드는 두 페이지가 한 스프레드.
+    return Math.max(1, this.single ? this.pages.length : Math.ceil(this.pages.length / 2));
   }
   get current() {
     return this.index;
@@ -270,18 +640,32 @@ export class Book3D {
     for (const p of this.pages) p.dispose();
     const blocks = v.blocks ?? [];
     const pages: THREE_NS.Texture[] = [];
+    // 밉맵을 끄고 LinearFilter 로 둔다. 고해상도 텍스처가 화면 크기로 줄 때 밉맵이
+    // 끼면 저해상 단계를 섞어 글씨가 뭉개진다(오버샘플링일수록 더). 밉맵 없이 선형으로
+    // 축소하면 슈퍼샘플링(SSAA)처럼 또렷하게 다운스케일된다 — 텍스트엔 이게 정석이다.
+    const T = this.THREE;
+    const crisp = (t: THREE_NS.Texture) => {
+      t.minFilter = T.LinearFilter;
+      t.magFilter = T.LinearFilter;
+      t.generateMipmaps = false;
+      t.needsUpdate = true;
+      return t;
+    };
     let start = 0;
     let idx = 0;
     while (start < blocks.length && idx < 60) {
-      const gutter = idx % 2 === 0 ? 'right' : 'left';
-      const r = drawContentPage(this.THREE, v, pw, ph, gutter, start, idx === 0);
-      pages.push(r.tex);
+      // 두 면: 왼/오 번갈아 안쪽(책등) 그늘. 한 면: 항상 왼쪽 제본(일관된 한 쪽 그늘).
+      const gutter = this.single ? 'left' : idx % 2 === 0 ? 'right' : 'left';
+      const r = drawContentPage(this.THREE, v, pw, ph, gutter, start);
+      pages.push(crisp(r.tex));
       start = r.next > start ? r.next : start + 1;
       idx++;
     }
-    if (pages.length === 0) pages.push(drawContentPage(this.THREE, v, pw, ph, 'right', 0, true).tex);
-    if (pages.length % 2 === 1)
-      pages.push(drawContentPage(this.THREE, v, pw, ph, 'left', blocks.length, false).tex);
+    if (pages.length === 0)
+      pages.push(crisp(drawContentPage(this.THREE, v, pw, ph, this.single ? 'left' : 'right', 0).tex));
+    // 두 면 모드만 짝수로 맞춘다(스프레드 짝맞춤). 한 면은 페이지마다 한 화면이라 불필요.
+    if (!this.single && pages.length % 2 === 1)
+      pages.push(crisp(drawContentPage(this.THREE, v, pw, ph, 'left', blocks.length).tex));
     this.pages = pages;
   }
 
@@ -290,7 +674,12 @@ export class Book3D {
     const T = this.THREE;
     this.disposeBook();
     this.dims = { W, H, t: thickness };
-    this.buildPages(v, 640, Math.round((640 * H) / W));
+    // 한 면은 화면에서 약 W(CSS px) 폭으로 보이고, 고해상도 화면에선 그 DPR 배의
+    // 디바이스 픽셀을 차지한다. 텍스처를 그만큼(약간 여유 있게) 촘촘히 그려야 확대돼
+    // 흐려지지 않는다. 640 고정이 흐림의 원인이었다.
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const pw = Math.min(1536, Math.max(768, Math.round(W * dpr * 1.35)));
+    this.buildPages(v, pw, Math.round((pw * H) / W));
 
     const group = new T.Group();
     const ratio = (a: number, b: number) => Math.max(8, Math.round((a * 96) / b));
@@ -302,8 +691,9 @@ export class Book3D {
     const mat = (map: THREE_NS.Texture | null, rough = 0.62) =>
       new T.MeshStandardMaterial({ map, roughness: rough, metalness: 0 });
 
-    // 몸통: +z = 오른쪽 페이지(첫 스프레드의 오른 면)
-    const bodyFront = mat(this.pages[1] ?? this.pages[0], 0.66);
+    // 몸통 앞면(+z): 두 면 모드는 첫 스프레드의 오른 면(pages[1]), 한 면 모드는 첫
+    // 페이지(pages[0])를 바로 보여준다(표지 여닫음 없이 페이지가 곧 책의 앞).
+    const bodyFront = mat(this.single ? this.pages[0] : (this.pages[1] ?? this.pages[0]), 0.66);
     this.bodyFrontMat = bodyFront;
     const body = new T.Mesh(new T.BoxGeometry(W, H, thickness), [
       mat(foreEdge),
@@ -316,23 +706,45 @@ export class Book3D {
     body.position.set(W / 2, 0, 0);
     group.add(body);
 
-    // 앞표지: -z 안쪽 = 왼쪽 페이지(첫 스프레드의 왼 면)
+    // 뒤로 지는 그림자. 펼치면 좌우로 W 씩(두 면) 벌어지므로 그만큼 넓게 잡는다.
+    // 빛이 왼쪽 위에서 오니 그림자는 오른쪽 아래로 조금 밀린다. 조명을 받지 않는
+    // MeshBasicMaterial 이라 어두운 판 그대로 남는다.
+    const spread = this.single ? W : 2 * W;
+    const shadowMat = new T.MeshBasicMaterial({
+      map: shadowTexture(T, 512, Math.max(8, Math.round((512 * H * 1.3) / (spread * 1.24)))),
+      transparent: true,
+      depthWrite: false,
+      // 펼쳐지는 만큼 함께 짙어진다. 그룹에 매달려 있어 등장 중 90° 로 서면 화면을
+      // 가로지르는 얼룩이 되므로, 책이 평평해질 때까지는 보이지 않아야 한다.
+      opacity: 0,
+    });
+    this.shadowMat = shadowMat;
+    const shadow = new T.Mesh(new T.PlaneGeometry(spread * 1.24, H * 1.3), shadowMat);
+    shadow.position.set((this.single ? W / 2 : 0) + W * 0.02, -H * 0.03, -thickness / 2 - 2);
+    group.add(shadow);
+
     const ct = Math.max(6, thickness * 0.16);
-    const coverBack = mat(this.pages[0], 0.66);
-    this.coverBackMat = coverBack;
-    const coverHinge = new T.Group();
-    coverHinge.position.set(0, 0, thickness / 2 + 0.6);
-    const cover = new T.Mesh(new T.BoxGeometry(W, H, ct), [
-      mat(foreEdge),
-      mat(spineTex),
-      mat(headTail),
-      mat(headTail),
-      mat(coverTex, 0.5),
-      coverBack,
-    ]);
-    cover.position.set(W / 2, 0, 0);
-    coverHinge.add(cover);
-    group.add(coverHinge);
+    this.coverHinge = undefined;
+    this.coverBackMat = undefined;
+    if (!this.single) {
+      // 앞표지: -z 안쪽 = 왼쪽 페이지(첫 스프레드의 왼 면). 한 면 모드엔 없다.
+      const coverBack = mat(this.pages[0], 0.66);
+      this.coverBackMat = coverBack;
+      const coverHinge = new T.Group();
+      coverHinge.position.set(0, 0, thickness / 2 + 0.6);
+      const cover = new T.Mesh(new T.BoxGeometry(W, H, ct), [
+        mat(foreEdge),
+        mat(spineTex),
+        mat(headTail),
+        mat(headTail),
+        mat(coverTex, 0.5),
+        coverBack,
+      ]);
+      cover.position.set(W / 2, 0, 0);
+      coverHinge.add(cover);
+      group.add(coverHinge);
+      this.coverHinge = coverHinge;
+    }
 
     // 넘기는 잎(평소 숨김)
     const turnFront = mat(null, 0.66);
@@ -340,7 +752,9 @@ export class Book3D {
     this.turnFrontMat = turnFront;
     this.turnBackMat = turnBack;
     const turnHinge = new T.Group();
-    turnHinge.position.set(0, 0, thickness / 2 + ct + 1.0);
+    // 두 면: 책등(왼쪽 세로축)을 축으로 넘긴다. 한 면: 위 모서리(가로축)를 축으로 위로
+    // 넘긴다 — 모바일에서 위/아래로 넘기는 손맛에 맞춘다.
+    turnHinge.position.set(0, this.single ? H / 2 : 0, thickness / 2 + ct + 1.0);
     turnHinge.visible = false;
     const leaf = new T.Mesh(new T.BoxGeometry(W, H, Math.max(3, ct * 0.5)), [
       mat(foreEdge),
@@ -350,13 +764,13 @@ export class Book3D {
       turnFront,
       turnBack,
     ]);
-    leaf.position.set(W / 2, 0, 0);
+    // 한 면은 경첩이 위 모서리라 잎을 아래로 매단다(-H/2). 두 면은 가운데(0).
+    leaf.position.set(W / 2, this.single ? -H / 2 : 0, 0);
     turnHinge.add(leaf);
     group.add(turnHinge);
 
     this.scene.add(group);
     this.group = group;
-    this.coverHinge = coverHinge;
     this.turnHinge = turnHinge;
     this.index = 0;
   }
@@ -371,6 +785,7 @@ export class Book3D {
     });
     this.scene.remove(this.group);
     this.group = undefined;
+    this.shadowMat = undefined; // 버린 재질을 다음 책의 트윈이 만지지 않게
   }
 
   render() {
@@ -397,8 +812,10 @@ export class Book3D {
     coverH: number;
     thickness: number;
     duration: number;
+    single?: boolean;
     onDone: () => void;
   }) {
+    this.single = !!opts.single;
     // 페이지 텍스처를 그리기 전에 본문 글꼴을 확실히 로드한다 — 안 그러면 canvas 가
     // 시스템 명조로 폴백해 HTML 과 글꼴이 달라 보인다.
     const build = () => this.startOpen(opts);
@@ -418,6 +835,7 @@ export class Book3D {
     coverH: number;
     thickness: number;
     duration: number;
+    single?: boolean;
     onDone: () => void;
   }) {
     this.buildBook(opts.v, opts.coverW, opts.coverH, opts.thickness);
@@ -426,16 +844,37 @@ export class Book3D {
       opts.spineRect.left + opts.spineRect.width / 2,
       opts.spineRect.top + opts.spineRect.height / 2,
     );
-    const center = this.toWorld(this.w / 2, this.h / 2);
+    const center = this.restCenter();
     const startScale = opts.spineRect.height / opts.coverH;
     const OPEN = PI * 0.985;
+    const halfW = () => -this.dims.W / 2;
     this.tween(
       (p) => {
+        if (this.single) {
+          // 한 면: 표지 여닫음이 없으니 등장은 이동+회전뿐. 회전이 끝까지 이어져 빈 꼬리
+          // 시간이 없게 한다. 페이지(몸통 0..W)가 가운데 오도록 offX=-W/2(회전 중엔 ×rot).
+          const move = easeInOut(clamp01(p / 0.55));
+          const rot = easeInOut(clamp01((p - 0.25) / 0.75));
+          const s = lerp(startScale, 1, easeOut(clamp01(p / 0.85)));
+          const offX = halfW() * s * rot;
+          group.position.set(
+            lerp(start.x, center.x, move) + offX,
+            lerp(start.y, center.y, move),
+            lerp(start.z, center.z, move),
+          );
+          group.scale.setScalar(s);
+          group.rotation.y = lerp(PI / 2, 0, rot);
+          if (this.shadowMat) this.shadowMat.opacity = rot;
+          return;
+        }
         const move = easeInOut(clamp01(p / 0.42));
         const rot = easeInOut(clamp01((p - 0.24) / 0.36));
         const open = easeInOut(clamp01((p - 0.6) / 0.4));
         const s = lerp(startScale, 1, easeOut(clamp01(p / 0.7)));
-        const offX = lerp(-this.dims.W / 2, 0, open) * s;
+        // 그룹 원점(=책등) 기준 가운데 맞춤. 단 90° 회전해 책등만 보일 때(rot 작음)는
+        // 원점이 곧 책등이라 오프셋이 필요 없다 — rot 을 곱해, 책등이 실제 클릭 위치(start)
+        // 에서 나오게 한다(안 그러면 W/2·s 만큼 왼쪽에서 나온다). 펼치면 원래대로 가운데.
+        const offX = lerp(-this.dims.W / 2, 0, open) * s * rot;
         group.position.set(
           lerp(start.x, center.x, move) + offX,
           lerp(start.y, center.y, move),
@@ -444,6 +883,9 @@ export class Book3D {
         group.scale.setScalar(s);
         group.rotation.y = lerp(PI / 2, 0, rot);
         if (this.coverHinge) this.coverHinge.rotation.y = -OPEN * open;
+        // 그림자는 표지가 열리는 만큼 짙어진다 — 그늘의 폭이 두 면 기준이라, 아직
+        // 접혀 있는 동안 짙게 깔리면 책보다 그림자가 넓어 보인다.
+        if (this.shadowMat) this.shadowMat.opacity = open;
       },
       opts.duration,
       () => {
@@ -463,6 +905,57 @@ export class Book3D {
     const rightOf = (s: number) => this.pages[2 * s + 1] ?? this.pages[0];
     const hinge = this.turnHinge;
     hinge.visible = true;
+
+    // ── 한 면 모드: 한 장(잎)이 위 모서리를 축으로 위로 넘어가며 다음/이전 면이 드러난다.
+    if (this.single) {
+      const pageAt = (i: number) => this.pages[i] ?? this.pages[0];
+      const V = -PI * 0.985; // 위쪽(카메라 쪽)으로 젖혀 올린다
+      const done = () => {
+        hinge.visible = false;
+        hinge.rotation.x = 0;
+        this.index = nextIdx;
+        this.busy = false;
+        this.render();
+        this.onProgress?.(this.index, this.total);
+      };
+      if (dir === 1) {
+        // 현재 페이지(잎)가 위로 넘어가고, 그 아래 다음 페이지가 드러난다.
+        this.turnFrontMat!.map = pageAt(this.index);
+        this.turnBackMat!.map = pageAt(nextIdx);
+        this.turnFrontMat!.needsUpdate = this.turnBackMat!.needsUpdate = true;
+        let swapped = false;
+        this.tween(
+          (p) => {
+            hinge.rotation.x = V * easeInOut(p);
+            if (!swapped && p > 0.16) {
+              swapped = true;
+              this.bodyFrontMat!.map = pageAt(nextIdx); // 잎이 들리며 다음 면 드러남
+              this.bodyFrontMat!.needsUpdate = true;
+            }
+          },
+          560,
+          done,
+        );
+      } else {
+        // 이전 페이지로. 잎이 위에서 내려와 몸통을 덮으며 이전 면을 보인다. 몸통(현재)은
+        // 잎이 다 덮은 '끝'에서 이전 면으로 바꾼다 — 일찍 바꾸면 덮이기 전에 드러난다.
+        this.turnFrontMat!.map = pageAt(nextIdx);
+        this.turnBackMat!.map = pageAt(this.index);
+        this.turnFrontMat!.needsUpdate = this.turnBackMat!.needsUpdate = true;
+        this.tween(
+          (p) => {
+            hinge.rotation.x = V * (1 - easeInOut(p));
+          },
+          560,
+          () => {
+            this.bodyFrontMat!.map = pageAt(nextIdx);
+            this.bodyFrontMat!.needsUpdate = true;
+            done();
+          },
+        );
+      }
+      return;
+    }
 
     if (dir === 1) {
       // 오른쪽 면(현재)이 왼쪽으로 넘어가 다음 왼쪽 면이 된다.
@@ -492,24 +985,24 @@ export class Book3D {
         },
       );
     } else {
-      // 왼쪽 면(현재)이 오른쪽으로 넘어가 이전 오른쪽 면이 된다.
+      // 왼쪽 면(현재)이 오른쪽으로 넘어가 이전 오른쪽 면이 된다. 잎은 왼쪽(-PI)에서
+      // 오른쪽(0)으로 쓸려 간다. 왼쪽은 시작에 잎이 덮고 있으니 새 왼 면을 미리 깔아도
+      // 안 보이지만, 오른쪽은 시작엔 드러나 있고 '끝'에서야 잎이 덮는다. 그래서 오른쪽
+      // 면은 끝에서 바꿔야 한다 — 일찍 바꾸면 잎이 도착하기 전에 내용이 미리 드러난다.
       this.turnFrontMat!.map = rightOf(nextIdx);
       this.turnBackMat!.map = leftOf(this.index);
       this.turnFrontMat!.needsUpdate = this.turnBackMat!.needsUpdate = true;
-      this.coverBackMat!.map = leftOf(nextIdx); // 왼쪽에 이전 왼 면을 미리
+      this.coverBackMat!.map = leftOf(nextIdx); // 왼쪽에 이전 왼 면을 미리(잎이 덮은 채)
       this.coverBackMat!.needsUpdate = true;
-      let swapped = false;
       this.tween(
         (p) => {
           hinge.rotation.y = -PI * 0.985 * (1 - easeInOut(p));
-          if (!swapped && p > 0.16) {
-            swapped = true;
-            this.bodyFrontMat!.map = rightOf(nextIdx);
-            this.bodyFrontMat!.needsUpdate = true;
-          }
         },
         620,
         () => {
+          // 잎이 오른쪽을 덮은 끝에서 오른 면 교체 → 드러난 채로 바뀌는 순간이 없다.
+          this.bodyFrontMat!.map = rightOf(nextIdx);
+          this.bodyFrontMat!.needsUpdate = true;
           hinge.visible = false;
           hinge.rotation.y = 0;
           this.index = nextIdx;
@@ -528,7 +1021,7 @@ export class Book3D {
       return;
     }
     const group = this.group;
-    const center = this.toWorld(this.w / 2, this.h / 2);
+    const center = this.restCenter();
     const end = this.toWorld(
       opts.spineRect.left + opts.spineRect.width / 2,
       opts.spineRect.top + opts.spineRect.height / 2,
@@ -547,8 +1040,13 @@ export class Book3D {
         const rot = easeInOut(clamp01((p - 0.3) / 0.34));
         const move = easeInOut(clamp01((p - 0.45) / 0.55));
         const s = lerp(1, endScale, easeInOut(p));
-        const offX = lerp(0, -W / 2, close) * s;
+        // 등장과 대칭: 책등만 보이도록 회전(rot 큼)할수록 오프셋을 0 으로 줄여, 책등이
+        // 실제 책장 자리(end)로 곧장 들어가게 한다(안 그러면 왼쪽으로 들어간다).
+        // 한 면은 늘 한 장 가운데(-W/2)에서 시작하고, 두 면은 표지가 닫히며(close) 그리 모인다.
+        const offX = (this.single ? -W / 2 : lerp(0, -W / 2, close)) * s * (1 - rot);
         if (this.coverHinge) this.coverHinge.rotation.y = -OPEN * (1 - close);
+        // 덮으면서 그림자도 걷힌다(등장의 역순).
+        if (this.shadowMat) this.shadowMat.opacity = 1 - (this.single ? rot : close);
         group.rotation.y = lerp(0, PI / 2, rot);
         group.position.set(
           lerp(center.x, end.x, move) + offX,
@@ -565,9 +1063,10 @@ export class Book3D {
   onResize() {
     this.resize();
     if (this.group) {
-      // 열려 있으면 가운데로 다시 맞춘다.
-      const center = this.toWorld(this.w / 2, this.h / 2);
-      this.group.position.set(center.x, center.y, center.z);
+      // 열려 있으면 다시 맞춘다. 한 면 모드는 한 장(0..W)이 가운데 오도록 -W/2.
+      const center = this.restCenter();
+      const offX = this.single ? -this.dims.W / 2 : 0;
+      this.group.position.set(center.x + offX, center.y, center.z);
       this.render();
     }
   }
