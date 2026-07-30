@@ -37,6 +37,22 @@ export const shelfFrontmatterSchema = z.object({
   emptyMessage: z.string().min(1).optional(),
 });
 
+/** 프로필 책의 소개 카드(사진 + 이름 + 연락처)와 기술 스택. 있으면 소개용으로 렌더한다. */
+export const profileSchema = z.object({
+  name: z.string().min(1),
+  english: z.string().optional(),
+  /** 사진 경로. 비어 있으면 자리표시 네모를 그린다. */
+  photo: z.string().optional(),
+  contacts: z.array(z.string().min(1)).optional(),
+});
+
+export const techSchema = z.object({
+  name: z.string().min(1),
+  /** 아이콘 색(브랜드색). 자리표시 네모/원에 쓴다. */
+  color: z.string().optional(),
+  desc: z.string().min(1),
+});
+
 export const bookFrontmatterSchema = z.object({
   title: z.string().min(1),
   order: z.number().int().positive(),
@@ -48,6 +64,8 @@ export const bookFrontmatterSchema = z.object({
   year: z.string().optional(),
   callNumber: z.string().optional(),
   summary: z.string().min(1),
+  profile: profileSchema.optional(),
+  tech: z.array(techSchema).optional(),
 });
 
 export type ShelfFrontmatter = z.infer<typeof shelfFrontmatterSchema>;
@@ -97,7 +115,7 @@ export function validateCollection(shelves: Shelf[]): void {
     );
   }
 
-  // 책 슬러그는 URL 이 /books/<slug> 로 평평하므로 책장을 가로질러 고유해야 한다.
+  // 슬러그는 모달 id(book-dialog-<slug>)로 쓰이므로 책장을 가로질러 고유해야 한다.
   const seen = new Map<string, string>();
   for (const shelf of shelves) {
     for (const book of shelf.books) {
@@ -105,7 +123,7 @@ export function validateCollection(shelves: Shelf[]): void {
       if (prev) {
         throw new ContentError(
           `책 슬러그가 중복된다: "${book.slug}" (${prev}, ${shelf.slug}). ` +
-            `URL 이 /books/<slug> 로 평평해 책장이 달라도 겹칠 수 없다.`,
+            `모달 id(book-dialog-<slug>)가 겹치면 안 되므로 책장이 달라도 고유해야 한다.`,
         );
       }
       seen.set(book.slug, shelf.slug);
