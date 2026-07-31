@@ -308,6 +308,9 @@ img.product__logo--on-dark {
   width: clamp(80px, 22%, 128px);
   aspect-ratio: 1;
   object-fit: cover;
+  /* 위를 기준으로 자른다. 인물 사진은 얼굴이 위쪽에 있어 가운데를 자르면 머리가 잘린다.
+     3D 캔버스도 같은 규칙으로 그린다(book3d 의 drawImageInBox focusY). */
+  object-position: 50% 0;
   border: 1px solid var(--page-rule);
   border-radius: 3px;
 }

@@ -28,8 +28,10 @@ const dialog = `#book-dialog-${SLUG}`;
 test.describe.configure({ mode: 'serial' });
 
 let apiUp = false;
+let skipWhy = '';
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
+  // ① API 자체가 떠 있는가.
   try {
     const ctx = await request.newContext();
     const res = await ctx.get(`${API}/api/health`, { timeout: 3000 });
@@ -38,10 +40,43 @@ test.beforeAll(async () => {
   } catch {
     apiUp = false;
   }
+  if (!apiUp) {
+    skipWhy = `방명록 API(${API}) 가 떠 있지 않다 — quickstart.md 참고`;
+    return;
+  }
+
+  // ② **화면이** API 에 닿는가. ①만 보면 부족하다 — API 는 살아 있는데 페이지가 그것을
+  //    못 부르는 상태가 실제로 있었다. 정적 export 라 API 주소가 빌드에 박히는데,
+  //    3000 번에 다른 서버(`next dev` 등)가 떠 있으면 Playwright 가 그것을 그대로
+  //    재사용해(reuseExistingServer) 주소가 안 박힌 화면을 검사하게 된다.
+  //    그때 증상은 "목록이 안 뜬다" 라서 원인이 한참 뒤에야 보인다.
+  //    화면이 쓰는 주소는 번들에 박혀 있어 밖에서 알 수 없다. 그래서 흉내내지 않고
+  //    실제로 방명록을 열어 목록이 오는지 본다.
+  const page = await browser.newPage({ baseURL: 'http://localhost:3000' });
+  try {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    await page.locator(`[data-book-slug="${SLUG}"]`).click();
+    const failed = page.locator('.guestbook__empty', { hasText: '닿을 수 없' });
+    // 목록이 오거나(list/empty) 실패 문구가 뜰 때까지 기다린다.
+    await page
+      .locator('.guestbook__list, .guestbook__empty')
+      .first()
+      .waitFor({ timeout: 8000 })
+      .catch(() => undefined);
+    if ((await failed.count()) > 0) {
+      apiUp = false;
+      skipWhy =
+        '화면이 API 에 닿지 못한다. 빌드에 NEXT_PUBLIC_GUESTBOOK_API 가 박혔는지, ' +
+        '3000 번에 다른 서버(next dev 등)가 떠 있어 재사용되고 있지 않은지 확인할 것.';
+    }
+  } finally {
+    await page.close();
+  }
 });
 
 test.beforeEach(async ({ page }) => {
-  test.skip(!apiUp, `방명록 API(${API}) 가 떠 있지 않다 — quickstart.md 참고`);
+  test.skip(!apiUp, skipWhy);
   await page.goto('/');
   await page.waitForSelector('html[data-book-ready]');
   await page.locator(`[data-book-slug="${SLUG}"]`).click();

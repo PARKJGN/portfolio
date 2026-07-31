@@ -109,6 +109,11 @@ function drawImageInBox(
   y: number,
   size: number,
   fit: 'cover' | 'contain',
+  /**
+   * cover 로 자를 때 원본의 어디를 남길지 (0 = 위, 0.5 = 가운데, 1 = 아래).
+   * CSS 의 object-position 세로값과 같은 뜻이다.
+   */
+  focusY = 0.5,
 ): boolean {
   const img = src ? imageCache.get(src) : undefined;
   if (!img || !img.naturalWidth || !img.naturalHeight) return false;
@@ -130,7 +135,7 @@ function drawImageInBox(
     if (ratio > 1) sw = sh;
     else sh = sw;
     const sx = (img.naturalWidth - sw) / 2;
-    const sy = (img.naturalHeight - sh) / 2;
+    const sy = (img.naturalHeight - sh) * focusY;
     g.drawImage(img, sx, sy, sw, sh, x, y, size, size);
   } else {
     g.drawImage(img, dx, dy, dw, dh);
@@ -317,7 +322,9 @@ function drawHeader(
 
   // 사진이 있으면 그린다. 세로 사진이라도 cover 로 가운데를 잘라 정사각을 채운다 —
   // HTML 쪽 .profile-card__photo 의 object-fit: cover 와 같은 결과다.
-  if (drawImageInBox(g, b.photo, x, y, ps, 'cover')) {
+  // focusY = 0 — 위를 기준으로 자른다. 인물 사진은 얼굴이 위쪽에 있어 가운데를 자르면
+  // 머리가 잘린다(900×1200 사진에서 위 150px 이 날아갔다). 아래 여백은 잘려도 무방하다.
+  if (drawImageInBox(g, b.photo, x, y, ps, 'cover', 0)) {
     // 종이 위에 사진만 덩그러니 놓이지 않게 얇은 테두리를 두른다.
     g.strokeStyle = 'rgba(70,55,20,0.25)';
     g.lineWidth = 2;
@@ -1152,11 +1159,14 @@ export class Book3D {
     const endScale = opts.spineRect.height / opts.coverH;
     const OPEN = PI * 0.985;
     const W = this.dims.W;
-    // 넘겼던 표지를 첫 장으로 되돌린다(닫으려면 표지가 처음 상태여야 자연스럽다).
-    if (this.coverBackMat) {
-      this.coverBackMat.map = this.pages[0];
-      this.coverBackMat.needsUpdate = true;
-    }
+    // 표지 안쪽(왼 면)은 **지금 보고 있던 것 그대로** 두고 접는다.
+    //
+    // 예전에는 여기서 pages[0] 으로 되돌렸다. 닫으려면 표지가 처음 상태여야 자연스럽다고
+    // 본 것인데, 화면에서는 반대였다 — 2장에서 덮으면 왼쪽이 갑자기 1장 내용으로 바뀌며
+    // 접혔다. 실제 책은 보던 자리를 그대로 덮는다.
+    //
+    // 되돌릴 필요도 없다. 다시 열 때 startOpen 이 buildBook 을 부르고, 거기서 표지 안쪽이
+    // pages[0] 으로 새로 만들어진다.
     this.tween(
       (p) => {
         const close = easeInOut(clamp01(p / 0.4));
