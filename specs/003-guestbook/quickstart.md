@@ -1,0 +1,283 @@
+# 검증 절차: 방명록
+
+**Feature**: 003-guestbook | **Date**: 2026-07-31
+
+구현이 끝났는지 사람이 직접 확인하는 절차다. 위에서 아래로 한 번에 수행한다.
+
+---
+
+## 준비 — 처음 한 번만
+
+### 1. 데이터베이스 계정 만들기 (수동, 잊기 쉬움)
+
+oneBite 의 PostgreSQL 은 앱 롤을 최초 기동 스크립트로 만든다. **이미 데이터가 있으므로 그
+스크립트는 다시 실행되지 않는다.** portfolio 롤은 손으로 만들어야 한다(research.md R-6).
+
+```bash
+# 비밀번호를 먼저 만든다
+openssl rand -base64 24
+
+# 돌고 있는 인스턴스에 붙어 롤과 데이터베이스를 만든다
+kubectl -n onebite exec -it deploy/postgres -- \
+  psql -U "$POSTGRES_MASTER_USER" -d postgres
+
+# psql 안에서
+CREATE ROLE portfolio LOGIN PASSWORD '<위에서 만든 값>';
+CREATE DATABASE portfolio OWNER portfolio;
+REVOKE ALL ON DATABASE portfolio FROM PUBLIC;
+\q
+```
+
+확인 — portfolio 롤로 붙어 자기 데이터베이스만 보이면 성공이다.
+
+```bash
+kubectl -n onebite exec -it deploy/postgres -- \
+  psql "postgresql://portfolio:<비밀번호>@localhost:5432/portfolio" -c '\l'
+```
+
+onebite 데이터베이스에 붙으려 하면 거절되어야 한다.
+
+### 2. 시크릿 채우기
+
+```bash
+kubectl -n portfolio create secret generic portfolio-secrets \
+  --from-literal=PORTFOLIO_DB_PASSWORD='<1단계 비밀번호>' \
+  --from-literal=ANTHROPIC_API_KEY='<판정용 키>' \
+  --from-literal=ADMIN_TOKEN="$(openssl rand -hex 32)" \
+  --from-literal=CLIENT_HASH_SALT="$(openssl rand -hex 32)"
+```
+
+`ADMIN_TOKEN` 은 따로 적어 둔다. 관리 화면에서 쓴다.
+
+---
+
+## 로컬에서 확인
+
+### 3. API 띄우기
+
+```bash
+cd api
+cp .env.example .env      # DB 접속·키를 로컬 값으로 채운다
+npm install
+npm run migrate           # migrations/ 의 SQL 을 적용한다
+npm run dev
+```
+
+기대: `GET http://localhost:8080/api/health` 가 `{"ok":true}` 를 준다. 데이터베이스를 끄면
+`503` 과 `{"ok":false}` 를 준다.
+
+### 4. 사이트 띄우기
+
+```bash
+npm run dev               # 저장소 루트
+```
+
+방명록 책장의 책을 연다. 기대:
+
+- **평면 모달로 열린다.** 3D 로 펼쳐지지 않는다(research.md R-2).
+- 이름·내용 입력칸과 남기기 버튼이 보인다.
+- 남긴 글이 판정을 위해 외부로 전송된다는 안내가 **남기기 전에** 보인다(FR-014).
+
+---
+
+## 검증 1 — 남기고 바로 보인다 (US1)
+
+1. 이름과 내용을 적고 남긴다.
+2. 화면을 새로 고치지 않았는데 목록 맨 위에 그 글이 나타난다(FR-003).
+3. 새로고침해도 남아 있다(FR-004).
+4. API 를 재시작해도 남아 있다.
+5. 남긴 시각이 함께 보인다(FR-006).
+
+**실패 조건도 본다**
+
+6. 이름을 비우고 남기면 무엇이 비었는지 알려 주고 남기지 않는다.
+7. 내용에 501자를 넣으면 남기기 전에 알려 준다.
+8. API 를 끈 채로 남기면 실패를 알리되 **적던 내용이 그대로 남아 있다**(FR-007).
+
+---
+
+## 검증 2 — 스크립트가 실행되지 않는다 (FR-008)
+
+내용에 다음을 그대로 적어 남긴다.
+
+```text
+<img src=x onerror=alert(1)>
+<script>alert(2)</script>
+**굵게** [링크](http://example.com)
+```
+
+기대: **글자 그대로 보인다.** 경고창이 뜨지 않고, 굵어지지도 링크가 걸리지도 않는다.
+브라우저 콘솔에 오류가 없다.
+
+---
+
+## 검증 3 — 세 겹 방어 (US2)
+
+### 1층 — 봇
+
+```bash
+# 숨은 칸이 채워진 요청
+curl -s -X POST localhost:8080/api/guestbook/entries \
+  -H 'content-type: application/json' \
+  -d '{"author":"bot","body":"광고입니다","website":"http://spam.example","openedAt":"2026-07-31T00:00:00Z"}'
+```
+
+기대: **201 을 돌려주지만 목록에는 나타나지 않는다.** 봇에게 실패를 알리지 않는다.
+
+```bash
+# 폼을 연 지 3초도 안 돼 제출
+# openedAt 을 현재 시각으로 넣고 즉시 호출한다
+```
+
+기대: 같다 — 201, 저장 안 됨.
+
+### 2층 — 규칙
+
+- 링크처럼 보이는 것을 3개 넣어 남긴다 → 목록에 나타나지 않는다.
+- 같은 글자를 30번 반복해 남긴다 → 나타나지 않는다.
+- 방금 남긴 것과 똑같은 내용을 다시 남긴다 → `409 duplicate`.
+- 시간당 한도를 넘겨 남긴다 → `429` 와 다시 남길 수 있는 시각.
+
+### 3층 — 판정
+
+- 욕설이 들어간 글을 남긴다 → 목록에 나타나지 않고, 보류함에 사유와 함께 있다.
+- **판정 API 키를 일부러 틀리게 하고** 멀쩡한 글을 남긴다 → 공개되지 않고 **보류로 간다**
+  (FR-013). 판정 없이 통과하면 안 된다. 이것이 이 검증에서 가장 중요하다.
+
+---
+
+## 검증 4 — 주인의 안전망 (US3)
+
+```bash
+TOKEN=<ADMIN_TOKEN>
+
+# 보류함
+curl -s localhost:8080/api/guestbook/held -H "authorization: Bearer $TOKEN"
+
+# 공개
+curl -s -X POST localhost:8080/api/guestbook/entries/44/publish -H "authorization: Bearer $TOKEN"
+
+# 삭제
+curl -s -X DELETE localhost:8080/api/guestbook/entries/45 -H "authorization: Bearer $TOKEN"
+```
+
+기대:
+
+- 공개한 글이 방문자 목록에 나타난다.
+- 삭제한 글은 어느 목록에도 없다.
+- **토큰 없이 같은 요청을 하면 401** 이다(FR-018). 이것도 반드시 확인한다.
+
+### 화면으로 하기
+
+`/admin` 을 연다(사이트와 같은 도메인, 색인은 막혀 있다). 토큰을 붙여 넣으면 보류함이
+보인다.
+
+- 토큰은 `sessionStorage` 에 둔다 — **창을 닫으면 사라진다.** 자주 오는 화면이 아니므로
+  기기에 남기지 않는 편을 택했다.
+- 지우기는 **두 번 눌러야** 실제로 지운다. 되돌릴 수단이 없다.
+- 401 이 오면 들고 있던 토큰을 버리고 입력칸으로 돌아간다.
+- 보류함에 없는 **공개된 글**은 아래쪽 "글 번호로 지우기" 로 지운다. 번호는 보류함 목록의
+  `#12` 표시나 API 응답의 `id` 다.
+
+확인할 것:
+
+- 틀린 토큰 → "토큰이 맞지 않습니다" 가 뜨고 입력칸으로 돌아온다.
+- 한글이나 이모지가 섞인 값 → 요청을 보내지 않고 "쓸 수 없는 글자" 라고 알린다.
+  (HTTP 헤더는 ASCII 만 실을 수 있어, 막지 않으면 `fetch` 가 던지고 "서버에 닿지 못했다"
+  처럼 보인다.)
+- 새로고침해도 토큰이 유지되고, **새 창에서는 다시 물어본다.**
+
+---
+
+## 검증 5 — 방명록이 죽어도 사이트는 산다 (FR-019)
+
+1. API 를 끈다.
+2. 프로필·프로젝트 책을 연다 → **평소와 똑같이 3D 로 열리고 읽힌다.**
+3. 방명록 책을 연다 → 지금 글을 남길 수 없다는 안내가 보인다. 화면이 깨지지 않는다.
+
+---
+
+## 검증 6 — 접근성과 반응형
+
+```bash
+npx playwright test
+npm test
+```
+
+### 방명록 E2E 를 함께 돌리려면
+
+`tests/e2e/guestbook.spec.ts` 는 **서버 셋이 떠 있어야** 돈다. 없으면 그 파일만 통째로
+건너뛴다 — 도커 없이 `npx playwright test` 를 도는 사람에게 방명록 때문에 빨간 줄이 나오지
+않게 하기 위해서다. 건너뛰는지 여부는 목록에서 `-` 로 보인다.
+
+세 개를 각각 다른 터미널에서 띄운다.
+
+```bash
+# 1. 데이터베이스
+docker compose -f api/docker-compose.dev.yml up -d
+
+# 2. 판정 대역 — 진짜 판정을 부르면 같은 글에 다른 답이 와 E2E 가 흔들린다.
+#    SDK 가 이미 보는 ANTHROPIC_BASE_URL 을 돌리는 방식이라 api/src 는 건드리지 않는다.
+node api/tests/e2e-support/verdict-stub.mjs
+
+# 3. API — 두 한도를 올린다. E2E 는 한 주소에서 사람보다 훨씬 자주 두드리므로
+#    올리지 않으면 검증하려던 것이 아니라 한도에 걸려 실패한다.
+cd api && npm run build && \
+  ANTHROPIC_BASE_URL=http://127.0.0.1:8787 \
+  RATE_LIMIT_MAX=1000 BURST_LIMIT_MAX=2000 \
+  node --env-file=.env dist/server.js
+```
+
+그다음 사이트를 **API 주소를 박아서** 빌드해야 한다. 정적 export 라 이 값은 빌드 시점에
+들어간다. `playwright.config.ts` 의 webServer 가 알아서 넣으므로, 이전에 띄워 둔
+`npm run serve` 가 있으면 **먼저 끄고** 돌린다(안 끄면 그 빌드를 그대로 쓴다).
+
+```bash
+npx playwright test guestbook
+```
+
+글을 남기는 검증은 `desktop` 한 곳에서만 돈다. 방명록은 서버 한 곳에 쌓이는 공유 상태라,
+두 프로젝트가 같이 남기면 서로의 글이 목록에 끼어 순서 검증이 어긋난다. 320px 폭은 글을
+남기지 않고 배치만 본다.
+
+손으로도 걷는다.
+
+- Tab 만으로 이름 → 내용 → 남기기 버튼에 순서대로 닿고, 초점 표시가 보인다.
+- 낭독기가 각 칸의 라벨을 읽는다.
+- 남기기 결과(성공·보류·실패)가 낭독기에 전달된다.
+- 320px 폭에서 가로 스크롤이 없다(SC-008).
+- `prefers-reduced-motion` 을 켜면 불필요한 움직임이 없다.
+
+---
+
+## 검증 7 — 배포 뒤 확인
+
+**선행**: 001 의 Phase 6 가 끝나 `portfolio.jgbak-land.com` 에 정적 사이트가 떠 있어야 한다.
+
+```bash
+kubectl -n portfolio get pods
+kubectl -n portfolio logs deploy/api --tail=50
+curl -s https://portfolio.jgbak-land.com/api/health
+```
+
+기대:
+
+- `api` 파드가 Running 이고 재시작 횟수가 0 이다.
+- `/api/health` 가 `{"ok":true}` 를 준다 — 네임스페이스를 건너 데이터베이스에 닿았다는 뜻이다.
+- 실제 도메인에서 글을 남기고 목록에 나타나는 것을 확인한다.
+- 인증서가 유효하다(자물쇠).
+- 로그에 **글 내용이 남아 있지 않다.**
+
+---
+
+## 확인 기록
+
+| 검증 | 수행일 | 결과 | 비고 |
+|---|---|---|---|
+| 1. 남기고 보인다 | | | |
+| 2. 스크립트 미실행 | | | |
+| 3. 세 겹 방어 | | | |
+| 4. 주인 안전망 | | | |
+| 5. 장애 시 분리 | | | |
+| 6. 접근성·반응형 | | | |
+| 7. 배포 뒤 | | | |
