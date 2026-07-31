@@ -1,10 +1,10 @@
 # ┌──────────────────────────────────────────────────────────────────────────┐
-# │ 이 파일의 리소스는 portfolio 네임스페이스가 아니라, 공용 인그레스가 사는      │
+# │ 이 파일의 리소스는 jgbak-portfolio 네임스페이스가 아니라, 공용 인그레스가 사는 │
 # │ default 네임스페이스의 Ingress "ingress-host" 에 붙는다.                    │
 # └──────────────────────────────────────────────────────────────────────────┘
 #
 # [개념] 공용 인그레스는 **같은 네임스페이스의 Service 로만** 라우팅할 수 있다. 실제
-# 파드는 portfolio 네임스페이스에 있으므로, default 에 ExternalName(=DNS 별칭) 서비스를
+# 파드는 jgbak-portfolio 네임스페이스에 있으므로, default 에 ExternalName(=DNS 별칭) 서비스를
 # 하나씩 만들어 다리를 놓는다. onebite-client-service / onebite-server-service 와 같은
 # 역할이다.
 #
@@ -30,7 +30,7 @@ metadata:
   namespace: default # ← 중앙 인그레스(ingress-host)와 같은 네임스페이스
 spec:
   type: ExternalName
-  externalName: web.portfolio.svc.cluster.local # 001 T042 가 만드는 web 서비스
+  externalName: web.jgbak-portfolio.svc.cluster.local # 001 T042 가 만드는 web 서비스
   ports:
     - { port: 80, targetPort: 80 }
 ---
@@ -42,7 +42,7 @@ metadata:
   namespace: default
 spec:
   type: ExternalName
-  externalName: api.portfolio.svc.cluster.local # 60-api.yaml 의 api 서비스
+  externalName: api.jgbak-portfolio.svc.cluster.local # 60-api.yaml 의 api 서비스
   ports:
     - { port: 80, targetPort: 80 }
 # ─────────────────────────────────────────────────────────────────────────────

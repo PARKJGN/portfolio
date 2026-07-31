@@ -7,7 +7,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: portfolio-config
-  namespace: portfolio
+  namespace: jgbak-portfolio
 data:
   NODE_ENV: 'production'
   PORT: '8080'

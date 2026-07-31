@@ -45,7 +45,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${datasource}" },
-          "expr": "sum(count_over_time({namespace=\"portfolio\", app=\"web\"} | json | status = `200` [$__auto]))",
+          "expr": "sum(count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | status = `200` [$__auto]))",
           "legendFormat": "방문"
         }
       ]
@@ -61,7 +61,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${datasource}" },
-          "expr": "sum by (status) (count_over_time({namespace=\"portfolio\", app=\"web\"} | json [$__range]))",
+          "expr": "sum by (status) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json [$__range]))",
           "instant": true,
           "legendFormat": "{{status}}"
         }
@@ -78,7 +78,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${datasource}" },
-          "expr": "topk(20, sum by (path) (count_over_time({namespace=\"portfolio\", app=\"web\"} | json [$__range])))",
+          "expr": "topk(20, sum by (path) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json [$__range])))",
           "instant": true,
           "format": "table"
         }
@@ -95,7 +95,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${datasource}" },
-          "expr": "quantile_over_time(0.95, {namespace=\"portfolio\", app=\"web\"} | json | unwrap duration [$__auto])",
+          "expr": "quantile_over_time(0.95, {namespace=\"jgbak-portfolio\", app=\"web\"} | json | unwrap duration [$__auto])",
           "legendFormat": "p95"
         }
       ]
@@ -115,7 +115,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${datasource}" },
-          "expr": "sum by (res_statusCode) (count_over_time({namespace=\"portfolio\", app=\"api\"} | json | msg = `request completed` [$__auto]))",
+          "expr": "sum by (res_statusCode) (count_over_time({namespace=\"jgbak-portfolio\", app=\"api\"} | json | msg = `request completed` [$__auto]))",
           "legendFormat": "{{res_statusCode}}"
         }
       ]
@@ -131,7 +131,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "${datasource}" },
-          "expr": "sum by (layer, reason) (count_over_time({namespace=\"portfolio\", app=\"api\"} | json | msg =~ `guard (held|rejected)` [$__range]))",
+          "expr": "sum by (layer, reason) (count_over_time({namespace=\"jgbak-portfolio\", app=\"api\"} | json | msg =~ `guard (held|rejected)` [$__range]))",
           "instant": true,
           "format": "table"
         }

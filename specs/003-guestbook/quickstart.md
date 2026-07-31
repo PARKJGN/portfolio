@@ -40,7 +40,7 @@ onebite 데이터베이스에 붙으려 하면 거절되어야 한다.
 ### 2. 시크릿 채우기
 
 ```bash
-kubectl -n portfolio create secret generic portfolio-secrets \
+kubectl -n jgbak-portfolio create secret generic portfolio-secrets \
   --from-literal=PORTFOLIO_DB_PASSWORD='<1단계 비밀번호>' \
   --from-literal=ANTHROPIC_API_KEY='<판정용 키>' \
   --from-literal=ADMIN_TOKEN="$(openssl rand -hex 32)" \
@@ -255,8 +255,8 @@ npx playwright test guestbook
 **선행**: 001 의 Phase 6 가 끝나 `portfolio.jgbak-land.com` 에 정적 사이트가 떠 있어야 한다.
 
 ```bash
-kubectl -n portfolio get pods
-kubectl -n portfolio logs deploy/api --tail=50
+kubectl -n jgbak-portfolio get pods
+kubectl -n jgbak-portfolio logs deploy/api --tail=50
 curl -s https://portfolio.jgbak-land.com/api/health
 ```
 

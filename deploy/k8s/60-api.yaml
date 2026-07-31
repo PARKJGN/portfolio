@@ -10,7 +10,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api
-  namespace: portfolio
+  namespace: jgbak-portfolio
 spec:
   replicas: 1
   selector:
@@ -114,8 +114,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: api # 공용 ExternalName(jgbak-portfolio-api-service)이 api.portfolio.svc 로 연결
-  namespace: portfolio
+  name: api # 공용 ExternalName(jgbak-portfolio-api-service)이 api.jgbak-portfolio.svc 로 연결
+  namespace: jgbak-portfolio
 spec:
   selector: { app: api }
   ports:
