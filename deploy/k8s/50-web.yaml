@@ -1,0 +1,72 @@
+# 정적 사이트(nginx) — Service 는 80→8080 으로 노출한다 (001 T042).
+#
+# 컨테이너가 80 이 아니라 8080 을 듣는 이유: 비루트로 돌리기 때문이다. 1024 미만 포트는
+# 특권이 필요하다. 001 tasks.md 는 "Service 80→80" 이라고 적었지만, 밖에서 보이는 포트는
+# 그대로 80 이고 안쪽만 8080 이다.
+#
+# 이미지 경로는 소문자만 허용된다 → PARKJGN 이 아니라 parkjgn.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: portfolio
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101 # nginx-unprivileged 이미지의 nginx 사용자
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+
+      containers:
+        - name: web
+          image: ghcr.io/parkjgn/portfolio-web:latest
+          ports:
+            - containerPort: 8080
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ['ALL'] }
+            # readOnlyRootFilesystem 을 켜지 않는다. nginx 는 /var/cache/nginx 와
+            # /tmp 에 써야 하고, 그것을 emptyDir 로 갈아 끼우면 이미지가 맞춰 둔 권한과
+            # 어긋난다. 얻는 것에 비해 깨질 자리가 많다.
+
+          # 하는 일이 파일을 그대로 돌려주는 것뿐이라 아주 작게 잡는다.
+          # CPU limit 을 걸지 않는 이유는 60-api.yaml 과 같다 — CFS 스로틀링이 꼬리
+          # 지연을 늘린다. 메모리는 새면 노드를 끌어내리므로 상한을 건다.
+          resources:
+            requests: { cpu: 20m, memory: 24Mi }
+            limits: { memory: 96Mi }
+
+          # nginx 는 즉시 뜬다. /healthz 는 nginx 가 직접 답하는 자리라 디스크도 보지 않는다.
+          startupProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 2
+            failureThreshold: 15 # 최대 30초
+
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web # 공용 ExternalName(portfolio-client-service)이 web.portfolio.svc 로 연결
+  namespace: portfolio
+spec:
+  selector: { app: web }
+  ports:
+    - { port: 80, targetPort: 8080 } # 인그레스가 80 으로 붙는다 → 컨테이너 8080

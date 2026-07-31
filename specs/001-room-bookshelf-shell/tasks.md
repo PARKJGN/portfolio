@@ -140,12 +140,12 @@ description: "Task list for 방·책장·책 모달 골격"
 **Purpose**: 라즈베리파이 arm64 클러스터에 올리고 접근 기록을 남긴다 (oneBite 패턴 준용, R-9)
 
 - [ ] T039 중앙 인그레스의 기존 호스트 목록을 확인해 `portfolio` 이름 충돌 여부 점검 (`kubectl -n default get ingress ingress-host -o yaml`) 후 결과를 `specs/001-room-bookshelf-shell/plan.md` 배포 절에 기록
-- [ ] T040 [P] 멀티스테이지 Dockerfile 작성(빌드 → 정적 산출물을 `nginx:alpine`으로) — `Dockerfile`
-- [ ] T041 [P] nginx 설정에 정적 export 경로 처리와 접근 로그 형식 정의(stdout 출력) — `deploy/nginx.conf` (R-9)
-- [ ] T042 k8s 매니페스트 작성(Namespace `portfolio`, Deployment, Service 80→80) — `deploy/k8s/00-namespace.yaml`, `deploy/k8s/50-web.yaml`
-- [ ] T043 `default` 네임스페이스 ExternalName 다리와 중앙 인그레스에 추가할 host·tls 블록을 주석으로 명시 — `deploy/k8s/60-shared-ingress.yaml` (도메인 `portfolio.jpark-playground.com`)
-- [ ] T044 GitHub Actions 워크플로 작성(GHCR 푸시, buildx **linux/amd64 + linux/arm64**, `:latest`와 `:sha` 두 태그) — `.github/workflows/deploy.yml`
-- [ ] T045 Grafana에 방문 기록 대시보드 생성(경로별 요청 수, 시간대별 추이, 책별 열람 수) — `deploy/grafana/portfolio-dashboard.json` (R-9)
+- [x] T040 [P] 멀티스테이지 Dockerfile 작성(빌드 → 정적 산출물을 `nginx:alpine`으로) — `Dockerfile`
+- [x] T041 [P] nginx 설정에 정적 export 경로 처리와 접근 로그 형식 정의(stdout 출력) — `deploy/nginx.conf` (R-9)
+- [x] T042 k8s 매니페스트 작성(Namespace `portfolio`, Deployment, Service 80→80) — `deploy/k8s/00-namespace.yaml`, `deploy/k8s/50-web.yaml`
+- [x] T043 `default` 네임스페이스 ExternalName 다리와 중앙 인그레스에 추가할 host·tls 블록을 주석으로 명시 — `deploy/k8s/60-shared-ingress.yaml` (도메인 `portfolio.jpark-playground.com`)
+- [x] T044 GitHub Actions 워크플로 작성(GHCR 푸시, buildx **linux/amd64 + linux/arm64**, `:latest`와 `:sha` 두 태그) — `.github/workflows/deploy.yml`
+- [x] T045 Grafana에 방문 기록 대시보드 생성(경로별 요청 수, 시간대별 추이, 책별 열람 수) — `deploy/grafana/portfolio-dashboard.json` (R-9)
 - [ ] T046 배포 후 확인: 도메인 접속, 인증서 발급, `/books/<slug>` 직접 접속 시 정상 응답 — `specs/001-room-bookshelf-shell/quickstart.md`의 배포 확인 절 수행
 
 ---
@@ -246,3 +246,25 @@ Task: "E2E 열기·닫기·초점 in tests/e2e/book-open.spec.ts"
 - 방 배경을 이미지로 낼지 CSS로 그릴지는 T021에서 결정한다 (research.md 미해결 항목)
 - 방명록 책장은 001에서 비어 있는 상태로 둔다. 저장소가 필요한 글쓰기는 003의 몫이다
 - 커밋은 작업 단위 또는 논리적 묶음마다
+
+---
+
+> **Phase 6 진행 메모 (003 작업 중 수행)**
+>
+> T040·T041·T042·T043·T044·T045 를 작성했다. **클러스터에 적용해 본 적은 없다.**
+> 남은 둘은 접근이 있어야 한다 — T039(중앙 인그레스 호스트 충돌 확인), T046(배포 후 확인).
+>
+> 작성하며 드러난, 이 목록이 헌장 3.0.0 개정 전에 쓰인 흔적 넷:
+>
+> - **도메인**: 여기 적힌 `portfolio.jpark-playground.com` 이 아니라 `portfolio.jgbak-land.com`
+>   이다(003 에서 확정, oneBite 실물과 같은 라인).
+> - **T043 파일 이름**: 60 번을 003 의 API 매니페스트가 쓰게 되어 인그레스를
+>   `deploy/k8s/70-shared-ingress.yaml` 로 옮겼다. 웹·API 다리가 한 파일에 함께 있다.
+> - **T045 의 "책별 열람 수"**: **얻을 수 없다.** 헌장 3.0.0 이 책별 정적 라우트를 걷어내
+>   책이 `/` 위의 모달이 되었고, `history.pushState` 가 주소를 바꾸지 않아 서버 요청 자체가
+>   없다. 대시보드에 그 사실과 선택지를 적어 두었다.
+> - **T046 의 `/books/<slug>` 직접 접속**: 같은 이유로 그런 주소가 없다. 배포 후 확인
+>   항목에서 빼고, 대신 `/` 와 `/admin` 응답·인증서 발급을 본다.
+>
+> 컨테이너는 비루트로 돌리므로 8080 을 듣는다. Service 가 80 으로 받아 넘기므로 밖에서
+> 보이는 포트는 그대로 80 이다(T042 의 "Service 80→80" 은 그런 뜻으로 읽는다).

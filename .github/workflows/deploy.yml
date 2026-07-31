@@ -1,0 +1,133 @@
+name: deploy
+
+# main 푸시마다: 검사 → 이미지 둘 빌드·푸시(GHCR).
+# 쿠버네티스 적용은 아직 수동이다 — 클러스터 자격 증명을 CI 에 두는 것은 별개의 결정이라
+# 여기서 같이 결정하지 않는다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  # ── 1) 사이트 검사 ──
+  test-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # 단위 테스트에는 서브셋 글꼴 검사가 들어 있다 — 한글을 추가하고 fonts:build 를
+      # 잊으면 여기서 막힌다. 그것이 이 검사를 CI 에 두는 가장 큰 이유다.
+      - run: npm test
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      # E2E 는 out/ 을 빌드해 띄우고 검사한다(playwright.config.ts 의 webServer).
+      # 방명록 스펙은 API 가 없으므로 통째로 건너뛴다 — 나머지가 도는 것이 중요하다.
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # ── 2) API 검사 ──
+  # 실제 PostgreSQL 을 띄운다. 인메모리 흉내로는 CHECK 제약과 SQL 방언을 검증할 수 없다.
+  test-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: portfolio
+          POSTGRES_PASSWORD: ci-local-only
+          POSTGRES_DB: portfolio
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U portfolio -d portfolio"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      # 전부 CI 안에서만 사는 값이다. 진짜 비밀은 여기 오지 않는다 — 테스트는 판정 API 를
+      # 부르지 않고(가짜를 끼운다) 데이터베이스도 이 러너 안의 것이다.
+      NODE_ENV: test
+      ALLOWED_ORIGIN: http://localhost:3000
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: portfolio
+      PGUSER: portfolio
+      PGPASSWORD: ci-local-only
+      ANTHROPIC_API_KEY: not-used-in-tests
+      ADMIN_TOKEN: '0000000000000000000000000000000000000000000000000000000000000000'
+      CLIENT_HASH_SALT: '1111111111111111111111111111111111111111111111111111111111111111'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+        working-directory: api
+      - run: npm run lint
+        working-directory: api
+      - run: npm run typecheck
+        working-directory: api
+      - run: npm test
+        working-directory: api
+
+  # ── 3) 이미지 빌드 & GHCR 푸시 ──
+  # GHCR 은 GitHub 내장 인증을 쓰므로 별도 레지스트리 시크릿이 필요 없다.
+  build-push:
+    needs: [test-site, test-api]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      # 클러스터가 라즈베리파이 arm64 다. 러너는 amd64 이므로 크로스빌드 에뮬레이션이 필요하다.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # GHCR 이미지 경로는 소문자만 허용 → 소유자명을 소문자로 정규화(PARKJGN → parkjgn).
+      - name: Compute lowercase owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Build & push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/portfolio-web:latest
+            ghcr.io/${{ env.OWNER_LC }}/portfolio-web:${{ github.sha }}
+          # NEXT_PUBLIC_* 는 빌드 시 번들에 박히는 공개값이다(정적 export 라 런타임
+          # 환경변수가 없다). 운영은 같은 도메인의 /api 라 비워 두면 상대 경로가 되어
+          # 그대로 맞는다 — Variables 를 설정하지 않으면 빈 값이 들어간다.
+          build-args: |
+            NEXT_PUBLIC_GUESTBOOK_API=${{ vars.NEXT_PUBLIC_GUESTBOOK_API }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Build & push api
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/portfolio-api:latest
+            ghcr.io/${{ env.OWNER_LC }}/portfolio-api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api

@@ -139,17 +139,30 @@ E2E 중 `tests/e2e/guestbook.spec.ts` 만 **서버 셋(DB·판정 대역·API)�
 
 | | 상태 |
 |---|---|
-| `api/Dockerfile` | 있음 |
-| `deploy/k8s/00-namespace.yaml`·`10-secret.example.yaml`·`15-config.yaml` | 있음 |
-| `deploy/k8s/60-api.yaml` (API Deployment·Service) | 있음 |
-| `deploy/k8s/70-shared-ingress.yaml` (ExternalName 다리 둘 + 인그레스 블록 주석) | 있음 |
-| 사이트 Dockerfile·`deploy/nginx.conf`·`deploy/k8s/50-web.yaml` | 없음 — 001 Phase 6 |
-| `.github/workflows/deploy.yml` | 없음 — 001 Phase 6 |
+| `Dockerfile` (사이트 → nginx) · `api/Dockerfile` | 있음 |
+| `deploy/nginx.conf` | 있음 |
+| `deploy/k8s/` 여섯 파일 (네임스페이스·설정·시크릿 예시·web·api·인그레스 다리) | 있음 |
+| `.github/workflows/deploy.yml` (검사 → GHCR 멀티아치 푸시) | 있음 |
+| `deploy/grafana/portfolio-dashboard.json` | 있음 |
 | 공유 PostgreSQL 의 `portfolio` 롤 생성 | 안 함 — 수동 절차, 클러스터 접근 필요 |
 | 중앙 인그레스 등록·DNS·인증서 | 안 함 |
+| `kubectl apply` | 안 함 |
 
-**적용해 본 적이 없다.** 클러스터에 붙을 수 없어 문법과 이름 일치까지만 확인했다 —
-`kubectl apply` 는 스키마 검증에 서버가 필요하므로 통과 여부를 모른다.
+사이트 이미지는 **로컬에서 빌드해 돌려 확인했다** — 비루트(UID 101)로 뜨고, `/`·`/admin`
+이 200, 없는 주소는 우리 404, 모든 응답에 보안 헤더 셋과 `Cache-Control` 하나, 접근 로그가
+JSON 으로 나온다.
+
+쿠버네티스 매니페스트는 **적용해 본 적이 없다.** 클러스터에 붙을 수 없어 YAML 구조와 앱이
+읽는 환경변수 이름 일치까지만 확인했다 — `kubectl apply --dry-run` 조차 스키마 검증에
+서버를 요구한다.
+
+이미지 만들어 보기:
+
+```bash
+docker build -t portfolio-web:local .          # 사이트
+docker build -t portfolio-api:local ./api      # API
+docker run --rm -p 8099:8080 portfolio-web:local
+```
 
 정해진 것은 다음과 같고, oneBite 와 같은 라인을 따른다.
 
