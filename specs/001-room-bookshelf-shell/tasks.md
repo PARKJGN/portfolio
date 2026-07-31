@@ -154,7 +154,7 @@ description: "Task list for 방·책장·책 모달 골격"
 
 - [x] T047 실제 화면 완성 후 LCP·CLS·INP 재측정하고 LHCI 게이트 최종 고정 — `lighthouserc.json`
 - [ ] T048 `quickstart.md`의 검증 1~7을 처음부터 끝까지 수행하고 결과 기록 — `specs/001-room-bookshelf-shell/quickstart.md`
-- [ ] T049 새 책 1권을 파일 하나만 추가해 방에 나타나는지 확인(FR-015·SC-007 검증) — `src/content/books/profile/`
+- [x] T049 새 책 1권을 파일 하나만 추가해 방에 나타나는지 확인(FR-015·SC-007 검증) — `src/content/books/profile/`
 - [ ] T050 [P] 낭독기로 방·책 모달을 수동 확인(자동 검사가 못 잡는 순서·맥락) — 수동 검증
 - [x] T051 [P] 프로젝트 README 작성(개발·빌드·배포·콘텐츠 추가 방법) — `README.md`
 
