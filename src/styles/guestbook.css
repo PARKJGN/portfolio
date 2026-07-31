@@ -1,14 +1,18 @@
 /* ── 방명록 — 폼과 목록 ──────────────────────────────
-   이 책만 평면 모달로 열린다(003 research.md R-2). 색·간격·글자 크기는 전부 기존
-   토큰을 참조한다(헌장 원칙 V). 새로 만든 값이 없다. */
+   색·간격·글자 크기는 전부 기존 토큰을 참조한다(헌장 원칙 V). 새로 만든 값이 없다.
 
-/* 방명록은 장으로 나누지 않는다.
+   아래 세 규칙은 모두 :not([data-reader]) 다 — 3D 리더가 못 뜨는 때만 쓴다.
+   처음에는 이 책만 평면으로 열기로 정했으나(003 research.md R-2) 그 근거가 틀렸다.
+   캔버스는 서브셋 글꼴이 아니라 시스템 글꼴을 지정할 수 있어, 방문자가 쓴 글자도
+   그려진다. 지금은 이 책도 3D 로 열리고 평면 마크업은 낭독기·검색용으로 남는다. */
+
+/* 방명록은 (평면일 때) 장으로 나누지 않는다.
    다른 책은 본문을 두 단으로 흘려 '한 장씩' 넘기지만, 방명록에는 폼이 있고 글이
    계속 늘어난다. 단 나눔에 맡기면 입력칸과 버튼이 다음 장 칸으로 밀려나 화면 밖에
    놓인다 — 눌러도 잘라내는 컨테이너가 잡혀 클릭이 먹지 않았다.
    그래서 이 책만 한 단으로 세로로 흐르게 하고 장 넘김 조작을 감춘다.
    명시도는 상대 규칙(0,3,0)과 같고 이 파일이 뒤에 실려 이긴다. */
-.book-dialog[data-guestbook] .book__body {
+.book-dialog[data-guestbook]:not([data-reader]) .book__body {
   /* column-count:1 만으로는 부족하다 — 그래도 다단 컨테이너로 남아, 높이가 정해져 있고
      column-fill:auto 면 넘치는 내용이 '옆 단'으로 흘러 overflow-x:hidden 에 잘린다.
      실제로 남긴 글이 DOM 에는 있는데 화면에 없었다. columns:auto 라야 다단이 풀린다. */
@@ -28,13 +32,13 @@
 }
 
 /* 가운데 책등 골도 지운다 — 한 단이라 가를 자리가 없다. */
-.book-dialog[data-guestbook] .book__pages {
+.book-dialog[data-guestbook]:not([data-reader]) .book__pages {
   background: var(--page-bg);
 }
 
 /* 장이 하나뿐이라 넘김 조작과 보기 전환은 뜻이 없다. */
-.book-dialog[data-guestbook] .book__paging,
-.book-dialog[data-guestbook] [data-action='toggle-view'] {
+.book-dialog[data-guestbook]:not([data-reader]) .book__paging,
+.book-dialog[data-guestbook]:not([data-reader]) [data-action='toggle-view'] {
   display: none;
 }
 
@@ -425,4 +429,71 @@
 .admin__actions {
   display: flex;
   gap: var(--space-2);
+}
+
+/* ── 3D 책 면 위에 얹힌 글쓰기 자리 ──────────────────────────────
+   3D 리더는 한 면을 통째로 비우고(Block 'writebox'), BookController 가 그 면의 화면
+   사각형을 재어 left/top/width/height 를 인라인으로 준다. 여기서는 '어떻게 보일지'만
+   맡는다 — 자리는 JS 가, 모양은 CSS 가.
+
+   position:fixed 인 이유: 3D 책은 화면 전체를 덮는 캔버스에 그려져 문서 흐름과 무관하고,
+   컨트롤러가 주는 좌표도 화면 기준(getBoundingClientRect 계열)이다. */
+.guestbook[data-on-page] {
+  position: fixed;
+  z-index: 2;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* 면 안쪽 여백 — 3D 가 그리는 본문 여백(padX)과 눈으로 맞춘 값이다. 종이 가장자리에
+     입력칸이 닿으면 얹힌 게 아니라 잘린 것처럼 보인다. */
+  padding: clamp(20px, 7%, 52px);
+  overflow: hidden;
+}
+
+/* 3D 에서는 목록을 캔버스가 이미 그렸다. HTML 목록은 낭독기·검색용으로만 남기고
+   화면에서 뺀다 — display:none 이면 낭독기도 못 읽으므로 그렇게 하지 않는다. */
+.guestbook[data-on-page] .guestbook__rule,
+.guestbook[data-on-page] .guestbook__list,
+.guestbook[data-on-page] .guestbook__empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 종이 위라 상자를 다시 그리지 않는다. 3D 가 칠한 종이색이 배경이므로 폼에 배경을
+   주면 종이 위에 흰 카드를 얹은 꼴이 된다. 입력칸만 옅은 밑줄로 자리를 알린다. */
+.guestbook[data-on-page] .guestbook__form {
+  gap: var(--space-2);
+}
+.guestbook[data-on-page] .guestbook__textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+}
+
+/* 3D 인데 그 면이 안 보이는 동안(펼치는 중·다른 장·넘기는 중)에는 화면에서 뺀다.
+   .book__pages 밖으로 옮겨 놓았기 때문에 리더 모드의 opacity:0 이 이것까지 감춰 주지
+   않는다. display:none 은 쓰지 않는다 — 낭독기가 폼과 목록을 못 읽게 된다.
+
+   기준이 data-reader 가 아니라 **data-open3d** 인 이유: data-reader 는 책이 다 펼쳐진
+   뒤에 붙는다. 그때까지 폼이 문서 흐름에 있으면 상자가 600px 넘게 부풀었다가 접히면서
+   화면이 크게 튄다(실측 CLS 0.175 — 예산 0.1 을 넘겼다). data-open3d 는 창을 여는
+   순간부터 붙으므로 흐름에 들어올 틈이 없다(재 보면 0.015, 다른 책과 같은 값). */
+.book-dialog[data-open3d] .guestbook:not([data-on-page]) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

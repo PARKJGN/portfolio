@@ -75,10 +75,6 @@ export function BookContent({
 
           <div className="book__prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }} />
 
-          {/* 방명록은 런타임에 도착하는 남의 글이라 renderMarkdown 을 거치지 않는다.
-              그 함수 주석의 경고 그대로다 — 방문자 입력에 쓰면 안 된다. */}
-          {book.guestbook ? <Guestbook /> : null}
-
           {book.tech?.length ? (
             <ul className="tech-list">
               {book.tech.map((t) => {
@@ -117,6 +113,15 @@ export function BookContent({
           ) : null}
         </div>
       </div>
+
+      {/* 방명록은 런타임에 도착하는 남의 글이라 renderMarkdown 을 거치지 않는다.
+          그 함수 주석의 경고 그대로다 — 방문자 입력에 쓰면 안 된다.
+
+          **.book__pages 바깥**에 둔다. 3D 리더가 켜지면 그 상자에 opacity:0 이 걸리는데,
+          opacity 는 쌓임 맥락을 만들어 자식이 아무리 애써도 벗어날 수 없다. 밖에 있어야
+          입력칸이 살아 있는 채로 3D 책 면 위에 얹힐 수 있다(BookController 가 자리를 잡는다).
+          평면(폴백)에서는 책 상자 아래에 이어 붙는다. */}
+      {book.guestbook ? <Guestbook /> : null}
 
       {/* 도구 막대 — 종이 밖(모달에서는 하드커버 보드) 에 얹힌다. 그래야 두 면이
           순수한 책 페이지로 보인다. */}

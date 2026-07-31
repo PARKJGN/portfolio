@@ -7,7 +7,6 @@ spine:
   width: narrow
 year: '2026'
 summary: 다녀가신 분들이 한마디씩 남기고 가는 자리입니다.
-reader: flat
 guestbook: true
 ---
 

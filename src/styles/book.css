@@ -1030,3 +1030,13 @@ dialog[data-closing] .book {
 .book-dialog :is(.book__close, .book__body, .book__nav button, .book__btn):focus-visible {
   outline-color: var(--tool-accent);
 }
+
+/* 3D 리더에서는 손짓을 우리가 읽는다(BookController 의 스와이프 넘김). 브라우저가
+   같은 손짓을 스크롤·당겨서 새로고침으로 먼저 가져가면 장이 넘어가지 않는다.
+   글쓰기 폼만 예외 — 커서를 옮기고 글을 고르려면 기본 동작이 있어야 한다. */
+.book-dialog[data-reader] {
+  touch-action: none;
+}
+.book-dialog[data-reader] .guestbook {
+  touch-action: auto;
+}

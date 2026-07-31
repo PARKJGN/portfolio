@@ -9,7 +9,8 @@ import {
   writeStoredMode,
   type ViewMode,
 } from '@/lib/view-mode';
-import type { Block, Book3D } from './book3d';
+import type { Block, Book3D, BookVisual } from './book3d';
+import { fetchEntries } from '@/lib/guestbook-client';
 
 /**
  * 이 사이트의 **유일한** 클라이언트 컴포넌트다.
@@ -63,6 +64,10 @@ export function BookController() {
     // 없어 폴백 경로로 빠지고, 곧 등장이 끝나며 캔버스에 책만 덩그러니 남는다(조작 불가).
     let activeReader: Book3D | null = null;
     let readerEngine: Book3D | null = null;
+    // 지금 3D 로 그리고 있는 책의 시각 정보. 방명록에 글이 늘면 이것을 고쳐 다시 그린다.
+    let openVisual: BookVisual | null = null;
+    /** 그 책의 원본 덩이(안내문만). 글 목록은 매번 여기에 다시 붙인다. */
+    let openBaseBlocks: Block[] = [];
     const teardownEngine = () => {
       if (!readerEngine) return;
       readerEngine.cancel(); // 등장/닫기 트윈이 돌고 있으면 멈춘다
@@ -70,7 +75,69 @@ export function BookController() {
       readerEngine.clear();
       readerEngine = null;
       activeReader = null;
+      openVisual = null;
+      openBaseBlocks = [];
+      placeWriteBox(); // activeReader 가 비었으니 자리 표시를 뗀다
     };
+    /**
+     * 방명록 책의 페이지 덩이 — 안내문 + 글쓰기 자리 + 남겨진 글.
+     *
+     * DOM 에서 읽지 않고 직접 가져오는 이유: 목록은 창이 열린 **뒤에** 도착하는데
+     * 3D 는 열리는 순간 페이지를 만든다. DOM 을 기다리게 하면 타이밍에 기대게 된다.
+     * guestbook-client 가 같은 요청을 하나로 묶어 주므로 HTML 쪽과 두 번 부르지 않는다.
+     *
+     * 목록이 늦거나 실패해도 책은 그대로 열린다 — 안내문과 글쓰기 자리는 남는다.
+     */
+    const guestbookBlocks = async (base: Block[]): Promise<Block[]> => {
+      // 안내문 다음 면을 통째로 비우고 그 위에 진짜 폼을 얹는다(placeWriteBox).
+      const withBox: Block[] = [...base, { kind: 'writebox' }];
+      try {
+        const page = await fetchEntries();
+        if (page.entries.length === 0) return withBox; // 아직 없어도 쓸 자리는 있어야 한다
+        return [
+          ...withBox,
+          { kind: 'h', text: '남겨 주신 글' },
+          ...page.entries.map(
+            (e): Block => ({
+              kind: 'entry',
+              author: e.author,
+              when: formatWhen(e.createdAt),
+              text: e.body,
+            }),
+          ),
+        ];
+      } catch {
+        return withBox; // 목록을 못 받아도 글은 남길 수 있어야 한다
+      }
+    };
+
+    /**
+     * 글쓰기 폼을 3D 책의 '비워 둔 면' 위에 얹는다.
+     *
+     * 캔버스에는 입력칸을 놓을 수 없어서, 3D 는 그 면을 통째로 비우고(Block 'writebox')
+     * 여기서 진짜 <form> 을 그 자리에 고정한다. 종이 위에 놓인 것처럼 보이지만 실제로는
+     * 브라우저의 입력칸이라 IME·붙여넣기·낭독기가 그대로 동작한다.
+     *
+     * 그 면이 안 보이면(다른 장이거나 넘기는 중이면) 자리 표시를 떼어 CSS 가 감춘다.
+     * 평면(3D 를 못 띄운 경우)에서는 아예 부르지 않는다 — 폼이 문서 흐름에 그냥 있으면 된다.
+     */
+    const placeWriteBox = () => {
+      const open = document.querySelector<HTMLElement>('dialog[open]');
+      const box = open?.querySelector<HTMLElement>('.guestbook');
+      if (!box) return;
+      const rect = activeReader?.writeboxRect() ?? null;
+      if (!rect) {
+        delete box.dataset.onPage;
+        box.removeAttribute('style');
+        return;
+      }
+      box.dataset.onPage = '';
+      box.style.left = `${Math.round(rect.left)}px`;
+      box.style.top = `${Math.round(rect.top)}px`;
+      box.style.width = `${Math.round(rect.width)}px`;
+      box.style.height = `${Math.round(rect.height)}px`;
+    };
+
     const readerProgress = (i: number, total: number) => {
       const open = document.querySelector<HTMLElement>('dialog[open]');
       if (!open) return;
@@ -83,6 +150,7 @@ export function BookController() {
       open
         .querySelector<HTMLButtonElement>('[data-action="page-next"]')
         ?.toggleAttribute('disabled', i >= total - 1);
+      placeWriteBox();
     };
 
     // 선언 순서에 주의 — 아래 초기화 호출은 이 파일 맨 끝에 있다.
@@ -169,6 +237,13 @@ export function BookController() {
     };
 
     const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /** 방명록 글의 날짜 표기. HTML 쪽 Guestbook 과 같은 형식으로 맞춘다. */
+    const formatWhen = (iso: string) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+    };
 
     // 3D 연출에 필요한 시각 정보를 이미 렌더된 DOM 에서 읽는다(색·제목·소개·기술·본문).
     const txt = (el: Element | null | undefined) => el?.textContent?.trim() || '';
@@ -309,11 +384,25 @@ export function BookController() {
 
       const v = readVisual(dialog);
       const dims = bookDims();
+      // 글이 늘면 이 v 의 blocks 를 다시 만들어 그린다(onGuestbookChanged).
+      // 원본(안내문만)을 따로 남긴다 — v.blocks 에는 글까지 섞여 있어 다시 못 쓴다.
+      openVisual = dialog.dataset.guestbook === undefined ? null : v;
+      openBaseBlocks = v.blocks ? [...v.blocks] : [];
+
+      const withEntries = () =>
+        dialog.dataset.guestbook === undefined
+          ? Promise.resolve(v.blocks ?? [])
+          : guestbookBlocks(v.blocks ?? []);
       import('./book3d')
+        // 방명록이면 남겨진 글을 블록에 더한다. 목록이 늦거나 실패하면 없는 채로 연다.
+        .then((m) => withEntries().then((blocks) => ({ m, blocks })))
         // 페이지 텍스처는 한 번에 동기로 그려지므로 이미지가 그 전에 손에 있어야 한다.
         // 대개 HTML 이 같은 주소를 이미 받아 두어 즉시 끝난다. 못 받아도 거절하지 않고
         // 자리표시 네모로 그린다 — 로고가 안 뜨는 것보다 책이 안 열리는 것이 나쁘다.
-        .then((m) => m.preloadBlockImages(v.blocks ?? []).then(() => m))
+        .then(({ m, blocks }) => {
+          v.blocks = blocks;
+          return m.preloadBlockImages(blocks).then(() => m);
+        })
         .then((m) => m.getBook3D())
         .then((eng) => {
           if (!dialog.open || dialog.dataset.intro == null) return; // 이미 닫힘
@@ -336,6 +425,7 @@ export function BookController() {
               delete dialog.dataset.intro;
               dialog.dataset.reader = '';
               activeReader = eng;
+              placeWriteBox();
             },
           });
         })
@@ -467,6 +557,8 @@ export function BookController() {
     let swallowClick = false;
     const onTouchStart = (e: TouchEvent) => {
       if (!activeReader || e.touches.length !== 1) return;
+      // 글쓰기 폼 위에서 시작한 손짓은 넘김이 아니다 — 커서를 옮기거나 글자를 고르는 중이다.
+      if ((e.target as Element | null)?.closest('.guestbook')) return;
       touching = true;
       touchX = e.touches[0].clientX;
       touchY = e.touches[0].clientY;
@@ -490,7 +582,27 @@ export function BookController() {
       if (dir !== 0) {
         swallowClick = true; // 이 스와이프 뒤 click 은 무시(배경 탭 닫기 방지)
         activeReader.turn(dir);
+        placeWriteBox(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
       }
+    };
+
+    /**
+     * 방명록에 글이 하나 늘었다(Guestbook 이 알려 준다).
+     *
+     * 3D 는 열릴 때 페이지를 한 번 그려 두므로, 방금 남긴 글은 종이에 없다. 목록을 다시
+     * 받아 페이지를 다시 그린다 — 안 그러면 "남겼는데 책에는 안 보인다" 가 된다.
+     * 보던 장은 그대로다(rebuildPages).
+     */
+    const onGuestbookChanged = () => {
+      const eng = activeReader;
+      const v = openVisual;
+      if (!eng || !v) return; // 평면이면 React 가 이미 목록을 고쳤다
+      void guestbookBlocks(openBaseBlocks).then((blocks) => {
+        if (activeReader !== eng) return; // 그 사이 책이 바뀌었다
+        v.blocks = blocks;
+        eng.rebuildPages(v);
+        placeWriteBox();
+      });
     };
 
     // ── 이벤트 ──────────────────────────────
@@ -511,8 +623,13 @@ export function BookController() {
         writeStoredMode(globalThis.localStorage, next);
         return;
       }
-      if (action === 'page-prev') return activeReader ? activeReader.turn(-1) : turnPage(-1);
-      if (action === 'page-next') return activeReader ? activeReader.turn(1) : turnPage(1);
+      if (action === 'page-prev' || action === 'page-next') {
+        const dir = action === 'page-next' ? 1 : -1;
+        if (!activeReader) return turnPage(dir);
+        activeReader.turn(dir);
+        placeWriteBox(); // 위와 같은 이유 — 넘기는 동안에는 뗀다
+        return;
+      }
 
       // 창 — 해가 떴다 진다. 지면 처음 상태(기본 창)로 돌아간다. 밤(어두운 하늘) 없음.
       if (action === 'toggle-sky') {
@@ -584,9 +701,30 @@ export function BookController() {
         return;
       }
 
+      // 3D 리더에서 책 위를 누르면 그 반쪽 방향으로 넘긴다(왼쪽=이전, 오른쪽=다음).
+      //
+      // 요소로는 가릴 수 없다. 책은 캔버스에 그려지고 그 캔버스는 pointer-events:none 이라
+      // 클릭이 통과하며, 밑에 깔린 HTML(.book, dialog)이 제각각 대상이 된다. 그래서 3D 가
+      // 알려 주는 책의 화면 사각형과 좌표를 견준다.
+      //
+      // 도구막대와 글쓰기 폼은 뺀다 — 진짜 눌러야 할 것이 거기 있다.
+      const bookArea = activeReader?.bookRect();
+      const onChrome = target?.closest('.book__tools, .guestbook');
+      if (
+        bookArea &&
+        !onChrome &&
+        e.clientX >= bookArea.left &&
+        e.clientX <= bookArea.left + bookArea.width &&
+        e.clientY >= bookArea.top &&
+        e.clientY <= bookArea.top + bookArea.height
+      ) {
+        activeReader!.turn(e.clientX < bookArea.left + bookArea.width / 2 ? -1 : 1);
+        placeWriteBox(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
+        return;
+      }
+
       // <dialog> 는 ::backdrop 클릭을 스스로 처리하지 않는다. 클릭 대상이
-      // dialog 요소 자신이면 내용 바깥을 누른 것이다 (R-5). 즉시 닫지 않고
-      // 접힘 연출을 거쳐 닫는다.
+      // dialog 요소 자신이면 내용 바깥을 누른 것이다 (R-5).
       if (target instanceof HTMLDialogElement && target.open) requestClose(target);
     };
 
@@ -629,9 +767,11 @@ export function BookController() {
       // 등장 중(readerEngine)이든 다 펼쳤든(activeReader) 화면에 올라온 3D 를 맞춘다.
       readerEngine?.onResize();
       updateProgress();
+      placeWriteBox();
     };
 
     document.addEventListener('click', onClick);
+    document.addEventListener('guestbook:changed', onGuestbookChanged);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('cancel', onCancel, true);
     document.addEventListener('close', onClose, true);
@@ -676,6 +816,7 @@ export function BookController() {
     return () => {
       delete root.dataset.bookReady;
       document.removeEventListener('click', onClick);
+      document.removeEventListener('guestbook:changed', onGuestbookChanged);
       document.removeEventListener('submit', onSubmit);
       document.removeEventListener('cancel', onCancel, true);
       document.removeEventListener('close', onClose, true);

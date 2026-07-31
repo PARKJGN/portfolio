@@ -143,6 +143,9 @@ export function Guestbook() {
         // 새로고침 없이 목록 맨 위에 붙인다(FR-003).
         setEntries((prev) => [result.entry, ...prev]);
         setNotice({ kind: 'ok', text: '남겨 주셔서 고맙습니다.' });
+        // 3D 책은 열릴 때 페이지를 한 번 그려 두므로, 방금 남긴 글이 종이에는 아직 없다.
+        // 다시 그리라고 알린다. 3D 가 아니면 아무도 듣지 않는다(BookController 만 듣는다).
+        rootRef.current?.dispatchEvent(new CustomEvent('guestbook:changed', { bubbles: true }));
       } else {
         setNotice({ kind: 'held', text: result.message });
       }

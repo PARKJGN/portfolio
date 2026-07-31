@@ -26,7 +26,22 @@ export type Block =
   | { kind: 'h'; text: string; sub?: boolean }
   | { kind: 'p'; text: string }
   | { kind: 'li'; text: string }
-  | { kind: 'tech'; name: string; color?: string; desc: string };
+  | { kind: 'tech'; name: string; color?: string; desc: string }
+  /**
+   * 방명록에 남겨진 글 한 편.
+   *
+   * 다른 덩이와 달리 **시스템 글꼴로 그린다.** 방문자가 무슨 글자를 쓸지 알 수 없어
+   * 서브셋 글꼴로는 담을 수 없기 때문이다(HTML 쪽 .guestbook__body 와 같은 이유).
+   */
+  | { kind: 'entry'; author: string; when: string; text: string }
+  /**
+   * 글 쓰는 자리. **아무것도 그리지 않고 한 면을 통째로 비운다.**
+   *
+   * 캔버스에는 입력칸을 놓을 수 없다. 그래서 3D 는 자리만 비우고, 컨트롤러가 그 면의
+   * 화면 사각형(writeboxRect)에 맞춰 진짜 <form> 을 얹는다. 종이 위에 놓인 것처럼 보이되
+   * 실제로는 브라우저가 그리는 입력칸이라 IME·붙여넣기·낭독기가 모두 그대로 동작한다.
+   */
+  | { kind: 'writebox' };
 
 export interface BookVisual {
   cover: string;
@@ -307,7 +322,16 @@ function wrapLines(g: CanvasRenderingContext2D, text: string, maxW: number) {
 const INK = '#463714';
 /** 성과 소제목 앞 표식 색 — CSS 의 --page-accent 와 같은 값. */
 const ACCENT = '#ae1800';
+/** 곁들이는 글(방명록의 이름·날짜). 본문보다 흐려 글 자체가 먼저 읽힌다. */
+const CAPTION = 'rgba(70,55,20,0.62)';
 const serif = (weight: number, px: number) => `${weight} ${px}px "Noto Serif KR Subset", serif`;
+/**
+ * 방문자가 쓴 글자용. 서브셋 글꼴에 없는 글자가 섞여도 시스템 글꼴이 받아 준다 —
+ * 캔버스도 HTML 과 똑같이 글꼴 대체가 동작한다. (초안에서는 이것을 못 한다고 보고
+ * 방명록을 평면으로 정했는데, 그 판단이 틀렸다.)
+ */
+const sans = (weight: number, px: number) =>
+  `${weight} ${px}px system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif`;
 
 /** 소개 카드: 왼쪽 사진(자리표시) + 오른쪽 이름·영문·연락처. 쓴 높이를 돌려준다. */
 function drawHeader(
@@ -523,26 +547,36 @@ interface Flow {
   isLi: boolean;
   /** 성과 소제목(h3) — 앞에 표식 네모를 그린다. */
   isSub: boolean;
+  /** 방명록 글의 '이름 · 날짜' 줄. 없으면 방명록 글이 아니다. */
+  meta?: string;
+  metaFs: number;
+  metaH: number;
 }
 
-type FlowBlock = Extract<Block, { kind: 'h' | 'p' | 'li' }>;
+type FlowBlock = Extract<Block, { kind: 'h' | 'p' | 'li' | 'entry' }>;
 
 /** 덩이를 폭에 맞춰 접고 크기를 잰다. 재는 동안 g.font 가 그 덩이의 글꼴로 바뀐다. */
 function measureFlow(g: CanvasRenderingContext2D, bl: FlowBlock, cw: number, colW: number): Flow {
   const isH = bl.kind === 'h';
   const isLi = bl.kind === 'li';
+  const isEntry = bl.kind === 'entry';
   const sub = bl.kind === 'h' && bl.sub;
   // 글자는 작게, 사이는 넉넉하게. 빽빽한 큰 글씨보다 이쪽이 훨씬 잘 읽힌다.
   const fs = isH ? Math.round(cw * (sub ? 0.036 : 0.042)) : Math.round(cw * 0.03);
   const lineH = fs * 1.62;
-  const font = serif(isH ? 600 : 400, fs);
+  // 방명록 글만 시스템 글꼴 — 방문자가 무슨 글자를 쓸지 알 수 없다.
+  const font = isEntry ? sans(400, fs) : serif(isH ? 600 : 400, fs);
   g.font = font;
   // 목록의 글머리 기호, 소제목의 표식 네모 — 그 자리만큼 안으로 들이고 폭이 줄어든다.
   const indent = isLi ? Math.round(cw * 0.032) : sub ? Math.round(cw * 0.028) : 0;
   // 소제목 앞은 크게 벌려 덩이의 시작이 눈에 띄게 한다.
   const gap = isH ? lineH * (sub ? 0.9 : 1.05) : 0;
   // 목록 항목끼리는 문단 사이보다 촘촘히 붙인다.
-  const after = isH ? lineH * 0.3 : isLi ? lineH * 0.22 : lineH * 0.6;
+  const after = isH ? lineH * 0.3 : isLi ? lineH * 0.22 : isEntry ? lineH * 0.85 : lineH * 0.6;
+  // 방명록 글은 본문 위에 '이름 · 날짜' 한 줄을 얹는다. 그 줄도 방문자 이름을 담으므로
+  // 시스템 글꼴이다.
+  const metaFs = isEntry ? Math.round(fs * 0.78) : 0;
+  const metaH = isEntry ? metaFs * 1.7 : 0;
   const lines = wrapLines(g, bl.text, colW - indent);
   return {
     font,
@@ -552,9 +586,12 @@ function measureFlow(g: CanvasRenderingContext2D, bl: FlowBlock, cw: number, col
     after,
     indent,
     lines,
-    blockH: gap + lines.length * lineH + after,
+    blockH: gap + metaH + lines.length * lineH + after,
     isLi,
     isSub: !!sub,
+    meta: isEntry ? `${bl.author} · ${bl.when}` : undefined,
+    metaFs,
+    metaH,
   };
 }
 
@@ -564,6 +601,17 @@ function drawFlow(g: CanvasRenderingContext2D, f: Flow, x: number, y: number, bo
   g.font = f.font;
   // 앞선 소개 카드·기술 항목이 흐린 색을 남겨 두므로 본문 색을 되돌린다.
   g.fillStyle = INK;
+
+  // 방명록 글의 머리 — 이름 · 날짜. 본문보다 작고 흐리게 둬서 글 자체가 먼저 읽히게 한다.
+  if (f.meta) {
+    g.font = sans(500, f.metaFs);
+    g.fillStyle = CAPTION;
+    g.fillText(f.meta, x, yy + f.metaFs);
+    yy += f.metaH;
+    g.font = f.font;
+    g.fillStyle = INK;
+  }
+
   if (f.isLi) {
     g.beginPath();
     g.arc(x + f.fs * 0.22, yy + f.fs * 0.62, Math.max(1.5, f.fs * 0.09), 0, PI * 2);
@@ -620,12 +668,23 @@ function drawContentPage(
         ? drawProduct(g, b, padX, colW, atY, cw, true)
         : b.kind === 'header'
           ? 0 // 소개 카드는 늘 첫 블록이라 무엇의 뒤에 올 일이 없다
-          : measureFlow(g, b, cw, colW).blockH;
+          : b.kind === 'writebox'
+            ? Infinity // 면을 통째로 쓴다 — 앞 덩이 뒤에 붙을 자리는 없다
+            : measureFlow(g, b, cw, colW).blockH;
 
   let i = startIdx;
-  let drew = false; // 이 페이지에 이미 뭔가 그렸나 — 안 들어가는 블록을 다음 장으로 미룰 기준
+  let drew = false;
+  let writebox = false; // 이 면을 글쓰기 자리로 비웠나 // 이 페이지에 이미 뭔가 그렸나 — 안 들어가는 블록을 다음 장으로 미룰 기준
   for (; i < blocks.length; i++) {
     const bl = blocks[i];
+    if (bl.kind === 'writebox') {
+      // 한 면을 통째로 차지한다. 이미 뭘 그린 면이면 다음 면으로 미룬다 —
+      // 글씨 밑에 폼이 겹쳐 앉으면 둘 다 못 읽는다.
+      if (drew) break;
+      i++;
+      writebox = true;
+      break;
+    }
     if (bl.kind === 'header') {
       y += drawHeader(g, bl, padX, colW, y, cw);
     } else if (bl.kind === 'tech' || bl.kind === 'product') {
@@ -672,7 +731,7 @@ function drawContentPage(
   g.fillStyle = 'rgba(60,42,16,0.26)';
   g.fillRect(atStart ? 0 : cw - crease, 0, crease, c.height);
 
-  return { tex: tex(THREE, c), next: i };
+  return { tex: tex(THREE, c), next: i, writebox };
 }
 
 type StdMat = THREE_NS.MeshStandardMaterial;
@@ -700,6 +759,8 @@ export class Book3D {
   private reserveTop = 0;
   private reserveBottom = 0;
   private index = 0;
+  /** 글쓰기 자리로 비워 둔 면의 번호. 없으면 -1. */
+  private writeboxPage = -1;
   private busy = false;
   private raf = 0;
   private w = 0;
@@ -766,6 +827,65 @@ export class Book3D {
     return this.index;
   }
 
+  /**
+   * 페이지를 다시 그린다. 내용이 바뀌었을 때(방명록에 글이 하나 늘었을 때) 쓴다.
+   *
+   * 보던 장은 그대로 둔다 — 글을 남긴 사람은 쓰던 자리에 남아 있어야 한다. 장 수가
+   * 줄면 마지막 장으로 당긴다. 넘기는 중에는 하지 않는다(잎 재질이 바뀌면 튄다).
+   */
+  rebuildPages(v: BookVisual): boolean {
+    if (!this.group || this.busy) return false;
+    this.buildPages(v, this.dims.W, this.dims.H);
+    this.index = Math.min(this.index, this.total - 1);
+    // 두 면 모드: 왼 면은 표지 안쪽(coverBack), 오른 면은 몸통 앞면(bodyFront).
+    // 한 면 모드: 몸통 앞면 하나뿐이다.
+    const at = this.single ? this.index : 2 * this.index + 1;
+    this.bodyFrontMat!.map = this.pages[at] ?? this.pages[0];
+    this.bodyFrontMat!.needsUpdate = true;
+    if (!this.single && this.coverBackMat) {
+      this.coverBackMat.map = this.pages[2 * this.index] ?? this.pages[0];
+      this.coverBackMat.needsUpdate = true;
+    }
+    this.render();
+    this.onProgress?.(this.index, this.total);
+    return true;
+  }
+
+  /**
+   * 펼쳐진 책 전체가 차지하는 화면 사각형(CSS px). 아직 안 떴으면 null.
+   *
+   * 캔버스는 화면을 다 덮되 pointer-events:none 이라 클릭이 그대로 통과한다. 그래서
+   * '책을 눌렀는지'를 요소로는 알 수 없고, 이 사각형과 좌표를 견줘 판단한다.
+   * 넘기는 중(busy)에도 자리는 그대로이므로 여기서는 busy 를 보지 않는다.
+   */
+  bookRect(): { left: number; top: number; width: number; height: number } | null {
+    if (!this.group) return null;
+    const { W, H } = this.dims;
+    const c = this.restCenter();
+    const spreadW = this.single ? W : W * 2;
+    return { left: c.x - spreadW / 2, top: this.h - c.y - H / 2, width: spreadW, height: H };
+  }
+
+  /**
+   * 글쓰기 자리로 비운 면이 **지금 보이면** 그 면의 화면 사각형(CSS px)을 준다. 아니면 null.
+   *
+   * z=0 평면이 화면 픽셀과 1:1 로 대응하도록 카메라를 잡아 두었으므로(resize),
+   * 원근 투영을 되짚을 필요 없이 책 중심과 면 크기만으로 자리가 나온다.
+   * 넘기는 중(busy)에는 면이 접혀 있어 자리가 뜻을 잃는다 — null 을 준다.
+   */
+  writeboxRect(): { left: number; top: number; width: number; height: number } | null {
+    if (this.writeboxPage < 0 || !this.group || this.busy) return null;
+    const spread = this.single ? this.writeboxPage : Math.floor(this.writeboxPage / 2);
+    if (spread !== this.index) return null;
+    const { W, H } = this.dims;
+    const c = this.restCenter();
+    const cx = c.x;
+    const cy = this.h - c.y; // 월드 y 를 화면 y 로 되돌린다
+    // 한 면 모드는 그 면이 화면 가운데. 두 면 모드는 짝수 면이 왼쪽, 홀수 면이 오른쪽.
+    const left = this.single ? cx - W / 2 : this.writeboxPage % 2 === 0 ? cx - W : cx;
+    return { left, top: cy - H / 2, width: W, height: H };
+  }
+
   private buildPages(v: BookVisual, pw: number, ph: number) {
     for (const p of this.pages) p.dispose();
     const blocks = v.blocks ?? [];
@@ -783,10 +903,12 @@ export class Book3D {
     };
     let start = 0;
     let idx = 0;
+    this.writeboxPage = -1;
     while (start < blocks.length && idx < 60) {
       // 두 면: 왼/오 번갈아 안쪽(책등) 그늘. 한 면: 항상 왼쪽 제본(일관된 한 쪽 그늘).
       const gutter = this.single ? 'left' : idx % 2 === 0 ? 'right' : 'left';
       const r = drawContentPage(this.THREE, v, pw, ph, gutter, start);
+      if (r.writebox) this.writeboxPage = idx;
       pages.push(crisp(r.tex));
       start = r.next > start ? r.next : start + 1;
       idx++;

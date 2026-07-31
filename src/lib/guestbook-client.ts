@@ -56,7 +56,33 @@ async function readError(res: Response): Promise<GuestbookError> {
   }
 }
 
+/**
+ * 첫 쪽을 부르는 요청이 겹치면 하나로 묶는다.
+ *
+ * 방명록 책을 열면 두 곳이 같은 목록을 필요로 한다 — 3D 가 페이지에 글을 그리려고,
+ * HTML 이 낭독기용 본문을 채우려고. 그대로 두면 열 때마다 같은 요청이 두 번 나간다.
+ *
+ * 짧게만 붙잡는다(끝나면 바로 비운다). 오래 캐시하면 글을 남긴 뒤 낡은 목록이 보인다.
+ */
+let firstPageInFlight: Promise<EntryPage> | null = null;
+
 export async function fetchEntries(
+  before?: string | null,
+  signal?: AbortSignal,
+): Promise<EntryPage> {
+  // 이어 읽기(before)는 매번 다른 쪽이라 묶지 않는다. 첫 쪽만 묶는다.
+  // signal 이 붙은 요청도 묶지 않는다 — 한쪽이 취소하면 다른 쪽까지 끊긴다.
+  if (!before && !signal) {
+    if (firstPageInFlight) return firstPageInFlight;
+    firstPageInFlight = fetchEntriesRaw().finally(() => {
+      firstPageInFlight = null;
+    });
+    return firstPageInFlight;
+  }
+  return fetchEntriesRaw(before, signal);
+}
+
+async function fetchEntriesRaw(
   before?: string | null,
   signal?: AbortSignal,
 ): Promise<EntryPage> {

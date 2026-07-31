@@ -58,6 +58,7 @@ test.beforeAll(async ({ browser }) => {
     await page.waitForSelector('html[data-book-ready]');
     await page.locator(`[data-book-slug="${SLUG}"]`).click();
     const failed = page.locator('.guestbook__empty', { hasText: '닿을 수 없' });
+    // 3D 에서는 목록이 낭독기용으로만 남아 화면에서 접힌다 — 있는지만 보므로 상관없다.
     // 목록이 오거나(list/empty) 실패 문구가 뜰 때까지 기다린다.
     await page
       .locator('.guestbook__list, .guestbook__empty')
@@ -75,12 +76,27 @@ test.beforeAll(async ({ browser }) => {
   }
 });
 
+/**
+ * 방명록 책을 열고 **글을 쓸 수 있는 상태**가 될 때까지 기다린다.
+ *
+ * 3D 로 열리면 책이 다 펼쳐진 뒤에야 폼이 그 면 위에 얹힌다(.guestbook[data-on-page]).
+ * 그 전에 누르면 아직 1px 로 접혀 있는 자리를 누르게 된다. WebGL 이 없는 환경에서는
+ * 3D 가 아예 안 뜨므로 평면 폼을 기다린다 — 둘 중 먼저 오는 쪽을 잡는다.
+ */
+async function openGuestbook(page: Page): Promise<void> {
+  await page.locator(`[data-book-slug="${SLUG}"]`).click();
+  await expect(page.locator(dialog)).toBeVisible();
+  await Promise.race([
+    page.locator(`${dialog} .guestbook[data-on-page]`).waitFor({ timeout: 15000 }),
+    page.locator(`${dialog}:not([data-reader]) .guestbook__submit`).waitFor({ timeout: 15000 }),
+  ]);
+}
+
 test.beforeEach(async ({ page }) => {
   test.skip(!apiUp, skipWhy);
   await page.goto('/');
   await page.waitForSelector('html[data-book-ready]');
-  await page.locator(`[data-book-slug="${SLUG}"]`).click();
-  await expect(page.locator(dialog)).toBeVisible();
+  await openGuestbook(page);
 });
 
 /**
@@ -130,14 +146,14 @@ test.describe('US1 — 남기고 읽는다', () => {
     const body = unique('다시 와도 있어야 한다.');
     await fill(page, body);
     await page.getByRole('button', { name: '남기기' }).click();
-    await expect(page.locator('.guestbook__body', { hasText: body })).toBeVisible();
+    await expect(page.locator('.guestbook__body', { hasText: body })).toHaveCount(1);
 
     await page.reload();
     await page.waitForSelector('html[data-book-ready]');
-    await page.locator(`[data-book-slug="${SLUG}"]`).click();
+    await openGuestbook(page);
 
     // 화면이 들고 있던 것이 아니라 서버에서 다시 받아 온 것이다.
-    await expect(page.locator('.guestbook__body', { hasText: body })).toBeVisible();
+    await expect(page.locator('.guestbook__body', { hasText: body })).toHaveCount(1);
   });
 
   test('HTML 을 적어도 글자로만 보인다 (R-8)', async ({ page }) => {
@@ -176,11 +192,13 @@ test.describe('US2 — 걸린 글은 나오지 않는다 (T043)', () => {
   async function reopenAndExpectAbsent(page: Page, body: string): Promise<void> {
     await page.reload();
     await page.waitForSelector('html[data-book-ready]');
-    await page.locator(`[data-book-slug="${SLUG}"]`).click();
+    await openGuestbook(page);
     await waitForList(page);
 
     // 목록이 살아 있다는 것부터 확인한다 — 못 받아 온 화면에서는 무엇이든 "없다".
-    await expect(page.locator('.guestbook__list')).toBeVisible();
+    // toBeVisible 이 아닌 이유: 3D 로 열리면 캔버스가 목록을 그리고 HTML 목록은
+    // 낭독기용으로만 남아 화면에서 접힌다(clip). DOM 에 있는지가 여기서 볼 것이다.
+    await expect(page.locator('.guestbook__list')).toHaveCount(1);
     await expect(page.locator('.guestbook__body', { hasText: body })).toHaveCount(0);
   }
 
@@ -216,7 +234,7 @@ test.describe('US2 — 걸린 글은 나오지 않는다 (T043)', () => {
 
     await fill(page, body);
     await page.getByRole('button', { name: '남기기' }).click();
-    await expect(page.locator('.guestbook__body', { hasText: body })).toBeVisible();
+    await expect(page.locator('.guestbook__body', { hasText: body })).toHaveCount(1);
 
     // 폼은 성공하면 비워진다. 같은 내용을 다시 적어 중복을 만든다.
     await fill(page, body);
@@ -229,16 +247,48 @@ test.describe('US2 — 걸린 글은 나오지 않는다 (T043)', () => {
 });
 
 /**
- * 목록이 도착해도 화면이 튀지 않는다 (T056 · SC 의 CLS 기준).
+ * 방명록을 열어도 다른 책보다 화면이 더 튀지 않는다 (T056 · SC 의 CLS 기준).
  *
  * 라이트하우스는 `/` 를 열어 볼 뿐 책을 누르지 않는다. 방명록 목록은 그 뒤에 도착하므로
  * 저쪽 예산으로는 잡히지 않는다 — 그래서 여기서 직접 잰다.
+ *
+ * **절대값이 아니라 다른 책과 견준다.** 예전에는 방명록만 평면 모달로 열려 사실상 0 을
+ * 요구할 수 있었다. 지금은 다른 책과 똑같이 3D 로 열리므로, 책이 펼쳐지며 생기는 이동은
+ * 방명록의 문제가 아니라 리더 공통의 몫이다. 여기서 지켜야 할 것은 "방명록**이라서**
+ * 더 튀지는 않는다" 이고, 그것은 같은 실행에서 나란히 재야만 말이 된다.
+ *
+ * 이 견줌이 실제로 잡아낸 회귀: 폼을 .book__pages 밖으로 옮긴 뒤, 책이 다 펼쳐질 때까지
+ * 폼이 문서 흐름에 남아 상자가 부풀었다 접히며 CLS 0.175 가 났다(다른 책은 0.015).
+ * guestbook.css 가 data-reader 가 아니라 data-open3d 를 기준으로 접는 이유다.
  */
-test.describe('목록이 도착할 때의 화면 흔들림 (T056)', () => {
+test.describe('방명록을 열 때의 화면 흔들림 (T056)', () => {
   writesOnlyOnDesktop();
 
+  /** 그 책을 열고 가라앉을 때까지 기다린 뒤, 그동안 쌓인 레이아웃 이동을 합쳐 준다. */
+  async function shiftOnOpening(page: Page, slug: string): Promise<number> {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    await page.evaluate(() => {
+      (window as unknown as { __shifts: number[] }).__shifts = [];
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const shift = entry as PerformanceEntry & { value: number; hadRecentInput: boolean };
+          if (!shift.hadRecentInput) {
+            (window as unknown as { __shifts: number[] }).__shifts.push(shift.value);
+          }
+        }
+      }).observe({ type: 'layout-shift', buffered: false });
+    });
+    await page.locator(`[data-book-slug="${slug}"]`).click();
+    await page.waitForTimeout(4000); // 등장 연출(1.3s)과 늦은 목록(0.8s)이 다 지나도록
+    const shifts = await page.evaluate(
+      () => (window as unknown as { __shifts: number[] }).__shifts,
+    );
+    return shifts.reduce((sum, v) => sum + v, 0);
+  }
+
   for (const width of [1280, 390]) {
-    test(`${width}px 에서 CLS 가 기준 아래다`, async ({ page }) => {
+    test(`${width}px 에서 다른 책보다 더 튀지 않는다`, async ({ page }) => {
       await page.setViewportSize({ width, height: width === 1280 ? 800 : 844 });
 
       // 응답을 늦춰 "불러오는 중" 상태를 확실히 거치게 한다. 빨리 오면 튀는 순간이
@@ -248,36 +298,28 @@ test.describe('목록이 도착할 때의 화면 흔들림 (T056)', () => {
         await route.continue();
       });
 
-      await page.goto('/');
-      await page.waitForSelector('html[data-book-ready]');
-
-      await page.evaluate(() => {
-        (window as unknown as { __shifts: number[] }).__shifts = [];
-        new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            const shift = entry as PerformanceEntry & { value: number; hadRecentInput: boolean };
-            if (!shift.hadRecentInput) {
-              (window as unknown as { __shifts: number[] }).__shifts.push(shift.value);
-            }
-          }
-        }).observe({ type: 'layout-shift', buffered: false });
-      });
-
-      await page.locator(`[data-book-slug="${SLUG}"]`).click();
-      await waitForList(page);
-      await page.waitForTimeout(500);
-
-      const shifts = await page.evaluate(
-        () => (window as unknown as { __shifts: number[] }).__shifts,
+      // 견줄 상대 — 방명록이 아닌 아무 책. 슬러그를 적어 두지 않는다(책은 늘 늘어난다).
+      const other = await page.evaluate(
+        (skip) =>
+          Array.from(document.querySelectorAll<HTMLElement>('[data-book-slug]'))
+            .map((el) => el.dataset.bookSlug!)
+            .find((s) => s !== skip) ?? null,
+        SLUG,
       );
-      const total = shifts.reduce((sum, v) => sum + v, 0);
+      expect(other, '견줄 다른 책이 있어야 한다').not.toBeNull();
 
-      // 예산은 0.1(lighthouserc.json)이지만 여기서 요구하는 것은 사실상 0 이다.
-      // guestbook.css 의 `max-height: 68svh` 를 빼고 재면 0.0029 가 나온다 — 예산은
-      // 통과하지만 화면은 실제로 밀린다. 0.02 쯤으로 느슨하게 잡으면 그 회귀를 놓친다.
-      expect(total, `레이아웃 이동 ${shifts.length}건: ${JSON.stringify(shifts)}`).toBeLessThan(
-        0.001,
-      );
+      const baseline = await shiftOnOpening(page, other!);
+      const guestbook = await shiftOnOpening(page, SLUG);
+
+      // 여유 0.005 는 재는 순간의 흔들림 몫이다. 회귀는 그보다 훨씬 크게 나타난다
+      // (위에 적은 실측: 0.015 대 0.175).
+      expect(
+        guestbook,
+        `방명록 ${guestbook.toFixed(5)} / 다른 책(${other}) ${baseline.toFixed(5)}`,
+      ).toBeLessThanOrEqual(baseline + 0.005);
+
+      // 그와 별개로 예산(lighthouserc.json)은 지켜야 한다.
+      expect(guestbook).toBeLessThan(0.1);
     });
   }
 });
