@@ -21,8 +21,8 @@ type THREE = typeof THREE_NS;
 
 /** 페이지에 흐르는 한 덩이. 소개 카드(header)·소제목(h)·문단(p)·목록(li)·기술(tech). */
 export type Block =
-  | { kind: 'header'; name: string; english?: string; contacts: string[] }
-  | { kind: 'product'; name: string; meta?: string }
+  | { kind: 'header'; name: string; english?: string; contacts: string[]; photo?: string }
+  | { kind: 'product'; name: string; meta?: string; logo?: string; logoOnDark?: boolean }
   | { kind: 'h'; text: string; sub?: boolean }
   | { kind: 'p'; text: string }
   | { kind: 'li'; text: string }
@@ -42,6 +42,100 @@ export interface Rect {
   top: number;
   width: number;
   height: number;
+}
+
+/**
+ * 페이지에 그릴 이미지(소개 사진·제품 로고).
+ *
+ * 캔버스에 그리는 일은 **동기**다 — `buildPages` 가 페이지 텍스처를 한 번에 만든다.
+ * 그래서 이미지는 그리기 전에 미리 받아 두고, 그릴 때는 이 표에서 꺼내 쓴다.
+ *
+ * 못 받은 이미지는 표에 없고, 그리는 쪽은 그때 자리표시 네모를 그린다. **이미지 하나가
+ * 책 열리는 것을 막지 않는다** — 로고가 안 뜨는 것보다 책이 안 열리는 것이 나쁘다.
+ */
+const imageCache = new Map<string, HTMLImageElement>();
+
+function loadImage(src: string, timeoutMs: number): Promise<void> {
+  if (imageCache.has(src)) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const img = new Image();
+    let done = false;
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      if (ok) imageCache.set(src, img);
+      resolve();
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    img.onload = () => {
+      clearTimeout(timer);
+      finish(true);
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      finish(false);
+    };
+    img.src = src;
+  });
+}
+
+/**
+ * 블록이 쓰는 이미지를 모두 받아 둔다. 실패해도 거절하지 않는다.
+ *
+ * 3D 를 띄우기 직전에 부른다. 대개는 HTML 이 이미 같은 주소를 받아 두어 캐시에서 즉시
+ * 끝나고, 그렇지 않더라도 정해진 시간을 넘기면 기다리지 않는다.
+ */
+export function preloadBlockImages(blocks: Block[], timeoutMs = 1500): Promise<void> {
+  const urls = new Set<string>();
+  for (const b of blocks) {
+    if (b.kind === 'header' && b.photo) urls.add(b.photo);
+    if (b.kind === 'product' && b.logo) urls.add(b.logo);
+  }
+  if (urls.size === 0) return Promise.resolve();
+  return Promise.all([...urls].map((u) => loadImage(u, timeoutMs))).then(() => undefined);
+}
+
+/**
+ * 정사각 칸에 이미지를 그린다. 표에 없으면 false 를 돌려주고 부르는 쪽이 자리표시를 그린다.
+ *
+ * `cover` 는 칸을 채우고 넘치는 만큼 잘라낸다(사진 — 3:4 를 정사각에 맞출 때 필요하다),
+ * `contain` 은 다 보이게 넣고 남는 자리를 비운다(로고 — 잘리면 안 된다).
+ * HTML 쪽 object-fit 과 같은 규칙을 캔버스에서 손으로 구현한 것이다.
+ */
+function drawImageInBox(
+  g: CanvasRenderingContext2D,
+  src: string | undefined,
+  x: number,
+  y: number,
+  size: number,
+  fit: 'cover' | 'contain',
+): boolean {
+  const img = src ? imageCache.get(src) : undefined;
+  if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+
+  const ratio = img.naturalWidth / img.naturalHeight;
+  let dw = size;
+  let dh = size;
+  if (fit === 'contain') {
+    if (ratio > 1) dh = size / ratio;
+    else dw = size * ratio;
+  }
+  const dx = x + (size - dw) / 2;
+  const dy = y + (size - dh) / 2;
+
+  if (fit === 'cover') {
+    // 넘치는 부분을 칸 밖으로 흘리지 않게 잘라낸다.
+    let sw = img.naturalWidth;
+    let sh = img.naturalHeight;
+    if (ratio > 1) sw = sh;
+    else sh = sw;
+    const sx = (img.naturalWidth - sw) / 2;
+    const sy = (img.naturalHeight - sh) / 2;
+    g.drawImage(img, sx, sy, sw, sh, x, y, size, size);
+  } else {
+    g.drawImage(img, dx, dy, dw, dh);
+  }
+  return true;
 }
 
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -220,17 +314,27 @@ function drawHeader(
   cw: number,
 ) {
   const ps = Math.round(cw * 0.22); // 사진 정사각 한 변
-  // 사진 자리표시 — 옅은 네모 + 테두리 + '사진'
-  g.fillStyle = 'rgba(70,55,20,0.08)';
-  g.fillRect(x, y, ps, ps);
-  g.strokeStyle = 'rgba(70,55,20,0.35)';
-  g.lineWidth = 2;
-  g.strokeRect(x + 1, y + 1, ps - 2, ps - 2);
-  g.fillStyle = 'rgba(70,55,20,0.5)';
-  g.textAlign = 'center';
-  g.font = serif(500, Math.round(cw * 0.03));
-  g.fillText('사진', x + ps / 2, y + ps / 2 + cw * 0.011);
-  g.textAlign = 'left';
+
+  // 사진이 있으면 그린다. 세로 사진이라도 cover 로 가운데를 잘라 정사각을 채운다 —
+  // HTML 쪽 .profile-card__photo 의 object-fit: cover 와 같은 결과다.
+  if (drawImageInBox(g, b.photo, x, y, ps, 'cover')) {
+    // 종이 위에 사진만 덩그러니 놓이지 않게 얇은 테두리를 두른다.
+    g.strokeStyle = 'rgba(70,55,20,0.25)';
+    g.lineWidth = 2;
+    g.strokeRect(x + 1, y + 1, ps - 2, ps - 2);
+  } else {
+    // 사진이 없거나 못 받았을 때 — 옅은 네모 + 테두리 + '사진'
+    g.fillStyle = 'rgba(70,55,20,0.08)';
+    g.fillRect(x, y, ps, ps);
+    g.strokeStyle = 'rgba(70,55,20,0.35)';
+    g.lineWidth = 2;
+    g.strokeRect(x + 1, y + 1, ps - 2, ps - 2);
+    g.fillStyle = 'rgba(70,55,20,0.5)';
+    g.textAlign = 'center';
+    g.font = serif(500, Math.round(cw * 0.03));
+    g.fillText('사진', x + ps / 2, y + ps / 2 + cw * 0.011);
+    g.textAlign = 'left';
+  }
 
   // 오른쪽 메타
   const mx = x + ps + Math.round(cw * 0.05);
@@ -291,16 +395,35 @@ function drawProduct(
   const height = Math.max(ls, textH) + Math.round(cw * 0.05);
   if (measureOnly) return height;
 
-  g.fillStyle = 'rgba(70,55,20,0.07)';
-  g.fillRect(x, y, ls, ls);
-  g.strokeStyle = 'rgba(70,55,20,0.3)';
-  g.lineWidth = 2;
-  g.strokeRect(x + 1, y + 1, ls - 2, ls - 2);
-  g.fillStyle = 'rgba(70,55,20,0.45)';
-  g.textAlign = 'center';
-  g.font = serif(500, Math.round(cw * 0.026));
-  g.fillText('로고', x + ls / 2, y + ls / 2 + cw * 0.009);
-  g.textAlign = 'left';
+  // 흰색 로고는 어두운 배경용이라 크림색 종이에 묻힌다. 브랜드 마크를 반전시키는 대신
+  // 어두운 판을 깔아 준다(HTML 의 img.product__logo--on-dark 와 같은 규칙).
+  // 자동 판별하지 않고 콘텐츠가 표시한다 — 밝기 추측은 어긋나는 날 이유를 알기 어렵다.
+  const hasLogo = b.logo !== undefined && imageCache.has(b.logo);
+  if (hasLogo && b.logoOnDark) {
+    g.fillStyle = INK;
+    const r = Math.round(ls * 0.06);
+    g.beginPath();
+    g.roundRect(x, y, ls, ls, r);
+    g.fill();
+  }
+
+  // 로고는 contain — 잘리면 안 된다. 정사각이 아닌 로고도 다 보이게 넣는다.
+  // 테두리를 두르지 않는 이유: 로고는 대개 배경이 투명해서, 네모를 치면 종이 위에
+  // 상자가 하나 더 얹힌 것처럼 보인다(HTML 쪽 img.product__logo 도 같은 이유로 걷었다).
+  // 어두운 판 위에서는 로고를 조금 줄여 판의 여백을 남긴다.
+  const pad = b.logoOnDark ? Math.round(ls * 0.14) : 0;
+  if (!drawImageInBox(g, b.logo, x + pad, y + pad, ls - pad * 2, 'contain')) {
+    g.fillStyle = 'rgba(70,55,20,0.07)';
+    g.fillRect(x, y, ls, ls);
+    g.strokeStyle = 'rgba(70,55,20,0.3)';
+    g.lineWidth = 2;
+    g.strokeRect(x + 1, y + 1, ls - 2, ls - 2);
+    g.fillStyle = 'rgba(70,55,20,0.45)';
+    g.textAlign = 'center';
+    g.font = serif(500, Math.round(cw * 0.026));
+    g.fillText('로고', x + ls / 2, y + ls / 2 + cw * 0.009);
+    g.textAlign = 'left';
+  }
 
   const mx = x + ls + Math.round(cw * 0.045);
   let my = y + Math.round(cw * 0.012);

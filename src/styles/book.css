@@ -244,12 +244,30 @@
   justify-content: center;
   width: clamp(56px, 13%, 96px);
   aspect-ratio: 1;
+  /* contain — 로고는 잘리면 안 된다. 정사각이 아닌 로고가 들어와도 여백으로 남긴다. */
   object-fit: contain;
   border: 1px solid var(--page-rule);
   border-radius: 3px;
   background: color-mix(in srgb, var(--page-text) 6%, transparent);
   color: var(--page-caption);
   font-size: var(--text-xs);
+}
+/* 실제 로고가 들어오면 종이 위에 네모가 겹쳐 보이지 않게 테두리와 바탕을 걷는다.
+   자리표시자(<span>)일 때는 위 규칙 그대로 옅은 네모가 남는다. */
+img.product__logo {
+  border: 0;
+  background: none;
+  padding: 2px;
+}
+
+/* 흰색 로고는 어두운 배경용으로 만들어져 크림색 종이에 묻힌다(알리자가 그렇다 —
+   불투명 픽셀이 전부 rgb(255,255,255) 다). 브랜드 마크를 반전시키는 대신 어두운 판을
+   깔아 준다. 인쇄물에서 흰 로고를 밝은 종이에 올릴 때 쓰는 방식이다.
+   자동 판별하지 않고 콘텐츠가 표시한다 — 밝기 추측은 어긋나는 날 이유를 알기 어렵다. */
+img.product__logo--on-dark {
+  background: var(--page-text);
+  border-radius: 4px;
+  padding: 10%;
 }
 .book__body .product__name {
   margin: 0;

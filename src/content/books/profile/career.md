@@ -10,7 +10,7 @@ summary: 코어소프트에서 만든 두 서비스 — 알리자와 LawPilot �
 ---
 
 <figure class="product">
-  <span class="product__logo" aria-hidden="true">로고</span>
+  <img class="product__logo product__logo--on-dark" src="/logos/aliza.png" alt="" loading="lazy" decoding="async" />
   <figcaption>
     <h2 class="product__name">알리자</h2>
     <p class="product__when">주식회사 코어소프트 · 2024.04 – 2026.01</p>
@@ -73,7 +73,7 @@ HTML 에디터에 이미지를 붙여넣으면 Base64 로 **본문 안에 통째
 - 사용 툴 · PostgreSQL, MyBatis, Firebase Admin SDK, Cordova
 
 <figure class="product">
-  <span class="product__logo" aria-hidden="true">로고</span>
+  <img class="product__logo" src="/logos/lawpilot.png" alt="" loading="lazy" decoding="async" />
   <figcaption>
     <h2 class="product__name">LawPilot</h2>
     <p class="product__when">주식회사 코어소프트 · 2025.06 – 2026.01</p>

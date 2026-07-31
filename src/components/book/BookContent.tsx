@@ -42,7 +42,16 @@ export function BookContent({
             <figure className="profile-card">
               {book.profile.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img className="profile-card__photo" src={book.profile.photo} alt={book.profile.name} />
+                <img
+                  className="profile-card__photo"
+                  src={book.profile.photo}
+                  alt={book.profile.name}
+                  // 이 <img> 는 닫힌 <dialog> 안에 있어, 그냥 두면 방을 여는 순간 함께
+                  // 받아진다. 책을 한 번도 안 누른 방문자까지 사진을 받게 되고 첫 화면
+                  // LCP 가 밀린다(실측 2858 → 3459ms). lazy 면 창이 열릴 때 받는다.
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <span className="profile-card__photo profile-card__photo--empty" aria-hidden="true">
                   사진

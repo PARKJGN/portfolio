@@ -10,7 +10,7 @@ summary: 이 방의 주인 박종건을 소개하는 책입니다.
 profile:
   name: 박종건
   english: Park jong geon
-  photo: ''
+  photo: '/profile.jpg'
   contacts:
     - 'Email · patrol4@naver.com'
     - 'Tel · 010-4393-7941'

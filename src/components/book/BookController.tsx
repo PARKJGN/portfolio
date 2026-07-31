@@ -188,6 +188,9 @@ export function BookController() {
             contacts: Array.from(card.querySelectorAll('.profile-card__contacts li'))
               .map((li) => txt(li))
               .filter(Boolean),
+            // 사진은 HTML 이 이미 <img> 로 들고 있다. 주소만 가져가면 3D 가 같은 것을
+            // 캔버스에 그린다. 자리표시자일 때는 <span> 이라 여기서 걸리지 않는다.
+            photo: card.querySelector<HTMLImageElement>('img.profile-card__photo')?.src,
           });
         }
         // 본문 산문(소제목·문단·목록). querySelectorAll 은 문서 순서로 주므로
@@ -210,6 +213,10 @@ export function BookController() {
               kind: 'product',
               name: txt(el.querySelector('.product__name')),
               meta: txt(el.querySelector('.product__when')) || undefined,
+              logo: el.querySelector<HTMLImageElement>('img.product__logo')?.src,
+              // 흰색 로고인지 아닌지는 콘텐츠가 클래스로 표시한다. 3D 는 그 표시를 보고
+              // 어두운 판을 깐다 — 캔버스에서 픽셀을 뜯어 밝기를 재지 않는다.
+              logoOnDark: !!el.querySelector('img.product__logo--on-dark'),
             });
             continue;
           }
@@ -303,6 +310,10 @@ export function BookController() {
       const v = readVisual(dialog);
       const dims = bookDims();
       import('./book3d')
+        // 페이지 텍스처는 한 번에 동기로 그려지므로 이미지가 그 전에 손에 있어야 한다.
+        // 대개 HTML 이 같은 주소를 이미 받아 두어 즉시 끝난다. 못 받아도 거절하지 않고
+        // 자리표시 네모로 그린다 — 로고가 안 뜨는 것보다 책이 안 열리는 것이 나쁘다.
+        .then((m) => m.preloadBlockImages(v.blocks ?? []).then(() => m))
         .then((m) => m.getBook3D())
         .then((eng) => {
           if (!dialog.open || dialog.dataset.intro == null) return; // 이미 닫힘
