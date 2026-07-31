@@ -66,6 +66,15 @@ export const bookFrontmatterSchema = z.object({
   summary: z.string().min(1),
   profile: profileSchema.optional(),
   tech: z.array(techSchema).optional(),
+  /**
+   * 이 책을 어떤 리더로 열 것인가. 기본은 3D 다.
+   *
+   * `flat` 은 3D 를 건너뛰고 평면 모달로 연다. 방명록이 그렇다 — 캔버스 안에는 입력칸을
+   * 놓을 수 없고, 방문자가 어떤 글자를 쓸지 몰라 서브셋 글꼴이 담을 수 없다.
+   */
+  reader: z.enum(['3d', 'flat']).optional(),
+  /** 이 책 자리에 방명록(폼 + 목록)을 놓는다. 본문 아래에 붙는다. */
+  guestbook: z.boolean().optional(),
 });
 
 export type ShelfFrontmatter = z.infer<typeof shelfFrontmatterSchema>;

@@ -47,6 +47,12 @@ export default function RoomPage() {
             id={`book-dialog-${book.slug}`}
             className="book-dialog"
             aria-labelledby={`book-title-${book.slug}`}
+            // 리더 방식을 책이 스스로 표시한다. BookController 가 이것을 보고 3D 를 건너뛴다.
+            // 이름이 data-reader 가 아닌 이유: 그쪽은 컨트롤러가 "3D 리더 동작 중"을
+            // 나타내는 런타임 표시라, 같은 이름을 쓰면 본문을 감추는 규칙이 함께 걸린다.
+            data-reader-mode={book.reader ?? '3d'}
+            // 방명록은 폼과 목록이 들어가 단 나눔·장 넘김에 맞지 않는다(guestbook.css).
+            {...(book.guestbook ? { 'data-guestbook': '' } : {})}
           >
             {/* 열 때 이 표지가 경첩처럼 펼쳐지며 내용이 드러난다(book.css). 장식이라 aria-hidden. */}
             <div className="book-stage">

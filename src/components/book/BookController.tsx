@@ -278,7 +278,11 @@ export function BookController() {
       delete dialog.dataset.closing; // 접힘 도중 재열림 대비
 
       const spineRect = spineRectOf(slug);
-      const use3D = !reduced() && !!spineRect;
+      // 어떤 책은 3D 로 열지 않는다. 방명록이 그렇다 — 캔버스 안에는 입력칸을 놓을 수
+      // 없고, 방문자가 어떤 글자를 쓸지 몰라 서브셋 글꼴이 그것을 담을 수 없다
+      // (003 research.md R-2·R-3). 책이 스스로 표시한다.
+      const flatOnly = dialog.dataset.readerMode === 'flat';
+      const use3D = !flatOnly && !reduced() && !!spineRect;
       if (use3D) {
         // 3D 가 등장을 그리는 동안 모달은 숨기고(정적 펼침 상태로) 방·3D 책을 보인다.
         dialog.dataset.open3d = '';

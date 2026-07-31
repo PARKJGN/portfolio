@@ -1,0 +1,428 @@
+/* ── 방명록 — 폼과 목록 ──────────────────────────────
+   이 책만 평면 모달로 열린다(003 research.md R-2). 색·간격·글자 크기는 전부 기존
+   토큰을 참조한다(헌장 원칙 V). 새로 만든 값이 없다. */
+
+/* 방명록은 장으로 나누지 않는다.
+   다른 책은 본문을 두 단으로 흘려 '한 장씩' 넘기지만, 방명록에는 폼이 있고 글이
+   계속 늘어난다. 단 나눔에 맡기면 입력칸과 버튼이 다음 장 칸으로 밀려나 화면 밖에
+   놓인다 — 눌러도 잘라내는 컨테이너가 잡혀 클릭이 먹지 않았다.
+   그래서 이 책만 한 단으로 세로로 흐르게 하고 장 넘김 조작을 감춘다.
+   명시도는 상대 규칙(0,3,0)과 같고 이 파일이 뒤에 실려 이긴다. */
+.book-dialog[data-guestbook] .book__body {
+  /* column-count:1 만으로는 부족하다 — 그래도 다단 컨테이너로 남아, 높이가 정해져 있고
+     column-fill:auto 면 넘치는 내용이 '옆 단'으로 흘러 overflow-x:hidden 에 잘린다.
+     실제로 남긴 글이 DOM 에는 있는데 화면에 없었다. columns:auto 라야 다단이 풀린다. */
+  columns: auto;
+  column-fill: balance;
+  column-rule: none;
+  height: auto;
+  /* 이 max-height 가 화면 흔들림(CLS)도 막는다. 목록은 나중에 도착해 스무 개씩 늘어나는데,
+     높이를 68svh 로 못 박아 두면 상자 크기가 내용과 무관해진다 — 늘어나는 것은
+     scrollHeight 뿐이고(측정 877 → 3240px) 창의 크기도 위치도 그대로다.
+     빼고 재 보면 상자가 내용을 따라 조금 자라며 창이 밀린다(1280×800 에서 651.9 →
+     659px, CLS 0.0029). 예산 0.1 안이라 라이트하우스는 통과시키지만 0 은 아니다 —
+     tests/e2e/guestbook.spec.ts 의 "목록이 도착할 때의 화면 흔들림" 은 0 을 요구한다. */
+  max-height: 68svh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* 가운데 책등 골도 지운다 — 한 단이라 가를 자리가 없다. */
+.book-dialog[data-guestbook] .book__pages {
+  background: var(--page-bg);
+}
+
+/* 장이 하나뿐이라 넘김 조작과 보기 전환은 뜻이 없다. */
+.book-dialog[data-guestbook] .book__paging,
+.book-dialog[data-guestbook] [data-action='toggle-view'] {
+  display: none;
+}
+
+.guestbook {
+  margin-top: var(--space-6);
+}
+
+.guestbook__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.guestbook__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guestbook__field label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--page-caption);
+}
+
+/* 방문자가 적는 글자는 무엇이 올지 알 수 없다. 서브셋 글꼴에는 없는 글자가 섞이면
+   빈 네모가 되므로, 입력칸과 남겨진 글만 시스템 글꼴로 둔다(R-3). 사이트가 쓴 문구
+   (라벨·버튼·안내)는 그대로 서브셋 글꼴이다. */
+.guestbook__input,
+.guestbook__textarea,
+.guestbook__body,
+.guestbook__author {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Malgun Gothic',
+    'Apple SD Gothic Neo',
+    sans-serif;
+}
+
+.guestbook__input,
+.guestbook__textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--page-rule);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--page-bg) 60%, transparent);
+  color: var(--page-text);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.guestbook__textarea {
+  resize: vertical;
+  min-height: 5.5em;
+}
+
+.guestbook__input:focus-visible,
+.guestbook__textarea:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 1px;
+}
+
+.guestbook__count {
+  align-self: flex-end;
+  font-size: var(--text-2xs);
+  color: var(--page-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 숨은 칸(honeypot). display:none 은 일부 봇이 걸러내므로 화면 밖으로 밀어 둔다.
+   aria-hidden 과 tabIndex=-1 이 함께 걸려 있어 낭독기와 키보드에는 닿지 않는다. */
+.guestbook__honey {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.guestbook__disclosure {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+  color: var(--page-caption);
+}
+
+.guestbook__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 종이 위의 버튼.
+   .book__btn 을 재사용하지 않는 이유: 그것은 어두운 도구막대용이라
+   `.book-dialog :is(.book__btn, .book__close) { color: var(--tool-text) }` 로 크림색
+   글자가 강제된다. 크림 종이 위에 올리면 글자가 사라진다 — 실제로 그랬다.
+   맞는 컴포넌트가 없어 새로 만든다(헌장 원칙 V). 값은 전부 기존 토큰이다. */
+.guestbook__submit,
+.guestbook__more {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--page-rule);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--page-text) 5%, transparent);
+  color: var(--page-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.guestbook__submit:hover:not(:disabled),
+.guestbook__more:hover {
+  background: color-mix(in srgb, var(--page-text) 12%, transparent);
+}
+
+.guestbook__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.guestbook__submit:focus-visible,
+.guestbook__more:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
+}
+
+.guestbook__notice {
+  margin: 0;
+  min-height: 1.4em; /* 문구가 생겨도 아래가 밀리지 않게 자리를 미리 잡는다(CLS) */
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.guestbook__notice[data-kind='error'] {
+  color: var(--page-accent);
+}
+.guestbook__notice[data-kind='ok'],
+.guestbook__notice[data-kind='held'] {
+  color: var(--page-caption);
+}
+
+.guestbook__rule {
+  margin: var(--space-5) 0;
+  border: 0;
+  border-top: 1px solid var(--page-rule);
+}
+
+.guestbook__empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--page-caption);
+}
+
+.guestbook__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guestbook__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  break-inside: avoid;
+}
+
+.guestbook__meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--page-caption);
+}
+
+.guestbook__author {
+  font-size: var(--text-sm);
+  color: var(--page-text);
+  /* 이름이 아무리 길어도 줄을 밀어내지 않는다 */
+  overflow-wrap: anywhere;
+}
+
+.guestbook__body {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  /* 줄바꿈만 살린다. 마크다운은 해석하지 않는다(R-8). */
+  white-space: pre-wrap;
+  /* 줄바꿈 없는 긴 문자열이 가로로 넘치지 않게 한다 */
+  overflow-wrap: anywhere;
+}
+
+.guestbook__more {
+  align-self: center;
+  margin-top: var(--space-4);
+}
+
+/* ── 보류함 (US3) ────────────────────────────────────
+   주인만 오는 화면이다. 방 배경도 책도 없는 평범한 문서라, 방명록이 쓰는 종이 토큰을
+   그대로 빌려 쓴다. 새로 만든 값은 없다(헌장 원칙 V). */
+
+.admin {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+  background: var(--page-bg);
+  color: var(--page-text);
+  min-height: 100svh;
+}
+
+.admin__title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-lg);
+  letter-spacing: 0.02em;
+}
+
+.admin__notice {
+  margin: 0 0 var(--space-4);
+  min-height: 1.4em; /* 문구가 생겨도 아래가 밀리지 않게 자리를 미리 잡는다(CLS) */
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--page-caption);
+}
+.admin__notice[data-kind='error'] {
+  color: var(--page-accent);
+}
+
+.admin__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  margin-bottom: var(--space-5);
+}
+
+.admin__form--inline {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--page-rule);
+}
+
+.admin__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.admin__field label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--page-caption);
+}
+
+/* 토큰과 방문자 글은 무엇이 올지 알 수 없다. 서브셋 글꼴에 없는 글자가 섞이면 빈 네모가
+   되므로 시스템 글꼴로 둔다(R-3). */
+.admin__input,
+.admin__body,
+.admin__author {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Malgun Gothic',
+    'Apple SD Gothic Neo',
+    sans-serif;
+}
+
+.admin__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--page-rule);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--page-bg) 60%, transparent);
+  color: var(--page-text);
+  font-size: var(--text-sm);
+}
+
+.admin__input:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 1px;
+}
+
+.admin__hint {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--page-caption);
+}
+
+.admin__bar {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.admin__btn {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--page-rule);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--page-text) 5%, transparent);
+  color: var(--page-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.admin__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--page-text) 12%, transparent);
+}
+
+.admin__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin__btn:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
+}
+
+/* 되돌릴 수단이 없는 버튼. 색으로만 알리지 않고 문구도 "정말 지웁니다" 로 바뀐다 —
+   색을 구별하지 못해도 무엇을 누르는지 알 수 있어야 한다(원칙 II). */
+.admin__btn--danger {
+  border-color: var(--page-accent);
+  color: var(--page-accent);
+}
+
+.admin__empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--page-caption);
+}
+
+.admin__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin__entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--page-rule);
+}
+
+.admin__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--page-caption);
+}
+
+.admin__author {
+  font-size: var(--text-sm);
+  color: var(--page-text);
+  overflow-wrap: anywhere;
+}
+
+.admin__id {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin__body {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  /* 줄바꿈만 살린다. 마크다운도 HTML 도 해석하지 않는다(R-8). */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin__reason {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--page-accent);
+}
+
+.admin__actions {
+  display: flex;
+  gap: var(--space-2);
+}

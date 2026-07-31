@@ -4,6 +4,7 @@ import '@/styles/tokens.css'; // 토큰이 먼저 — Tailwind 유틸리티가 �
 import './globals.css';
 import '@/styles/room.css';
 import '@/styles/book.css';
+import '@/styles/guestbook.css';
 import { STORAGE_KEY, DEFAULT_VIEW_MODE, VIEW_MODES } from '@/lib/view-mode';
 
 export const metadata: Metadata = {

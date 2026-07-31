@@ -1,6 +1,7 @@
 import type { Book } from '@/lib/schema';
 import { renderMarkdown } from '@/lib/markdown';
 import { logoFor } from '@/lib/tech-logos';
+import { Guestbook } from './Guestbook';
 
 /**
  * 책 한 권의 내용. 서버 컴포넌트라 마크다운 변환이 빌드 시점에 끝나고
@@ -64,6 +65,10 @@ export function BookContent({
           ) : null}
 
           <div className="book__prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }} />
+
+          {/* 방명록은 런타임에 도착하는 남의 글이라 renderMarkdown 을 거치지 않는다.
+              그 함수 주석의 경고 그대로다 — 방문자 입력에 쓰면 안 된다. */}
+          {book.guestbook ? <Guestbook /> : null}
 
           {book.tech?.length ? (
             <ul className="tech-list">
