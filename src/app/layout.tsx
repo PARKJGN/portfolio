@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { preload } from 'react-dom';
 import '@/styles/fonts.css'; // @font-face 가 먼저 — 토큰이 이 이름을 참조한다
 import '@/styles/tokens.css'; // 토큰이 먼저 — Tailwind 유틸리티가 이 변수들을 참조한다
 import './globals.css';
@@ -30,7 +31,29 @@ try {
 }
 `.trim();
 
+/**
+ * 본문 글꼴을 미리 받는다.
+ *
+ * 없을 때 모바일 FCP 가 1667ms 였다. preload 가 없으면 브라우저는 CSS 를 받아 파싱하고
+ * 배치를 계산한 뒤에야 글꼴이 필요하다는 것을 안다. 미리 알려 주니 908ms 로 줄었다.
+ *
+ * JSX 로 <link> 를 직접 쓰지 않는 이유: React 가 그것을 head 로 올리면서 원본도 남겨
+ * **같은 preload 가 두 번** 들어갔다. 이 함수는 하나만 남긴다.
+ *
+ * 400 만 받는다. 책등도 본문도 400 이고(실측: 700 은 첫 화면에서 아예 요청되지 않는다),
+ * 700 까지 받으면 292KB 를 첫 화면 대역폭에 얹는 셈이라 오히려 손해다.
+ */
+function preloadBodyFont() {
+  preload('/fonts/noto-serif-kr-400.woff2', {
+    as: 'font',
+    type: 'font/woff2',
+    crossOrigin: 'anonymous',
+  });
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  preloadBodyFont();
+
   return (
     // suppressHydrationWarning 이 필요한 이유: 아래 인라인 스크립트가 하이드레이션 전에
     // <html> 에 data-view-mode 를 붙인다. 서버 HTML 에는 없는 속성이라 React 가 불일치로

@@ -59,3 +59,7 @@ Desktop.ini
 
 # TypeScript 증분 빌드 캐시 — 기계마다 내용이 다르고 매번 바뀐다.
 tsconfig.tsbuildinfo
+
+# Lighthouse 실행 산출물
+.lighthouseci/
+.lhci-tmp/

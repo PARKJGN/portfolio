@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "perf": "npm run build && npx --yes @lhci/cli@0.15.x autorun",
     "serve": "serve out -l 3000",
     "fonts:fetch": "curl -sL -o .fontsrc/NotoSerifKR.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/notoserifkr/NotoSerifKR%5Bwght%5D.ttf",
     "fonts:build": "node scripts/subset-fonts.mjs"

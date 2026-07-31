@@ -48,6 +48,8 @@ export function Guestbook() {
 
   // 폼이 화면에 나타난 시각. 서버가 "너무 빠른 제출"을 가려낼 때 쓴다.
   const openedAt = useRef(new Date().toISOString());
+  /** 감싸는 <dialog> 를 찾기 위한 손잡이 — 언제 불러올지 정하는 데 쓴다. */
+  const rootRef = useRef<HTMLElement>(null);
 
   const applyPage = useCallback((page: EntryPage, append: boolean) => {
     setEntries((prev) => (append ? [...prev, ...page.entries] : page.entries));
@@ -62,23 +64,56 @@ export function Guestbook() {
     setLoading(false);
   }, []);
 
-  // 처음 열릴 때 한 번 불러온다. 창을 닫으면 취소한다 — 응답이 늦게 도착해 사라진
-  // 컴포넌트에 상태를 쓰면, 다시 열었을 때 낡은 목록이 섞인다.
-  //
-  // 상태 갱신을 then/catch 안에 두는 이유는 취소 처리 때문만이 아니다. 이펙트 본문에서
-  // 곧바로 setState 를 부르면 렌더가 연쇄한다 — 린트(react-hooks/set-state-in-effect)가
-  // 그것을 잡는다. 여기서는 응답이 온 뒤에만 상태가 바뀐다.
+  /**
+   * 방명록 책을 **열었을 때** 한 번 불러온다.
+   *
+   * 마운트 시점에 부르지 않는 이유: 이 컴포넌트는 닫힌 `<dialog>` 안에 들어 있어 방을
+   * 여는 순간 함께 마운트된다. 그대로 두면 책을 한 번도 누르지 않은 방문자까지 API 를
+   * 부른다 — 실제로 그랬다(라이트하우스 네트워크 기록에서 발견). 쓸데없는 요청이고,
+   * 첫 화면이 그리는 동안 대역폭을 나눠 가지며, 한도까지 축낸다.
+   *
+   * dialog 는 열릴 때 이벤트를 주지 않으므로(close 만 있다) open 속성을 지켜본다.
+   *
+   * 상태 갱신을 then/catch 안에 두는 이유는 취소 처리 때문만이 아니다. 이펙트 본문에서
+   * 곧바로 setState 를 부르면 렌더가 연쇄한다 — 린트(react-hooks/set-state-in-effect)가
+   * 그것을 잡는다. 여기서는 응답이 온 뒤에만 상태가 바뀐다.
+   */
   useEffect(() => {
     const controller = new AbortController();
-    fetchEntries(undefined, controller.signal).then(
-      (page) => {
-        if (!controller.signal.aborted) applyPage(page, false);
-      },
-      (err: unknown) => {
-        if (!controller.signal.aborted) applyLoadError(err);
-      },
-    );
-    return () => controller.abort();
+    const dialog = rootRef.current?.closest('dialog');
+
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      fetchEntries(undefined, controller.signal).then(
+        (page) => {
+          if (!controller.signal.aborted) applyPage(page, false);
+        },
+        (err: unknown) => {
+          if (!controller.signal.aborted) applyLoadError(err);
+        },
+      );
+    };
+
+    // dialog 밖에서 쓰이면(테스트·다른 배치) 기다릴 것이 없다.
+    if (!dialog || dialog.open) {
+      start();
+      return () => controller.abort();
+    }
+
+    const observer = new MutationObserver(() => {
+      if (dialog.open) {
+        observer.disconnect();
+        start();
+      }
+    });
+    observer.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+
+    return () => {
+      observer.disconnect();
+      controller.abort();
+    };
   }, [applyPage, applyLoadError]);
 
   /** '이전 글 더 보기' — 이벤트 처리라 이펙트 제약이 없다. */
@@ -126,7 +161,7 @@ export function Guestbook() {
   }
 
   return (
-    <section className="guestbook" aria-label="방명록">
+    <section className="guestbook" aria-label="방명록" ref={rootRef}>
       <form className="guestbook__form" onSubmit={onSubmit}>
         <div className="guestbook__field">
           <label htmlFor={authorId}>이름</label>

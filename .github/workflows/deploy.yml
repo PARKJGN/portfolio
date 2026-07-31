@@ -36,6 +36,17 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+      # 성능 게이트(헌장 원칙 III). 숫자를 lighthouserc.json 에 적어 두기만 하면 아무도
+      # 지키지 않는다 — 여기서 매번 본다. out/ 은 바로 위 E2E 가 빌드해 둔 것을 쓴다.
+      - name: Lighthouse 게이트
+        run: npx --yes @lhci/cli@0.15.x autorun
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: .lighthouseci/
+          retention-days: 7
+
   # ── 2) API 검사 ──
   # 실제 PostgreSQL 을 띄운다. 인메모리 흉내로는 CHECK 제약과 SQL 방언을 검증할 수 없다.
   test-api:
