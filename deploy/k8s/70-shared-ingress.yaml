@@ -1,0 +1,92 @@
+# ┌──────────────────────────────────────────────────────────────────────────┐
+# │ 이 파일의 리소스는 portfolio 네임스페이스가 아니라, 공용 인그레스가 사는      │
+# │ default 네임스페이스의 Ingress "ingress-host" 에 붙는다.                    │
+# └──────────────────────────────────────────────────────────────────────────┘
+#
+# [개념] 공용 인그레스는 **같은 네임스페이스의 Service 로만** 라우팅할 수 있다. 실제
+# 파드는 portfolio 네임스페이스에 있으므로, default 에 ExternalName(=DNS 별칭) 서비스를
+# 하나씩 만들어 다리를 놓는다. onebite-client-service / onebite-server-service 와 같은
+# 역할이다.
+#
+# 001 의 tasks.md 는 이 파일을 60-shared-ingress.yaml 로 적어 두었으나, 003 에서 60 번을
+# API 매니페스트가 쓰게 되어 70 번으로 옮겼다. 001 Phase 6 를 할 때 60 번으로 다시 만들지
+# 말고 이 파일에 웹 쪽을 채운다 — 다리 둘이 한 파일에 있어야 같이 보인다.
+
+# ── 1) ExternalName: 사이트(정적 nginx) 다리 ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio-client-service
+  namespace: default # ← 중앙 인그레스(ingress-host)와 같은 네임스페이스
+spec:
+  type: ExternalName
+  externalName: web.portfolio.svc.cluster.local # 001 T042 가 만드는 web 서비스
+  ports:
+    - { port: 80, targetPort: 80 }
+---
+# ── 2) ExternalName: 방명록 API 다리 ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio-api-service
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: api.portfolio.svc.cluster.local # 60-api.yaml 의 api 서비스
+  ports:
+    - { port: 80, targetPort: 80 }
+# ─────────────────────────────────────────────────────────────────────────────
+# [3] default/ingress-host 의 rules 에 아래 두 덩어리를 끼워 넣는다.
+#
+#     kubectl -n default edit ingress ingress-host
+#
+# **경로 재작성이 필요 없다.** API 의 라우트가 애초에 /api 로 시작한다
+# (/api/health, /api/guestbook/entries — contracts/guestbook-api.md). 사이트도 같은
+# 도메인의 /api 를 상대 경로로 부르므로 양쪽이 그대로 맞는다.
+# oneBite 는 Spring 에 SERVER_SERVLET_CONTEXT_PATH=/api 를 줘서 같은 상태를 만들었다.
+#
+# 순서 주의: /api 블록이 / 블록보다 **먼저** 와야 한다. 나중에 오면 / 가 먼저 잡아
+# 방명록 요청이 정적 사이트로 가고, nginx 는 그런 파일이 없으니 404 를 준다.
+#
+#   - host: portfolio.jgbak-land.com
+#     http:
+#       paths:
+#       - path: /api                  # /api/* → 방명록 API
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: portfolio-api-service
+#             port:
+#               number: 80
+#   - host: portfolio.jgbak-land.com
+#     http:
+#       paths:
+#       - path: /                     # 나머지 전부 → 정적 사이트
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: portfolio-client-service
+#             port:
+#               number: 80
+#
+# [4] spec.tls 리스트에도 추가한다 — HTTPS 와 인증서 자동 발급.
+#
+# ingress-host 에는 이미 cert-manager.io/cluster-issuer: prod-issuer (HTTP-01) 애너테이션이
+# 인그레스 전체에 걸려 있으므로 아래 항목만 더하면 Let's Encrypt 인증서가 발급된다.
+# 다만 **DNS 가 먼저다** — 도메인이 클러스터 공인 IP 로 resolve 되고 80 포트에 닿을 수
+# 있어야 HTTP-01 챌린지가 통과한다.
+#
+#     tls:
+#     - hosts:
+#       - portfolio.jgbak-land.com
+#       secretName: portfolio-tls-secret     # 없으면 cert-manager 가 만든다
+#
+# [5] 먼저 확인할 것 (001 T039)
+#
+# 중앙 인그레스에는 momsage·onebite·www 등이 이미 등록돼 있고, oneBite 쪽 주석에 따르면
+# portfolio 라는 이름도 언급된다. **같은 host 나 같은 Service 이름이 이미 있는지 반드시
+# 먼저 본다** — 덮어쓰면 남의 서비스가 죽는다.
+#
+#     kubectl -n default get ingress ingress-host -o yaml
+#     kubectl -n default get svc | grep portfolio
+# ─────────────────────────────────────────────────────────────────────────────

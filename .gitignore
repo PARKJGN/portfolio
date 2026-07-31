@@ -26,6 +26,11 @@ out/
 .env.*
 !.env.example
 
+# 실값이 든 쿠버네티스 Secret. 예시 파일(10-secret.example.yaml)만 커밋한다 —
+# 그 예시가 "이 이름으로 복사해 채우라"고 안내하므로, 실수 한 번이면 비밀값이 들어간다.
+deploy/k8s/*secret*.yaml
+!deploy/k8s/*secret*.example.yaml
+
 # Logs
 *.log
 npm-debug.log*

@@ -1,0 +1,122 @@
+# 방명록 API — Service 는 80→8080 으로 노출한다(공용 ExternalName 이 80 으로 붙는다).
+#
+# 이미지 경로는 소문자만 허용된다 → PARKJGN 이 아니라 parkjgn.
+#
+# 선행:
+#   - 00-namespace.yaml, 15-config.yaml, 10-secret.yaml 이 먼저 적용돼 있어야 한다.
+#   - 공유 PostgreSQL 에 portfolio 롤과 데이터베이스가 만들어져 있어야 한다(수동 절차 —
+#     15-config.yaml 의 경고 참조).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: portfolio
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      # 파드 전체에 거는 보안 설정. 컨테이너 쪽에도 겹쳐 두는 이유는, 나중에 컨테이너가
+      # 하나 더 붙었을 때 그것만 특권으로 도는 일을 막기 위해서다.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # node 이미지에 이미 있는 비루트 사용자
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+
+      # 스키마를 먼저 올린다. 번호 붙은 SQL 을 순서대로 한 번씩 적용하고, 적용 기록은
+      # schema_migrations 표에 남으므로 파드가 다시 떠도 두 번 돌지 않는다.
+      #
+      # Job 이 아니라 initContainer 인 이유: 배포와 스키마가 갈리면 "이미지는 새것인데
+      # 표는 옛것" 인 상태가 생긴다. 여기 두면 마이그레이션이 실패한 파드는 아예 뜨지
+      # 않는다 — 반쯤 맞는 스키마로 서비스하는 것보다 낫다.
+      # replicas 가 1 이라 동시 실행 경합도 없다.
+      initContainers:
+        - name: migrate
+          image: ghcr.io/parkjgn/portfolio-api:latest
+          command: ['node', 'dist/db/migrate.js']
+          envFrom:
+            - configMapRef: { name: portfolio-config }
+            - secretRef: { name: portfolio-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ['ALL'] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 192Mi }
+
+      containers:
+        - name: api
+          image: ghcr.io/parkjgn/portfolio-api:latest
+          # 이름을 여기서 다시 적지 않는다. ConfigMap·Secret 의 키가 곧 앱이 읽는
+          # 환경변수 이름이라 그대로 들어간다(api/src/config.ts).
+          envFrom:
+            - configMapRef: { name: portfolio-config }
+            - secretRef: { name: portfolio-secrets }
+          ports:
+            - containerPort: 8080
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ['ALL'] }
+
+          # 라즈베리파이 3노드에 oneBite 백엔드·Kafka·Postgres·n8n·Loki·Grafana 가 이미
+          # 돌고 있다. 방명록은 하루 몇 건이라 작게 잡는 편이 이웃에게 예의다.
+          #
+          # CPU 에 limit 을 걸지 않는 이유: CFS 스로틀링은 짧은 요청의 꼬리 지연을 크게
+          # 늘린다. request 로 몫을 확보해 두면 경합 시 스케줄러가 알아서 나눈다.
+          # 메모리는 다르다 — 새면 노드 전체를 끌어내리므로 상한을 건다.
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+
+          # Node 는 JVM 과 달리 1~2초면 뜬다. 다만 마이그레이션 initContainer 가 끝난
+          # 뒤이므로 여유를 조금 둔다.
+          startupProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            periodSeconds: 3
+            failureThreshold: 20 # 최대 60초
+
+          # readiness 는 데이터베이스까지 본다(/api/health 는 DB 에 닿지 못하면 503).
+          # 닿지 못하는 파드에 요청을 보내 봐야 전부 503 이 될 뿐이다.
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # liveness 는 **일부러** DB 를 보지 않는다. 여기에 /api/health 를 걸면 공유
+          # PostgreSQL 이 재시작할 때마다(그쪽 파드는 Recreate 전략이다) 이 파드가 함께
+          # 재시작한다 — 고칠 수 없는 남의 사정 때문에 재시작 루프에 빠진다.
+          # 프로세스가 살아 있는지만 본다. DB 가 돌아오면 readiness 가 알아서 복귀시킨다.
+          livenessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+
+      # readOnlyRootFilesystem 을 켰으므로 쓸 자리를 하나 준다. 앱이 파일을 쓰지는
+      # 않지만 런타임이 임시 파일을 만들 수 있다.
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api # 공용 ExternalName(portfolio-api-service)이 api.portfolio.svc 로 연결
+  namespace: portfolio
+spec:
+  selector: { app: api }
+  ports:
+    - { port: 80, targetPort: 8080 } # 인그레스가 80 으로 붙는다 → 컨테이너 8080

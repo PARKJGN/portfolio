@@ -169,9 +169,9 @@ DNS·인증서·인그레스가 막히는 것과 API·DB 가 막히는 것을 �
 
 **선행**: Phase 0 이 끝나 있어야 한다.
 
-- [ ] T050 [P] API 매니페스트 — Deployment(자원 상한·프로브·비루트)와 Service(80→8080) — `deploy/k8s/60-api.yaml`
-- [ ] T051 [P] Secret 예시와 ConfigMap — 실제 값은 커밋하지 않는다 — `deploy/k8s/10-secret.example.yaml`, `deploy/k8s/15-config.yaml`
-- [ ] T052 중앙 인그레스에 `/api` 경로와 `portfolio-api-service` ExternalName 다리를 더한다 — `deploy/k8s/70-shared-ingress.yaml`
+- [x] T050 [P] API 매니페스트 — Deployment(자원 상한·프로브·비루트)와 Service(80→8080) — `deploy/k8s/60-api.yaml`
+- [x] T051 [P] Secret 예시와 ConfigMap — 실제 값은 커밋하지 않는다 — `deploy/k8s/10-secret.example.yaml`, `deploy/k8s/15-config.yaml`
+- [x] T052 중앙 인그레스에 `/api` 경로와 `portfolio-api-service` ExternalName 다리를 더한다 — `deploy/k8s/70-shared-ingress.yaml`
 - [ ] T053 CI 에 API 이미지 빌드·푸시를 더한다(멀티아치 amd64+arm64, `:latest`·`:sha`) — `.github/workflows/deploy.yml`
 - [x] T054 [P] 만료된 남용 기록을 주기적으로 지운다 — `api/src/db/abuse.ts`
 - [x] T055 [P] 방명록 화면 axe 검사를 더한다 — `tests/e2e/a11y.spec.ts`

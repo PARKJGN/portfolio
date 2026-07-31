@@ -134,8 +134,22 @@ E2E 중 `tests/e2e/guestbook.spec.ts` 만 **서버 셋(DB·판정 대역·API)�
 
 ## 배포
 
-**아직 만들어지지 않았다.** 001 의 Phase 6(Dockerfile·nginx 설정·k8s 매니페스트·GitHub
-Actions)과 003 의 Phase 6 가 남아 있다. `api/Dockerfile` 만 먼저 있다.
+**아직 아무것도 띄우지 않았다.** 매니페스트는 일부 있고, 클러스터에 적용하는 일은 남아
+있다.
+
+| | 상태 |
+|---|---|
+| `api/Dockerfile` | 있음 |
+| `deploy/k8s/00-namespace.yaml`·`10-secret.example.yaml`·`15-config.yaml` | 있음 |
+| `deploy/k8s/60-api.yaml` (API Deployment·Service) | 있음 |
+| `deploy/k8s/70-shared-ingress.yaml` (ExternalName 다리 둘 + 인그레스 블록 주석) | 있음 |
+| 사이트 Dockerfile·`deploy/nginx.conf`·`deploy/k8s/50-web.yaml` | 없음 — 001 Phase 6 |
+| `.github/workflows/deploy.yml` | 없음 — 001 Phase 6 |
+| 공유 PostgreSQL 의 `portfolio` 롤 생성 | 안 함 — 수동 절차, 클러스터 접근 필요 |
+| 중앙 인그레스 등록·DNS·인증서 | 안 함 |
+
+**적용해 본 적이 없다.** 클러스터에 붙을 수 없어 문법과 이름 일치까지만 확인했다 —
+`kubectl apply` 는 스키마 검증에 서버가 필요하므로 통과 여부를 모른다.
 
 정해진 것은 다음과 같고, oneBite 와 같은 라인을 따른다.
 
