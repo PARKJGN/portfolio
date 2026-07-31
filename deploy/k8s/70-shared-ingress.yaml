@@ -46,9 +46,15 @@ spec:
   ports:
     - { port: 80, targetPort: 80 }
 # ─────────────────────────────────────────────────────────────────────────────
-# [3] default/ingress-host 의 rules 에 아래 두 덩어리를 끼워 넣는다.
+# [3] default/ingress-host 의 rules 에 아래 덩어리를 끼워 넣는다.
 #
+# **먼저 백업한다.** momsage·onebite·www·남의 포트폴리오가 함께 사는 인그레스라,
+# 잘못 저장하면 우리 것만 안 되는 게 아니라 남의 서비스가 끊긴다.
+#
+#     kubectl -n default get ingress ingress-host -o yaml > ingress-host.bak.yaml
 #     kubectl -n default edit ingress ingress-host
+#
+# 되돌리려면:  kubectl -n default replace -f ingress-host.bak.yaml
 #
 # **경로 재작성이 필요 없다.** API 의 라우트가 애초에 /api 로 시작한다
 # (/api/health, /api/guestbook/entries — contracts/guestbook-api.md). 사이트도 같은
@@ -68,9 +74,6 @@ spec:
 #             name: jgbak-portfolio-api-service
 #             port:
 #               number: 80
-#   - host: portfolio.jgbak-land.com
-#     http:
-#       paths:
 #       - path: /                     # 나머지 전부 → 정적 사이트
 #         pathType: Prefix
 #         backend:
@@ -78,6 +81,9 @@ spec:
 #             name: jgbak-portfolio-client-service
 #             port:
 #               number: 80
+#
+# oneBite 는 host 를 두 덩이로 나눠 적었지만 한 host 아래 path 둘로 두는 편이 낫다 —
+# 손으로 편집할 때 덩이가 적을수록 틀릴 자리가 적고, 순서도 눈에 보인다.
 #
 # [4] spec.tls 리스트에도 추가한다 — HTTPS 와 인증서 자동 발급.
 #
