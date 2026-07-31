@@ -45,6 +45,9 @@ const config = [
       // Claude Design 시안과 그 런타임. 우리가 작성한 코드가 아니고
       // 빌드에도 들어가지 않는다. 참고 자료로만 저장소에 둔다.
       'design/**',
+      // 방명록 API 는 Next 앱이 아니라 Node 서비스다. 자체 설정으로 따로 검사한다
+      // (`api/eslint.config.mjs`, `cd api && npm run lint`).
+      'api/**',
     ],
   },
   ...next,

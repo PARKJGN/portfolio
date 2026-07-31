@@ -1,0 +1,32 @@
+{
+  // 사이트(루트 tsconfig)와 별개다. 저쪽은 번들러가 해석하는 Next 앱이고,
+  // 이쪽은 Node 가 직접 실행하는 ESM 서비스라 모듈 해석 방식이 다르다.
+  //
+  // NodeNext 라서 **상대 경로 import 에 `.js` 확장자를 붙여야 한다** —
+  // 소스가 .ts 여도 그렇다. 컴파일 결과가 그 경로로 실행되기 때문이다.
+  //   O: import { pool } from './db/pool.js'
+  //   X: import { pool } from './db/pool'
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

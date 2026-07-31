@@ -1,0 +1,38 @@
+# 로컬 개발용 PostgreSQL.
+#
+# 운영에서는 oneBite 인스턴스를 공유하고 계정만 나눈다(research.md R-6). 그쪽은
+# 클러스터에 붙어야 손댈 수 있으므로, 로컬에서는 같은 이름의 롤·데이터베이스를 가진
+# 일회용 인스턴스를 띄운다. 스키마와 권한 구조를 운영과 같게 맞춰 두어야
+# "로컬에선 됐는데" 를 피한다.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   npm run migrate
+#
+# 데이터는 이름 있는 볼륨에 남는다. 처음부터 다시 하려면:
+#   docker compose -f docker-compose.dev.yml down -v
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: portfolio-guestbook-db
+    environment:
+      # 로컬 전용 값이다. 운영 비밀번호와 같게 두지 않는다.
+      POSTGRES_USER: portfolio
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: portfolio
+      # PostgreSQL 18 부터는 데이터를 마운트 지점 **바로 아래**에 두면 기동을 거부한다
+      # (major-version 별 디렉터리를 쓰도록 바뀌었다). 마운트는 .../data 에 두고
+      # 실제 데이터는 그 하위로 내린다 — oneBite 의 20-postgres.yaml 과 같은 배치다.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5432:5432'
+    volumes:
+      - guestbook-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U portfolio -d portfolio']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  guestbook-dev-data:
