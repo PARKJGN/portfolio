@@ -159,7 +159,7 @@ Dockerfile                           # 001 — 사이트 정적 빌드 → nginx
 | 항목 | oneBite | 이 프로젝트 | 비고 |
 |---|---|---|---|
 | 네임스페이스 | `onebite` | `portfolio` | 동일 방식 |
-| 공용 인그레스 연결 | `default` 의 ExternalName 다리 | 동일 | `portfolio-client-service`, `portfolio-api-service` |
+| 공용 인그레스 연결 | `default` 의 ExternalName 다리 | 동일 | `jgbak-portfolio-client-service`, `jgbak-portfolio-api-service` |
 | 도메인 | `onebite.jgbak-land.com` | `portfolio.jgbak-land.com` | 같은 루트 도메인 |
 | TLS | cert-manager `prod-issuer` | 동일 | tls 항목만 추가하면 자동 발급 |
 | 이미지 | GHCR `:latest` + `:sha` | 동일 | `ghcr.io/parkjgn/portfolio-web`, `-api` |
