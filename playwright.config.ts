@@ -41,5 +41,14 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    env: {
+      // 정적 export 라 이 값은 **빌드에 박힌다**. 운영은 같은 도메인의 `/api` 라 빈 값이지만
+      // 로컬은 사이트(3000)와 API(8080)가 갈리므로 여기서 넣어 준다.
+      //
+      // API 를 여기서 함께 띄우지 않는 이유: 방명록은 PostgreSQL 이 있어야 돌고, 도커가
+      // 꺼져 있으면 webServer 가 뜨지 못해 **방명록과 무관한 테스트까지** 전부 실패한다.
+      // 대신 방명록 스펙이 /api/health 를 두드려 보고 없으면 그 파일만 건너뛴다.
+      NEXT_PUBLIC_GUESTBOOK_API: process.env.NEXT_PUBLIC_GUESTBOOK_API ?? 'http://localhost:8080',
+    },
   },
 });

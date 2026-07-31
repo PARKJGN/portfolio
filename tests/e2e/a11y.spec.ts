@@ -77,6 +77,83 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
   });
 });
 
+/**
+ * 방명록 화면 (T055).
+ *
+ * 다른 책과 달리 여기에는 입력칸과 버튼이 있다 — 라벨, 초점 표시, 대비, 상태 알림이
+ * 실제로 걸려 있는지 기계가 매번 본다. API 가 떠 있지 않아도 폼은 그려지므로 도커 없이도
+ * 돈다. 목록이 있는 상태는 아래 별도 항목에서 본다.
+ */
+test.describe('접근성 — 방명록 (T055)', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  const GUESTBOOK = '[data-book-slug="about-guestbook"]';
+
+  async function openGuestbook(page: import('@playwright/test').Page) {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    await page.locator(GUESTBOOK).click();
+    await settleOpen(page);
+    // 목록을 받아 오는 중이면 기다린다 — "불러오는 중" 상태만 검사하고 끝나지 않게.
+    await expect(page.locator('.guestbook__empty', { hasText: '불러오는 중' })).toHaveCount(0);
+  }
+
+  test('방명록 창이 열린 상태', async ({ page }) => {
+    await openGuestbook(page);
+    const { violations } = await scan(page).analyze();
+    expect(report(violations)).toBe('');
+  });
+
+  test('어두운 테마에서 방명록 창', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await openGuestbook(page);
+    const { violations } = await scan(page).analyze();
+    expect(report(violations)).toBe('');
+  });
+
+  test('숨은 칸이 보조기술에 잡히지 않는다', async ({ page }) => {
+    await openGuestbook(page);
+
+    // aria-hidden 안에 초점 갈 수 있는 요소가 있으면 axe 의 aria-hidden-focus 가 잡는다.
+    // 위 검사에 이미 포함되지만, 이 칸은 봇 방어의 일부라 깨지면 바로 알아야 한다.
+    const honey = page.locator('.guestbook__honey input');
+    await expect(honey).toHaveAttribute('tabindex', '-1');
+    await expect(page.locator('.guestbook__honey')).toHaveAttribute('aria-hidden', 'true');
+    // 접근성 트리에 없다 — 낭독기 사용자에게는 없는 칸이다.
+    // `getByLabel` 은 DOM 을 보므로 aria-hidden 을 무시한다. 역할로 찾아야 트리를 본다.
+    await expect(page.getByRole('textbox', { name: '홈페이지' })).toHaveCount(0);
+    // DOM 에는 있다 — 봇이 채워야 걸리는 함정이므로 사라지면 안 된다.
+    await expect(honey).toHaveCount(1);
+  });
+});
+
+/**
+ * 보류함 (T055).
+ *
+ * 주인만 오는 화면이라도 접근성 기준은 같다 — 특히 "정말 지웁니다" 처럼 색으로 위험을
+ * 알리는 자리는 색을 구별하지 못해도 알 수 있어야 한다.
+ */
+test.describe('접근성 — 보류함 (T055)', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('토큰 입력 화면', async ({ page }) => {
+    await page.goto('/admin');
+    await expect(page.getByLabel('관리 토큰')).toBeVisible();
+
+    const { violations } = await scan(page).analyze();
+    expect(report(violations)).toBe('');
+  });
+
+  test('어두운 테마에서 토큰 입력 화면', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/admin');
+    await expect(page.getByLabel('관리 토큰')).toBeVisible();
+
+    const { violations } = await scan(page).analyze();
+    expect(report(violations)).toBe('');
+  });
+});
+
 test.describe('움직임 최소화 (FR-016)', () => {
   test('책등 호버 연출과 스크롤 애니메이션이 꺼진다', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
