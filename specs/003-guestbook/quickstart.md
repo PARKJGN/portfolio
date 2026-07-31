@@ -28,14 +28,38 @@ REVOKE ALL ON DATABASE portfolio FROM PUBLIC;
 \q
 ```
 
-확인 — portfolio 롤로 붙어 자기 데이터베이스만 보이면 성공이다.
+비밀번호는 시크릿의 `PGPASSWORD` 와 **같은 값**이어야 한다. 직접 치지 말고 읽어 쓰면
+오타가 없다.
 
 ```bash
-kubectl -n onebite exec -it deploy/postgres -- \
-  psql "postgresql://portfolio:<비밀번호>@localhost:5432/portfolio" -c '\l'
+PW=$(kubectl -n jgbak-portfolio get secret portfolio-secrets \
+       -o jsonpath='{.data.PGPASSWORD}' | base64 -d)
 ```
 
-onebite 데이터베이스에 붙으려 하면 거절되어야 한다.
+확인 — 자기 롤·자기 데이터베이스로 붙으면 성공이다.
+
+```bash
+printf '%s' "$PW" | kubectl -n onebite exec -i deploy/postgres -- \
+  sh -c 'read -r P; PGPASSWORD="$P" psql -tAU portfolio -d portfolio \
+           -c "select current_user, current_database();"'
+# → portfolio|portfolio
+```
+
+**onebite 데이터베이스에 붙는 것 자체는 막히지 않는다.** 위 `REVOKE` 는 portfolio
+데이터베이스에만 적용되고, PostgreSQL 은 기본으로 모든 롤에게 CONNECT 를 준다.
+(초안에는 "거절되어야 한다"고 적혀 있었는데 틀린 기대였다.)
+
+다만 **붙는 것과 읽는 것은 다르다.** onebite 의 표는 onebite 롤 소유이고 PUBLIC 에 권한이
+없어 데이터는 읽히지 않는다 — 보이는 것은 시스템 카탈로그(표·컬럼 이름) 정도다.
+
+접속까지 막고 싶다면 순서가 중요하다. 거꾸로 하면 **oneBite 앱이 자기 DB 에 못 붙는다.**
+
+```sql
+GRANT CONNECT ON DATABASE onebite TO onebite;    -- 먼저 명시적으로 준다
+REVOKE CONNECT ON DATABASE onebite FROM PUBLIC;  -- 그다음 PUBLIC 을 거둔다
+```
+
+돌고 있는 남의 서비스를 건드리는 일이라 배포와 함께 하지 않는다.
 
 ### 2. 시크릿 채우기
 
