@@ -132,9 +132,14 @@ export function createClaudeCall(apiKey: string): VerdictCall {
     const response = await client.messages.create(
       {
         model: MODEL,
-        // 생각까지 이 한도 안에서 이뤄진다. 판정문은 짧지만 여유를 둔다.
-        max_tokens: 4096,
+        // 판정문은 세 칸짜리 JSON 이다. 사고를 끄면 이 한도는 응답만 쓴다.
+        max_tokens: 1024,
         system: SYSTEM,
+        // **끄지 않으면 켜진다.** 이 모델은 thinking 을 생략하면 적응형 사고가 도는데,
+        // 그 몇 초가 VERDICT_TIMEOUT_MS(4초)를 먹어 멀쩡한 인사글까지 보류로 떨어졌다.
+        // 방명록 한 줄에 사고는 필요 없다. effort 가 high 이하일 때만 끌 수 있는데
+        // 여기는 low 다.
+        thinking: { type: 'disabled' },
         // 방명록 한 건은 짧고 판단도 단순하다. 낮은 노력이면 충분하고 그만큼 빨리 온다.
         output_config: { effort: 'low', format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
         messages: [
