@@ -25,7 +25,9 @@ async function settleOpen(page: import('@playwright/test').Page) {
 
 function report(violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']) {
   return violations
-    .map((v) => `[${v.impact}] ${v.id}: ${v.help}\n    ${v.nodes.map((n) => n.target).join('\n    ')}`)
+    .map(
+      (v) => `[${v.impact}] ${v.id}: ${v.help}\n    ${v.nodes.map((n) => n.target).join('\n    ')}`,
+    )
     .join('\n');
 }
 
@@ -212,5 +214,47 @@ test.describe('가로 스크롤 없음 (FR-017, SC-005)', () => {
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
     );
     expect(overflows).toBe(false);
+  });
+});
+
+/**
+ * 종이에 그려진 링크의 손잡이 (3D 전용).
+ *
+ * 위의 검사들은 `reducedMotion: 'reduce'` 로 돈다 — 그러면 3D 가 아예 켜지지 않아
+ * 이 손잡이가 만들어지지 않는다. 여기서만 움직임을 켜고 본다.
+ *
+ * 손잡이는 캔버스가 그린 글자 위에 얹히는 빈 `<a>` 다. 글자가 없으니 이름은
+ * aria-label 이 대고, 그 이름이 없으면 낭독기에는 "링크" 라고만 들린다.
+ */
+test.describe('종이 위의 링크 (3D)', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', '3D 링크는 desktop 에서 본다');
+  });
+
+  async function openOneBite(page: import('@playwright/test').Page) {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    await page.locator('[data-book-slug="onebite"]').click();
+    await expect(page.locator('dialog[open]')).toBeVisible();
+    // 3D 가 다 펼쳐져야 손잡이가 자리를 잡는다.
+    await page.locator('.book__link').first().waitFor({ timeout: 15000 });
+  }
+
+  test('손잡이에 이름이 있고 새 탭으로 연다', async ({ page }) => {
+    await openOneBite(page);
+
+    const link = page.locator('.book__link').first();
+    await expect(link).toHaveAttribute('href', /onebite\.jgbak-land\.com/);
+    await expect(link).toHaveAttribute('target', '_blank');
+    // 연 쪽이 이 창을 건드리지 못하게 한다.
+    await expect(link).toHaveAttribute('rel', /noopener/);
+    // 이름이 없으면 낭독기에 "링크" 라고만 들린다.
+    await expect(link).toHaveAttribute('aria-label', /onebite\.jgbak-land\.com/);
+  });
+
+  test('axe 위반이 없다', async ({ page }) => {
+    await openOneBite(page);
+    const { violations } = await scan(page).analyze();
+    expect(report(violations)).toBe('');
   });
 });

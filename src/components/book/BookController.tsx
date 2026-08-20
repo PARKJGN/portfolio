@@ -71,71 +71,125 @@ export function BookController() {
     const teardownEngine = () => {
       if (!readerEngine) return;
       readerEngine.cancel(); // 등장/닫기 트윈이 돌고 있으면 멈춘다
+      stopInk(); // 잉크를 긋던 중이면 멈춘다 — 없어진 텍스처에 계속 그리지 않게
       readerEngine.hide();
       readerEngine.clear();
       readerEngine = null;
       activeReader = null;
       openVisual = null;
       openBaseBlocks = [];
-      placeWriteBox(); // activeReader 가 비었으니 자리 표시를 뗀다
+      placeOnPage(); // activeReader 가 비었으니 자리 표시를 뗀다
     };
     /**
-     * 방명록 책의 페이지 덩이 — 안내문 + 글쓰기 자리 + 남겨진 글.
+     * 방명록 책의 페이지 덩이 — 남겨진 글만.
      *
      * DOM 에서 읽지 않고 직접 가져오는 이유: 목록은 창이 열린 **뒤에** 도착하는데
      * 3D 는 열리는 순간 페이지를 만든다. DOM 을 기다리게 하면 타이밍에 기대게 된다.
      * guestbook-client 가 같은 요청을 하나로 묶어 주므로 HTML 쪽과 두 번 부르지 않는다.
      *
-     * 목록이 늦거나 실패해도 책은 그대로 열린다 — 안내문과 글쓰기 자리는 남는다.
+     * **책 안에서만 시간순으로 뒤집는다.** API 와 평면 목록은 최신순 그대로다(계약을
+     * 건드리지 않는다). 종이는 진짜 방명록처럼 오래된 글이 앞이고 새 글이 맨 뒤라야,
+     * 방금 남긴 글이 마지막 장에 붙고 책이 그리로 넘어가는 것이 자연스럽다.
+     *
+     * 목록이 늦거나 실패해도 책은 그대로 열린다 — 빈 책이라도 '남기기' 는 눌린다.
      */
     const guestbookBlocks = async (base: Block[]): Promise<Block[]> => {
-      // 안내문 다음 면을 통째로 비우고 그 위에 진짜 폼을 얹는다(placeWriteBox).
-      const withBox: Block[] = [...base, { kind: 'writebox' }];
       try {
         const page = await fetchEntries();
-        if (page.entries.length === 0) return withBox; // 아직 없어도 쓸 자리는 있어야 한다
+        if (page.entries.length === 0) return base;
         return [
-          ...withBox,
-          { kind: 'h', text: '남겨 주신 글' },
-          ...page.entries.map(
-            (e): Block => ({
-              kind: 'entry',
-              author: e.author,
-              when: formatWhen(e.createdAt),
-              text: e.body,
-            }),
-          ),
+          ...base,
+          ...[...page.entries].reverse().map((e): Block => ({
+            kind: 'entry',
+            author: e.author,
+            when: formatWhen(e.createdAt),
+            text: e.body,
+          })),
         ];
       } catch {
-        return withBox; // 목록을 못 받아도 글은 남길 수 있어야 한다
+        return base; // 목록을 못 받아도 글은 남길 수 있어야 한다
       }
     };
 
     /**
-     * 글쓰기 폼을 3D 책의 '비워 둔 면' 위에 얹는다.
+     * '남기기' 버튼을 펼쳐진 오른쪽 면의 오른쪽 아래 구석에 놓는다.
      *
-     * 캔버스에는 입력칸을 놓을 수 없어서, 3D 는 그 면을 통째로 비우고(Block 'writebox')
-     * 여기서 진짜 <form> 을 그 자리에 고정한다. 종이 위에 놓인 것처럼 보이지만 실제로는
-     * 브라우저의 입력칸이라 IME·붙여넣기·낭독기가 그대로 동작한다.
-     *
-     * 그 면이 안 보이면(다른 장이거나 넘기는 중이면) 자리 표시를 떼어 CSS 가 감춘다.
-     * 평면(3D 를 못 띄운 경우)에서는 아예 부르지 않는다 — 폼이 문서 흐름에 그냥 있으면 된다.
+     * 종이 위에 얹히는 유일한 조작부다. 구석이라 글을 가리지 않고, 실제 방명록에서
+     * 펜이 놓인 자리처럼 읽힌다. 넘기는 중이거나 3D 가 아니면 자리 표시를 떼어
+     * CSS 가 알아서 흐름 안으로 돌려보낸다(평면 폴백).
      */
-    const placeWriteBox = () => {
+    const placeWriteButton = () => {
       const open = document.querySelector<HTMLElement>('dialog[open]');
-      const box = open?.querySelector<HTMLElement>('.guestbook');
-      if (!box) return;
-      const rect = activeReader?.writeboxRect() ?? null;
+      const pen = open?.querySelector<HTMLElement>('.guestbook__pen');
+      if (!pen) return;
+      const rect = activeReader?.pageRect('right') ?? null;
       if (!rect) {
-        delete box.dataset.onPage;
-        box.removeAttribute('style');
+        delete pen.dataset.onPage;
+        pen.removeAttribute('style');
         return;
       }
-      box.dataset.onPage = '';
-      box.style.left = `${Math.round(rect.left)}px`;
-      box.style.top = `${Math.round(rect.top)}px`;
-      box.style.width = `${Math.round(rect.width)}px`;
-      box.style.height = `${Math.round(rect.height)}px`;
+      // 가로 여백은 3D 가 쓰는 값(padX = 폭의 11.5%)과 눈으로 맞춘다.
+      //
+      // 세로는 **높이 기준**이어야 한다. 폭 기준으로 잡았더니 넓은 화면에서 그 값이
+      // 종이 아래 여백(높이의 7%)보다 커져 버튼이 글자 위로 올라탔다.
+      // 0.905 는 본문 바닥(0.895) 바로 아래다 — 저쪽에서 이 자리를 비워 둔다.
+      pen.dataset.onPage = '';
+      pen.style.left = `${Math.round(rect.left + rect.width - rect.width * 0.115)}px`;
+      pen.style.top = `${Math.round(rect.top + rect.height * 0.905)}px`;
+    };
+
+    /**
+     * 종이에 그려진 링크 위에 진짜 `<a>` 를 얹는다.
+     *
+     * 글자는 캔버스가 그리고, 여기서 얹는 것은 **투명한 손잡이**다. 그래야 누르기·
+     * 키보드 초점·가운데 클릭·주소 복사가 브라우저의 것으로 동작한다. 본문 HTML 안의
+     * `<a>` 를 쓸 수 없는 이유는 그 조상(.book__pages)이 3D 에서 `opacity: 0` 이고,
+     * opacity 는 쌓임 맥락을 만들어 자식이 아무리 애써도 드러날 수 없기 때문이다 —
+     * 초점은 가는데 어디 갔는지 보이지 않는 상태가 된다.
+     *
+     * 링크 글자는 이미 종이에 있으므로 여기 글자는 낭독기용이다.
+     */
+    const placeLinks = () => {
+      const open = document.querySelector<HTMLElement>('dialog[open]');
+      const box = open?.querySelector<HTMLElement>('[data-book-links]');
+      if (!box) return;
+      const links = activeReader?.visibleLinks() ?? [];
+      // 개수가 다를 때만 다시 만든다. 매 프레임 지웠다 만들면 초점이 날아간다.
+      if (box.childElementCount !== links.length) {
+        box.replaceChildren(
+          ...links.map(() => {
+            const a = document.createElement('a');
+            a.className = 'book__link';
+            a.target = '_blank';
+            // 연 쪽이 이 창을 건드리지 못하게 한다.
+            a.rel = 'noopener noreferrer';
+            return a;
+          }),
+        );
+      }
+      links.forEach((l, k) => {
+        const a = box.children[k] as HTMLAnchorElement;
+        a.href = l.href;
+        // 글자는 넣지 않는다. 보이는 글자는 캔버스가 그렸고, 여기 글자를 넣으면
+        // 감추느라 색을 투명하게 해야 하는데 그러면 대비 검사가 걸고 넘어진다.
+        // 이름은 aria-label 로 준다 — 종이에 쓰인 그 말이다.
+        a.setAttribute('aria-label', `${l.text} (새 탭에서 열림)`);
+        a.style.left = `${Math.round(l.left)}px`;
+        a.style.top = `${Math.round(l.top)}px`;
+        a.style.width = `${Math.round(l.width)}px`;
+        a.style.height = `${Math.round(l.height)}px`;
+      });
+    };
+
+    /**
+     * 종이 위에 얹히는 것들을 제자리에 놓는다 — '남기기' 버튼과 링크 손잡이.
+     *
+     * 둘은 늘 함께 움직인다. 장이 넘어가거나 화면이 바뀌면 같은 순간에 자리를 다시
+     * 잡아야 하므로 부르는 쪽이 하나씩 챙기게 두지 않는다.
+     */
+    const placeOnPage = () => {
+      placeWriteButton();
+      placeLinks();
     };
 
     const readerProgress = (i: number, total: number) => {
@@ -150,7 +204,7 @@ export function BookController() {
       open
         .querySelector<HTMLButtonElement>('[data-action="page-next"]')
         ?.toggleAttribute('disabled', i >= total - 1);
-      placeWriteBox();
+      placeOnPage();
     };
 
     // 선언 순서에 주의 — 아래 초기화 호출은 이 파일 맨 끝에 있다.
@@ -160,7 +214,9 @@ export function BookController() {
     // ── 보기 방식 ──────────────────────────────
     const applyMode = (mode: ViewMode) => {
       root.dataset.viewMode = mode;
-      for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-action="toggle-view"]')) {
+      for (const btn of document.querySelectorAll<HTMLButtonElement>(
+        '[data-action="toggle-view"]',
+      )) {
         btn.setAttribute('aria-pressed', String(mode === 'continuous'));
         btn.textContent = mode === 'paged' ? '전체 이어보기' : '한 장씩 넘기기';
       }
@@ -188,8 +244,12 @@ export function BookController() {
       const EDGE = 2; // 소수점 반올림 여유
       const atStart = body.scrollLeft <= EDGE;
       const atEnd = Math.ceil(body.scrollLeft + body.clientWidth) >= body.scrollWidth - EDGE;
-      scope.querySelector<HTMLButtonElement>('[data-action="page-prev"]')?.toggleAttribute('disabled', atStart);
-      scope.querySelector<HTMLButtonElement>('[data-action="page-next"]')?.toggleAttribute('disabled', atEnd);
+      scope
+        .querySelector<HTMLButtonElement>('[data-action="page-prev"]')
+        ?.toggleAttribute('disabled', atStart);
+      scope
+        .querySelector<HTMLButtonElement>('[data-action="page-next"]')
+        ?.toggleAttribute('disabled', atEnd);
     }
 
     const turnPage = (direction: 1 | -1) => {
@@ -299,10 +359,14 @@ export function BookController() {
           if (el.tagName === 'P' && el.closest('li')) continue;
           const text = el.tagName === 'LI' ? ownText(el) : txt(el);
           if (!text) continue;
-          if (el.tagName === 'LI') blocks.push({ kind: 'li', text });
+          // 덩이가 **통째로** 링크일 때만 종이에서 눌린다(book3d 의 Block 주석).
+          // `a.href` 는 브라우저가 절대 주소로 풀어 준 값이다.
+          const a = el.querySelector('a');
+          const href = a && txt(a) === text ? a.href : undefined;
+          if (el.tagName === 'LI') blocks.push({ kind: 'li', text, href });
           else if (el.tagName === 'H2') blocks.push({ kind: 'h', text });
           else if (el.tagName === 'H3') blocks.push({ kind: 'h', text, sub: true });
-          else blocks.push({ kind: 'p', text });
+          else blocks.push({ kind: 'p', text, href });
         }
         // 기술 스택.
         for (const item of Array.from(body.querySelectorAll('.tech-item'))) {
@@ -328,7 +392,11 @@ export function BookController() {
     const bookDims = () => {
       // 방(제목·여백)이 보이는 적당한 크기 — 화면 높이의 78%, 상한 700. 두 면 폭도
       // 화면 폭을 넘지 않게 제한. 화면 정중앙에 놓인다(restCenter 이동 없음).
-      const spreadH = Math.min(700, window.innerHeight * 0.78, (window.innerWidth * 0.94) / (2 * 0.72));
+      const spreadH = Math.min(
+        700,
+        window.innerHeight * 0.78,
+        (window.innerWidth * 0.94) / (2 * 0.72),
+      );
       const spreadW = spreadH * 0.72;
       const single = window.innerWidth < spreadW * 2 * 1.08;
       if (!single) {
@@ -360,9 +428,9 @@ export function BookController() {
       delete dialog.dataset.closing; // 접힘 도중 재열림 대비
 
       const spineRect = spineRectOf(slug);
-      // 어떤 책은 3D 로 열지 않는다. 방명록이 그렇다 — 캔버스 안에는 입력칸을 놓을 수
-      // 없고, 방문자가 어떤 글자를 쓸지 몰라 서브셋 글꼴이 그것을 담을 수 없다
-      // (003 research.md R-2·R-3). 책이 스스로 표시한다.
+      // 어떤 책은 3D 로 열지 않는다 — 책이 스스로 표시한다(schema.ts 의 `reader`).
+      // 원래 방명록을 위한 탈출구였으나 R-2 가 뒤집혀(2026-08-01) 방명록도 3D 로 연다.
+      // **지금 이 값을 쓰는 책은 없다.** 지우지 않은 이유는 schema.ts 주석에 적어 두었다.
       const flatOnly = dialog.dataset.readerMode === 'flat';
       const use3D = !flatOnly && !reduced() && !!spineRect;
       if (use3D) {
@@ -425,7 +493,7 @@ export function BookController() {
               delete dialog.dataset.intro;
               dialog.dataset.reader = '';
               activeReader = eng;
-              placeWriteBox();
+              placeOnPage();
             },
           });
         })
@@ -573,25 +641,116 @@ export function BookController() {
       const TH = 44; // 이보다 작으면 탭으로 본다
       let dir: 1 | -1 | 0 = 0;
       if (Math.abs(dy) >= Math.abs(dx)) {
-        if (dy <= -TH) dir = 1; // 위로 = 다음
+        if (dy <= -TH)
+          dir = 1; // 위로 = 다음
         else if (dy >= TH) dir = -1; // 아래로 = 이전
       } else {
-        if (dx <= -TH) dir = 1; // 왼쪽 = 다음
+        if (dx <= -TH)
+          dir = 1; // 왼쪽 = 다음
         else if (dx >= TH) dir = -1; // 오른쪽 = 이전
       }
       if (dir !== 0) {
         swallowClick = true; // 이 스와이프 뒤 click 은 무시(배경 탭 닫기 방지)
+        // 누르기와 같은 규칙 — 쓰는 중이면 넘기지 않고 다 쓴다.
+        if (skipInk) {
+          skipInk();
+          return;
+        }
         activeReader.turn(dir);
-        placeWriteBox(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
+        placeOnPage(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
       }
+    };
+
+    /** 돌고 있는 잉킹. 창이 닫히거나 다른 책으로 가면 멈춘다. */
+    let inkRaf = 0;
+    /** 쓰는 중일 때만 채워진다. 누르면 끝까지 건너뛴다. */
+    let skipInk: (() => void) | null = null;
+    const stopInk = () => {
+      if (inkRaf) cancelAnimationFrame(inkRaf);
+      inkRaf = 0;
+      skipInk = null;
+    };
+
+    /**
+     * 손으로 적는 속도. 글자 수에 비례한다.
+     *
+     * 예전에는 길이와 무관하게 1.4초였다. 짧은 글에는 맞았지만 긴 글은 종이에 글자가
+     * 쏟아지듯 나타나 손으로 적는 것으로 보이지 않았다. 위아래 한도를 두는 이유는,
+     * 한 글자짜리 글이 눈 깜짝할 새 끝나거나 500자 글이 12초를 잡아먹지 않게 하기
+     * 위해서다. 기다리기 싫으면 종이를 눌러 건너뛸 수 있다.
+     */
+    const inkDuration = (chars: number) => Math.min(9000, Math.max(1200, chars * 45));
+
+    /**
+     * 방금 남긴 글을 종이에 그어 넣는다.
+     *
+     * 종이 텍스처에 직접 그리므로 책이 기울면 펜도 같이 기운다 — 줄을 나눈 그 코드가
+     * 드러내는 일까지 맡는다(book3d 의 Reveal).
+     *
+     * 글이 다음 면까지 넘치면 **펜을 따라 책이 넘어간다.** 펜이 어느 면에 있는지는
+     * reveal 이 알려 준다 — 넘기는 동안에는 시간을 세지 않는다(넘김이 끝나면 펜이
+     * 저만치 가 있게 된다).
+     */
+    const inkIn = (eng: Book3D, block: number, chars: number) => {
+      stopInk();
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const dur = inkDuration(chars);
+      let elapsed = 0;
+      let last = performance.now();
+      let turning = false;
+
+      const step = (now: number) => {
+        if (activeReader !== eng) return stopInk(); // 그 사이 책이 바뀌었다
+
+        // 넘기는 동안에는 **그리지도 세지도 않는다.** reveal 은 지금 장을 다시 물리므로
+        // (showSpread) 넘김 연출이 갈아 끼운 재질을 덮어써 장면이 튄다.
+        if (turning) {
+          last = now;
+          inkRaf = requestAnimationFrame(step);
+          return;
+        }
+
+        elapsed += now - last;
+        last = now;
+
+        const p = Math.min(1, elapsed / dur);
+        const r = eng.reveal(block, p);
+        if (!r.ok) return stopInk();
+
+        // 펜을 따라간다. 다 쓰고 나면 펜이 사라져 물어볼 수 없으므로, 그때는 글이
+        // 끝나는 면을 짚는다 — 건너뛰기로 단숨에 끝냈을 때가 그 경우다.
+        const at = r.penPage >= 0 ? r.penPage : p >= 1 ? eng.lastPageOfBlock(block) : -1;
+        if (at >= 0) {
+          const to = eng.spreadOfPage(at);
+          if (to !== eng.spread) {
+            turning = true;
+            eng.turnTo(to, () => {
+              turning = false;
+              placeOnPage();
+            });
+          }
+        }
+
+        if (p < 1 || turning) inkRaf = requestAnimationFrame(step);
+        else stopInk();
+      };
+
+      // 다 쓴 것으로 만든다. 종이를 누르면 이것이 불린다.
+      skipInk = () => {
+        elapsed = dur;
+      };
+      inkRaf = requestAnimationFrame(step);
     };
 
     /**
      * 방명록에 글이 하나 늘었다(Guestbook 이 알려 준다).
      *
      * 3D 는 열릴 때 페이지를 한 번 그려 두므로, 방금 남긴 글은 종이에 없다. 목록을 다시
-     * 받아 페이지를 다시 그린다 — 안 그러면 "남겼는데 책에는 안 보인다" 가 된다.
-     * 보던 장은 그대로다(rebuildPages).
+     * 받아 페이지를 다시 그리고, **그 글이 놓인 장까지 넘긴 뒤 펜으로 쓴다.**
+     *
+     * 책 안에서는 시간순이라 새 글은 늘 맨 뒤에 붙는다 — 그래서 넘김은 언제나 앞으로
+     * 간다. 어느 장에서 남겼든 마지막 장으로 가는 셈이다.
      */
     const onGuestbookChanged = () => {
       const eng = activeReader;
@@ -600,14 +759,37 @@ export function BookController() {
       void guestbookBlocks(openBaseBlocks).then((blocks) => {
         if (activeReader !== eng) return; // 그 사이 책이 바뀌었다
         v.blocks = blocks;
+        // 새 글은 시간순의 맨 끝 — 마지막 entry 덩이다.
+        const block = blocks.map((b) => b.kind).lastIndexOf('entry');
+        // 잉크가 0 인 상태로 먼저 그려 둔다. 그래야 장이 넘어간 순간 글이 이미 다
+        // 쓰여 있는 채로 드러나지 않는다.
         eng.rebuildPages(v);
-        placeWriteBox();
+        if (block >= 0) eng.reveal(block, 0);
+        placeOnPage();
+        if (block < 0) return;
+
+        const page = eng.pageOfBlock(block);
+        if (page < 0) return;
+        // 쓰는 속도는 글자 수를 따른다. 그 덩이의 본문 길이가 곧 펜이 지날 거리다.
+        const bl = blocks[block];
+        const chars = bl.kind === 'entry' ? [...bl.text].length : 0;
+        eng.turnTo(eng.spreadOfPage(page), () => {
+          placeOnPage();
+          inkIn(eng, block, chars);
+        });
       });
     };
 
     // ── 이벤트 ──────────────────────────────
     const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+      if (
+        e.defaultPrevented ||
+        e.button !== 0 ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.shiftKey ||
+        e.altKey
+      ) {
         return;
       }
       if (swallowClick) {
@@ -626,8 +808,14 @@ export function BookController() {
       if (action === 'page-prev' || action === 'page-next') {
         const dir = action === 'page-next' ? 1 : -1;
         if (!activeReader) return turnPage(dir);
+        // 쓰는 중에 넘기려 하면 먼저 다 쓴다. 여기서 넘겨 버리면 잉킹이 뒤에서 계속
+        // 돌다가 저 혼자 되돌아온다(펜을 따라가므로).
+        if (skipInk) {
+          skipInk();
+          return;
+        }
         activeReader.turn(dir);
-        placeWriteBox(); // 위와 같은 이유 — 넘기는 동안에는 뗀다
+        placeOnPage(); // 위와 같은 이유 — 넘기는 동안에는 뗀다
         return;
       }
 
@@ -718,14 +906,26 @@ export function BookController() {
         e.clientY >= bookArea.top &&
         e.clientY <= bookArea.top + bookArea.height
       ) {
+        // 쓰는 중이면 장을 넘기는 대신 **글을 끝까지 쓴다.** 기다리기 싫은 사람에게
+        // 필요한 것은 다음 장이 아니라 다 쓰인 글이다. 넘기려면 한 번 더 누르면 된다.
+        if (skipInk) {
+          skipInk();
+          return;
+        }
         activeReader!.turn(e.clientX < bookArea.left + bookArea.width / 2 ? -1 : 1);
-        placeWriteBox(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
+        placeOnPage(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
         return;
       }
 
       // <dialog> 는 ::backdrop 클릭을 스스로 처리하지 않는다. 클릭 대상이
       // dialog 요소 자신이면 내용 바깥을 누른 것이다 (R-5).
-      if (target instanceof HTMLDialogElement && target.open) requestClose(target);
+      //
+      // **책 모달만 그렇게 닫는다.** 방명록 글쓰기 모달도 <dialog> 라, 걸러 내지 않으면
+      // 그 바깥을 눌렀을 때 책을 접는 연출이 돈다(닫아야 할 것은 폼인데).
+      if (target instanceof HTMLDialogElement && target.open) {
+        if (target.classList.contains('guestbook__modal')) target.close();
+        else if (target.id.startsWith('book-dialog-')) requestClose(target);
+      }
     };
 
     // 덮기 버튼(form method=dialog) — 즉시 닫히는 대신 접힘 연출 뒤 닫는다.
@@ -740,15 +940,24 @@ export function BookController() {
     };
 
     // Esc — 기본 취소(즉시 닫힘)를 막고 접힘 연출을 거친다.
+    /** 책 모달인가. 방명록 글쓰기 모달도 <dialog> 라 반드시 갈라 봐야 한다. */
+    const isBookDialog = (el: EventTarget | null): el is HTMLDialogElement =>
+      el instanceof HTMLDialogElement && el.id.startsWith('book-dialog-');
+
     const onCancel = (e: Event) => {
+      // 글쓰기 모달의 Esc 는 브라우저가 알아서 닫게 둔다 — 여기서 가로채면 폼을 닫으려던
+      // Esc 가 책을 접는다.
       const dialog = e.target;
-      if (dialog instanceof HTMLDialogElement && dialog.open) {
+      if (isBookDialog(dialog) && dialog.open) {
         e.preventDefault();
         requestClose(dialog);
       }
     };
 
-    const onClose = () => {
+    const onClose = (e: Event) => {
+      // 글쓰기 모달이 닫힌 것이면 히스토리를 건드리지 않는다. 그러지 않으면 폼을 닫는
+      // 순간 history.back() 이 돌아 책까지 닫힌다.
+      if (!isBookDialog(e.target)) return;
       if (swallowCloseHistory > 0) {
         swallowCloseHistory--; // 갈아타기로 닫힌 책 — 히스토리는 그대로 둔다
         return;
@@ -767,7 +976,7 @@ export function BookController() {
       // 등장 중(readerEngine)이든 다 펼쳤든(activeReader) 화면에 올라온 3D 를 맞춘다.
       readerEngine?.onResize();
       updateProgress();
-      placeWriteBox();
+      placeOnPage();
     };
 
     document.addEventListener('click', onClick);

@@ -795,7 +795,8 @@ dialog[open] .book__cover-leaf-inner {
 dialog[open] .book {
   animation:
     bookEmergeReveal var(--motion-book) linear calc(var(--motion-book) * 2) both,
-    bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) calc(var(--motion-book) * 2) both;
+    bookUnfold var(--motion-book) cubic-bezier(0.34, 0.03, 0.16, 1) calc(var(--motion-book) * 2)
+      both;
 }
 
 /* ── 덮기(닫힘) — 펼침의 역동작 ──
@@ -1039,4 +1040,22 @@ dialog[data-closing] .book {
 }
 .book-dialog[data-reader] .guestbook {
   touch-action: auto;
+}
+
+/* ── 종이에 그려진 링크의 손잡이 ──────────────────────────────
+   글자는 캔버스가 그렸다(book3d 의 drawFlow). 여기 있는 <a> 는 그 위에 얹히는
+   **투명한 손잡이**다 — 누르기·키보드 초점·가운데 클릭·주소 복사를 브라우저가
+   그대로 해 준다. 자리는 BookController.placeLinks 가 잡는다.
+
+   글자는 넣지 않는다(이름은 aria-label 로 준다). 빈 상자라 감출 것도 없고, 투명한
+   글자를 두었을 때처럼 대비 검사가 걸고 넘어질 일도 없다. */
+.book__link {
+  position: fixed;
+  z-index: 3;
+  border-radius: 2px;
+}
+
+.book__link:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 2px;
 }

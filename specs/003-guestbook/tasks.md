@@ -98,6 +98,9 @@ DNS·인증서·인그레스가 막히는 것과 API·DB 가 막히는 것을 �
 - [x] T023 [US1] `POST /api/guestbook/entries` 구현 — 이 단계에서는 방어 없이 저장한다(방어는 US2) — `api/src/routes/entries.ts`
 - [x] T024 [US1] 책 프론트매터에 리더 방식 필드를 더한다(`reader: '3d' | 'flat'`, 기본 `3d`) — `src/lib/schema.ts`
 - [x] T025 [US1] 방명록 책만 3D 를 켜지 않고 평면 모달로 열도록 분기 — `src/components/book/BookController.tsx` (research.md R-2)
+  - ~~되돌림 (2026-08-01)~~ — R-2 가 뒤집혀 방명록도 3D 로 연다. 분기(`readerMode === 'flat'`)
+    자체는 남아 있으나 **이 값을 쓰는 책은 이제 없다.** 3D 가 한 면을 비우고 그 위에 폼을
+    얹는 방식으로 바뀌었다(T024 의 `reader` 필드도 같은 이유로 쓰이지 않는다).
 - [x] T026 [P] [US1] API 호출 모듈(목록·남기기, 실패 구분) — `src/lib/guestbook-client.ts`
 - [x] T027 [US1] 폼과 목록 컴포넌트 — 글은 `textContent` 로 넣고, 결과를 `aria-live` 로 알리고, 실패해도 적던 내용을 보존한다 — `src/components/book/Guestbook.tsx`
 - [x] T028 [US1] 방명록 책 본문에 컴포넌트를 배치 — `src/components/book/BookContent.tsx`

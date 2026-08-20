@@ -73,7 +73,10 @@ export function BookContent({
             </figure>
           ) : null}
 
-          <div className="book__prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }} />
+          <div
+            className="book__prose"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(book.body) }}
+          />
 
           {book.tech?.length ? (
             <ul className="tech-list">
@@ -122,6 +125,12 @@ export function BookContent({
           입력칸이 살아 있는 채로 3D 책 면 위에 얹힐 수 있다(BookController 가 자리를 잡는다).
           평면(폴백)에서는 책 상자 아래에 이어 붙는다. */}
       {book.guestbook ? <Guestbook /> : null}
+
+      {/* 종이에 그려진 링크의 손잡이가 담기는 곳. BookController 가 채운다.
+          **.book__pages 바깥**에 둔다 — 3D 에서 그 상자는 opacity:0 이고, opacity 는
+          쌓임 맥락을 만들어 자식이 아무리 애써도 드러날 수 없다. 안에 두면 초점은
+          가는데 초점 표시가 보이지 않는 링크가 된다. */}
+      <div className="book__links" data-book-links />
 
       {/* 도구 막대 — 종이 밖(모달에서는 하드커버 보드) 에 얹힌다. 그래야 두 면이
           순수한 책 페이지로 보인다. */}

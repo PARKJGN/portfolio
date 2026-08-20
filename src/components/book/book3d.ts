@@ -24,8 +24,16 @@ export type Block =
   | { kind: 'header'; name: string; english?: string; contacts: string[]; photo?: string }
   | { kind: 'product'; name: string; meta?: string; logo?: string; logoOnDark?: boolean }
   | { kind: 'h'; text: string; sub?: boolean }
-  | { kind: 'p'; text: string }
-  | { kind: 'li'; text: string }
+  /**
+   * `href` 가 있으면 이 덩이는 통째로 링크다 — 종이 위에서 눌린다.
+   *
+   * 글 가운데 일부만 링크로 만들지 않는 이유: `wrapLines` 가 긴 토큰을 글자 단위로
+   * 쪼개기도 해서 원문 오프셋을 줄 위치로 되짚는 일이 취약하다. 문단이나 목록 항목
+   * 하나를 통째로 링크로 두면 그 덩이의 모든 줄이 곧 링크 자리라 되짚을 것이 없다.
+   * 콘텐츠는 주인이 직접 쓰므로 "링크는 제 줄에 둔다" 는 지킬 만한 약속이다.
+   */
+  | { kind: 'p'; text: string; href?: string }
+  | { kind: 'li'; text: string; href?: string }
   | { kind: 'tech'; name: string; color?: string; desc: string }
   /**
    * 방명록에 남겨진 글 한 편.
@@ -33,15 +41,25 @@ export type Block =
    * 다른 덩이와 달리 **시스템 글꼴로 그린다.** 방문자가 무슨 글자를 쓸지 알 수 없어
    * 서브셋 글꼴로는 담을 수 없기 때문이다(HTML 쪽 .guestbook__body 와 같은 이유).
    */
-  | { kind: 'entry'; author: string; when: string; text: string }
-  /**
-   * 글 쓰는 자리. **아무것도 그리지 않고 한 면을 통째로 비운다.**
-   *
-   * 캔버스에는 입력칸을 놓을 수 없다. 그래서 3D 는 자리만 비우고, 컨트롤러가 그 면의
-   * 화면 사각형(writeboxRect)에 맞춰 진짜 <form> 을 얹는다. 종이 위에 놓인 것처럼 보이되
-   * 실제로는 브라우저가 그리는 입력칸이라 IME·붙여넣기·낭독기가 모두 그대로 동작한다.
-   */
-  | { kind: 'writebox' };
+  | { kind: 'entry'; author: string; when: string; text: string };
+
+/**
+ * 한 덩이를 앞에서부터 이만큼만 드러낸다 — 방금 남긴 글이 펜을 따라 그어지는 연출.
+ *
+ * 왜 종이 텍스처에 직접 그리는가: 종이 위에 캔버스를 겹쳐 놓고 같은 글을 다시 그리면
+ * 줄바꿈 위치를 두 곳에서 계산하게 되고, 반드시 어긋난다. 여기서 그리면 줄을 나눈 바로
+ * 그 코드가 드러내는 일까지 맡으므로 어긋날 자리가 없다.
+ *
+ * `ratio` 는 **덩이 전체**에 대한 비율이다. 두 면에 걸친 글이면 두 면을 모두 다시 그려야
+ * 하고(`Book3D.reveal`), 각 면은 앞 면에서 지나온 거리를 빼고 자기 몫을 그린다 —
+ * 그래야 펜이 왼 면 끝에서 오른 면 첫머리로 이어진다.
+ */
+export interface Reveal {
+  /** 드러낼 덩이의 blocks 안 번호. */
+  block: number;
+  /** 0 이면 한 글자도 안 보이고, 1 이면 다 보인다. */
+  ratio: number;
+}
 
 export interface BookVisual {
   cover: string;
@@ -50,6 +68,27 @@ export interface BookVisual {
   title: string;
   year?: string;
   blocks?: Block[];
+}
+
+/** 종이 위에서 눌리는 자리. 좌표는 페이지 텍스처의 픽셀이다. */
+export interface LinkRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  href: string;
+  /** 종이에 그려진 글자. 손잡이의 이름으로 쓴다 — 낭독기가 이것을 읽는다. */
+  text: string;
+}
+
+/** 지금 보이는 링크 하나 — 화면 좌표. 컨트롤러가 이 자리에 `<a>` 를 얹는다. */
+export interface VisibleLink {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  href: string;
+  text: string;
 }
 
 export interface Rect {
@@ -547,6 +586,10 @@ interface Flow {
   isLi: boolean;
   /** 성과 소제목(h3) — 앞에 표식 네모를 그린다. */
   isSub: boolean;
+  /** 통째로 링크인 덩이. 색을 달리하고 밑줄을 긋고, 눌린 자리를 알린다. */
+  href?: string;
+  /** 그 덩이의 원문. 링크 손잡이의 이름으로 쓴다. */
+  text: string;
   /** 방명록 글의 '이름 · 날짜' 줄. 없으면 방명록 글이 아니다. */
   meta?: string;
   metaFs: number;
@@ -589,46 +632,219 @@ function measureFlow(g: CanvasRenderingContext2D, bl: FlowBlock, cw: number, col
     blockH: gap + metaH + lines.length * lineH + after,
     isLi,
     isSub: !!sub,
+    href: bl.kind === 'p' || bl.kind === 'li' ? bl.href : undefined,
+    text: bl.text,
     meta: isEntry ? `${bl.author} · ${bl.when}` : undefined,
     metaFs,
     metaH,
   };
 }
 
-/** 잰 덩이를 그리고 실제로 쓴 높이를 돌려준다. */
-function drawFlow(g: CanvasRenderingContext2D, f: Flow, x: number, y: number, bottom: number) {
-  let yy = y + f.gap;
+/** 한 덩이를 이 면에 그린 결과. 다 못 그렸으면 다음 면에서 이어 그린다. */
+interface FlowDraw {
+  /** 이 면에서 쓴 높이. */
+  height: number;
+  /** 이 면에 그린 줄 수. */
+  drawn: number;
+  /** 이 덩이를 끝까지 그렸나. */
+  done: boolean;
+}
+
+/**
+ * 잰 덩이를 그리고 쓴 높이를 돌려준다.
+ *
+ * **덩이는 면 경계에서 쪼개진다.** `skip` 만큼 앞줄을 건너뛰고 그리므로, 왼 면이 바닥에
+ * 닿으면 거기까지 채우고 나머지는 오른 면 첫머리에서 이어진다. 예전에는 통째로 안
+ * 들어가면 다음 면으로 미뤄 아래가 비었고, 한 면보다 긴 글은 바닥에서 잘린 채 넘친 줄이
+ * 사라졌다.
+ *
+ * `ratio` 가 있으면 앞에서부터 그만큼만 드러낸다. 글자를 한 자씩 붙이지 않고 줄마다
+ * 드러난 폭만큼 오려 내는(clip) 이유는, 자소가 반쯤 그어진 순간이 곧 펜이 지나는
+ * 중인 모습이기 때문이다. 한 자씩 튀어나오면 타자기지 손글씨가 아니다.
+ *
+ * `ratio` 는 **덩이 전체**를 기준으로 한다(이 면의 몫이 아니라). 그래야 두 면에 걸친
+ * 글도 왼 면에서 오른 면으로 펜이 이어져 지나간다.
+ *
+ * 펜촉이 놓일 자리는 `penAt` 으로 알린다 — 이 덩이가 이 면에서 아직 다 그어지지
+ * 않았을 때만 채워진다.
+ */
+function drawFlow(
+  g: CanvasRenderingContext2D,
+  f: Flow,
+  x: number,
+  y: number,
+  bottom: number,
+  opts: {
+    /** 앞의 몇 줄은 이미 앞 면에 그렸다. */
+    skip?: number;
+    ratio?: number;
+    penAt?: { x: number; y: number; fs: number } | null;
+    /** 링크 덩이면 눌린 자리를 여기에 담는다. */
+    linksAt?: LinkRect[];
+  } = {},
+): FlowDraw {
+  const { skip = 0, ratio, penAt, linksAt } = opts;
+  // 이어 그리는 면에서는 덩이 앞 여백을 다시 벌리지 않는다 — 면 첫머리에 빈칸이 생긴다.
+  let yy = y + (skip === 0 ? f.gap : 0);
   g.font = f.font;
   // 앞선 소개 카드·기술 항목이 흐린 색을 남겨 두므로 본문 색을 되돌린다.
   g.fillStyle = INK;
 
-  // 방명록 글의 머리 — 이름 · 날짜. 본문보다 작고 흐리게 둬서 글 자체가 먼저 읽히게 한다.
+  // 줄 폭은 **모든 줄**을 잰다. 이 면에 그릴 것만 재면 두 면에 걸친 글의 ratio 가
+  // 면마다 다른 기준을 갖게 되어 펜이 경계에서 튄다.
+  const widths = f.lines.map((ln) => g.measureText(ln).width);
+  // 머리(이름·날짜)도 펜이 지나야 하는 거리다. 본문만 그어지면 이름이 먼저 떠 있다.
+  let metaW = 0;
   if (f.meta) {
     g.font = sans(500, f.metaFs);
+    metaW = g.measureText(f.meta).width;
+    g.font = f.font;
+  }
+  const total = metaW + widths.reduce((s, w) => s + w, 0);
+  // 앞 면에서 이미 지나온 거리. 머리는 첫 면에만 있다.
+  const before = skip === 0 ? 0 : metaW + widths.slice(0, skip).reduce((s, w) => s + w, 0);
+  let left = ratio === undefined ? Infinity : total * ratio - before;
+  /**
+   * 펜의 끝(잉크가 멈춘 자리)이 이 면에 있을 수 있는가.
+   *
+   * 이어 그리는 면에서 `left` 는 음수로 시작한다 — 펜은 아직 앞 면에 있다는 뜻이다.
+   * 이걸 가려내지 않으면 아래 stroke 의 "줄 첫머리" 갈래가 걸려, 왼 면에서 쓰는 동안
+   * 오른 면에도 펜이 하나 서 있게 된다. 게다가 그 면이 펜의 자리로 보고되어
+   * (`penDrawn`) 컨트롤러가 아직 오지도 않은 장으로 책을 넘겨 버린다.
+   */
+  const frontierHere = left >= 0;
+
+  /** 한 줄을 드러난 폭만큼만 그린다. 다 그렸으면 true. */
+  const stroke = (text: string, tx: number, ty: number, w: number) => {
+    if (left >= w) {
+      g.fillText(text, tx, ty);
+      left -= w;
+      return true;
+    }
+    if (left > 0) {
+      g.save();
+      g.beginPath();
+      g.rect(tx, ty - f.fs * 1.25, left, f.fs * 1.8);
+      g.clip();
+      g.fillText(text, tx, ty);
+      g.restore();
+      if (penAt) {
+        penAt.x = tx + left;
+        penAt.y = ty;
+        penAt.fs = f.fs;
+      }
+    } else if (frontierHere && penAt && penAt.fs === 0) {
+      // 잉크가 앞 줄에서 딱 떨어졌다 — 펜은 이 줄 첫머리에서 기다린다.
+      // `frontierHere` 가 아니면 펜은 앞 면에 있다. 여기 세우면 안 된다.
+      penAt.x = tx;
+      penAt.y = ty;
+      penAt.fs = f.fs;
+    }
+    left = 0;
+    return false;
+  };
+
+  // 방명록 글의 머리 — 이름 · 날짜. 본문보다 작고 흐리게 둬서 글 자체가 먼저 읽히게 한다.
+  // 이어 그리는 면에서는 다시 찍지 않는다 — 한 글에 이름이 두 번 붙는다.
+  if (f.meta && skip === 0) {
+    g.font = sans(500, f.metaFs);
     g.fillStyle = CAPTION;
-    g.fillText(f.meta, x, yy + f.metaFs);
+    stroke(f.meta, x, yy + f.metaFs, metaW);
     yy += f.metaH;
     g.font = f.font;
     g.fillStyle = INK;
   }
 
-  if (f.isLi) {
-    g.beginPath();
-    g.arc(x + f.fs * 0.22, yy + f.fs * 0.62, Math.max(1.5, f.fs * 0.09), 0, PI * 2);
-    g.fill();
-  } else if (f.isSub) {
-    // 소제목 표식 — HTML 의 h3::before 와 같은 네모. 글자 높이의 42%.
-    const s = f.fs * 0.42;
-    g.fillStyle = ACCENT;
-    g.fillRect(x, yy + f.fs - s, s, s);
-    g.fillStyle = INK;
+  // 글머리 기호·표식도 덩이의 시작 표시라 첫 면에만.
+  if (skip === 0) {
+    if (f.isLi) {
+      g.beginPath();
+      g.arc(x + f.fs * 0.22, yy + f.fs * 0.62, Math.max(1.5, f.fs * 0.09), 0, PI * 2);
+      g.fill();
+    } else if (f.isSub) {
+      // 소제목 표식 — HTML 의 h3::before 와 같은 네모. 글자 높이의 42%.
+      const s = f.fs * 0.42;
+      g.fillStyle = ACCENT;
+      g.fillRect(x, yy + f.fs - s, s, s);
+      g.fillStyle = INK;
+    }
   }
-  for (const ln of f.lines) {
+
+  // 링크는 색을 달리하고 밑줄을 긋는다. 종이 위에서는 손 모양 커서가 없으므로
+  // 눌러도 된다는 것을 생김새로만 알려야 한다.
+  if (f.href) g.fillStyle = ACCENT;
+
+  let i = skip;
+  for (; i < f.lines.length; i++) {
     if (yy + f.fs > bottom) break;
-    g.fillText(ln, x + f.indent, yy + f.fs);
+    const lx = x + f.indent;
+    const ly = yy + f.fs;
+    const lw = widths[i] ?? 0;
+    // 이 줄에 들어오기 전에 남아 있던 잉크. stroke 가 left 를 깎으므로 먼저 잡아 둔다.
+    const avail = left;
+    stroke(f.lines[i], lx, ly, lw);
+    if (f.href) {
+      // 밑줄 — 글자가 그어진 만큼만. 잉킹 중이면 잉크를 따라 같이 자란다.
+      const shown = Math.max(0, Math.min(lw, avail));
+      if (shown > 0) g.fillRect(lx, ly + f.fs * 0.16, shown, Math.max(1, f.fs * 0.06));
+      // 누를 자리는 글줄보다 조금 넉넉하게 — 손가락은 정확하지 않다.
+      if (linksAt && lw > 0) {
+        linksAt.push({
+          x: lx,
+          y: ly - f.fs,
+          w: lw,
+          h: f.fs * 1.45,
+          href: f.href,
+          text: f.text,
+        });
+      }
+    }
     yy += f.lineH;
   }
-  return yy + f.after - y;
+
+  const done = i >= f.lines.length;
+  // 끝맺은 덩이만 뒤 여백을 붙인다. 이어지는 중이면 바닥까지 쓴 것이라 붙일 자리가 없다.
+  return { height: yy + (done ? f.after : 0) - y, drawn: i - skip, done };
+}
+
+/**
+ * 펜. 촉 끝이 (x, y) 에 오도록 오른쪽 위로 비스듬히 세워 그린다.
+ *
+ * 종이 텍스처에 그리므로 책이 기울면 펜도 같이 기운다 — 종이 위에 놓인 물건이라
+ * 그게 맞다. 화면에 겹쳐 그렸다면 책과 따로 놀았을 것이다.
+ */
+function drawPen(g: CanvasRenderingContext2D, x: number, y: number, fs: number) {
+  const len = fs * 2.6;
+  const ang = -PI / 3; // 손이 오른쪽에 있는 각도. 글자를 가리지 않게 충분히 세운다.
+  const dx = Math.cos(ang);
+  const dy = Math.sin(ang);
+  const nib = len * 0.22;
+
+  g.save();
+  // 종이에 지는 그림자 — 이게 없으면 펜이 아니라 글자에 붙은 도형으로 보인다.
+  g.shadowColor = 'rgba(40,28,8,0.3)';
+  g.shadowBlur = fs * 0.3;
+  g.shadowOffsetX = fs * 0.16;
+  g.shadowOffsetY = fs * 0.16;
+  g.strokeStyle = '#2b2118';
+  g.lineWidth = Math.max(2.5, fs * 0.2);
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(x + dx * nib, y + dy * nib);
+  g.lineTo(x + dx * len, y + dy * len);
+  g.stroke();
+
+  // 촉 — 끝으로 갈수록 뾰족해지는 삼각형.
+  g.shadowColor = 'transparent';
+  const halfW = Math.max(1.6, fs * 0.11);
+  g.fillStyle = '#100c07';
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(x + dx * nib - dy * halfW, y + dy * nib + dx * halfW);
+  g.lineTo(x + dx * nib + dy * halfW, y + dy * nib - dx * halfW);
+  g.closePath();
+  g.fill();
+  g.restore();
 }
 
 /** 한 페이지를 그린다. startIdx 부터 담기는 만큼 담고 다음 인덱스를 돌려준다. */
@@ -639,6 +855,11 @@ function drawContentPage(
   h: number,
   gutter: 'left' | 'right',
   startIdx: number,
+  /** 그 덩이의 이 줄부터 그린다. 앞 면에서 이어지는 경우 0 이 아니다. */
+  startLine = 0,
+  /** 이 면 아래에 '남기기' 버튼이 얹힌다 — 그만큼 본문 바닥을 올려 자리를 비운다. */
+  corner = false,
+  reveal?: Reveal,
 ) {
   const blocks = v.blocks ?? [];
   const c = makeCanvas(w, h);
@@ -649,7 +870,10 @@ function drawContentPage(
 
   const padX = Math.round(cw * 0.115);
   const colW = cw - padX * 2;
-  const bottom = c.height * 0.93;
+  // 버튼이 얹히는 면은 본문 바닥을 올려 그 자리를 비운다. 버튼은 HTML 이라 종이에
+  // 그려지지 않으므로, 여기서 비켜 주지 않으면 글자 위에 그대로 올라탄다.
+  // 0.895 는 컨트롤러가 버튼을 놓는 0.905 보다 조금 위다(placeWriteButton).
+  const bottom = c.height * (corner ? 0.895 : 0.93);
   const top = c.height * 0.09;
   g.fillStyle = INK;
   g.textAlign = 'left';
@@ -668,23 +892,20 @@ function drawContentPage(
         ? drawProduct(g, b, padX, colW, atY, cw, true)
         : b.kind === 'header'
           ? 0 // 소개 카드는 늘 첫 블록이라 무엇의 뒤에 올 일이 없다
-          : b.kind === 'writebox'
-            ? Infinity // 면을 통째로 쓴다 — 앞 덩이 뒤에 붙을 자리는 없다
-            : measureFlow(g, b, cw, colW).blockH;
+          : measureFlow(g, b, cw, colW).blockH;
+
+  // 펜이 놓일 자리. fs 가 0 이면 이 면에서는 펜을 그리지 않는다.
+  const pen = { x: 0, y: 0, fs: 0 };
+  /** 이 면에서 눌리는 자리. 텍스처 픽셀 좌표다. */
+  const links: LinkRect[] = [];
 
   let i = startIdx;
-  let drew = false;
-  let writebox = false; // 이 면을 글쓰기 자리로 비웠나 // 이 페이지에 이미 뭔가 그렸나 — 안 들어가는 블록을 다음 장으로 미룰 기준
+  let line = startLine;
+  /** 다음 면이 이어받을 줄 번호. 0 이면 덩이가 이 면에서 끝났다. */
+  let nextLine = 0;
+  let drew = false; // 이 페이지에 이미 뭔가 그렸나 — 안 들어가는 블록을 다음 장으로 미룰 기준
   for (; i < blocks.length; i++) {
     const bl = blocks[i];
-    if (bl.kind === 'writebox') {
-      // 한 면을 통째로 차지한다. 이미 뭘 그린 면이면 다음 면으로 미룬다 —
-      // 글씨 밑에 폼이 겹쳐 앉으면 둘 다 못 읽는다.
-      if (drew) break;
-      i++;
-      writebox = true;
-      break;
-    }
     if (bl.kind === 'header') {
       y += drawHeader(g, bl, padX, colW, y, cw);
     } else if (bl.kind === 'tech' || bl.kind === 'product') {
@@ -700,16 +921,40 @@ function drawContentPage(
           : drawProduct(g, bl, padX, colW, y, cw);
     } else {
       const flow = measureFlow(g, bl, cw, colW);
-      // 문단이 통째로 안 들어가면 다음 장으로 미룬다(꼬리 잘림 방지). 단 페이지 처음에
-      // 온 초장문(한 장보다 긴 문단)은 부분이라도 그린다(무한 루프 방지).
-      if (drew && y + flow.blockH > bottom) break;
-      // 소제목이 페이지 끝에 홀로 남지 않게 — 뒤따르는 덩이까지 통째로 들어가야 그린다.
-      const next = bl.kind === 'h' && drew ? blocks[i + 1] : undefined;
-      if (next && y + flow.blockH + heightOf(next, y + flow.blockH) > bottom) break;
-      y += drawFlow(g, flow, padX, y, bottom);
+      // **덩이는 쪼갠다.** 남은 자리를 채우고 못 그린 줄은 다음 면에서 이어 그린다.
+      // 다만 한 줄도 못 넣을 자리에 시작하지는 않는다 — 머리만 덜렁 남고 본문이
+      // 통째로 넘어가면 오히려 어색하다. 그때는 이 면을 끝낸다.
+      const roomFor1 = y + (line === 0 ? flow.gap + flow.metaH : 0) + flow.fs <= bottom;
+      if (drew && !roomFor1) break;
+      // 소제목은 여전히 통째로 옮긴다 — 제목 한 줄이 면 끝에 홀로 남으면 못 읽는다.
+      if (bl.kind === 'h' && drew) {
+        const next = blocks[i + 1];
+        if (y + flow.blockH > bottom) break;
+        if (next && y + flow.blockH + heightOf(next, y + flow.blockH) > bottom) break;
+      }
+      // 드러내는 중인 덩이면 앞에서부터 ratio 만큼만, 아니면 통째로.
+      const on = reveal && reveal.block === i;
+      const skip = line;
+      line = 0; // 이어받은 줄 번호는 첫 덩이에만 쓴다
+      const r = drawFlow(g, flow, padX, y, bottom, {
+        skip,
+        ratio: on ? reveal.ratio : undefined,
+        penAt: on ? pen : null,
+        linksAt: links,
+      });
+      y += r.height;
+      if (!r.done) {
+        // 바닥에 닿았다. 이 덩이의 나머지는 다음 면 첫머리에서 이어진다.
+        nextLine = skip + r.drawn;
+        drew = true;
+        break;
+      }
     }
     drew = true;
   }
+
+  const penDrawn = pen.fs > 0;
+  if (penDrawn) drawPen(g, pen.x, pen.y, pen.fs);
 
   // 책등 쪽(안쪽) 그늘 — 종이가 골로 말려 드는 느낌.
   //
@@ -731,7 +976,22 @@ function drawContentPage(
   g.fillStyle = 'rgba(60,42,16,0.26)';
   g.fillRect(atStart ? 0 : cw - crease, 0, crease, c.height);
 
-  return { tex: tex(THREE, c), next: i, writebox };
+  return { tex: tex(THREE, c), next: i, nextLine, penDrawn, links };
+}
+
+/**
+ * 한 면이 담은 범위.
+ *
+ * 덩이가 면 경계에서 쪼개지므로 "몇 번째 덩이" 만으로는 부족하다 — 그 덩이의 몇 번째
+ * 줄부터인지까지 있어야 같은 면을 다시 그릴 수 있다.
+ */
+interface PageRange {
+  /** 이 면이 시작하는 덩이. */
+  start: number;
+  /** 그 덩이의 이 줄부터. 앞 면에서 이어받았으면 0 이 아니다. */
+  startLine: number;
+  /** 이 면에 잉크가 닿은 마지막 덩이의 **다음** 번호. 걸쳐 있는 덩이도 포함한다. */
+  end: number;
 }
 
 type StdMat = THREE_NS.MeshStandardMaterial;
@@ -759,8 +1019,17 @@ export class Book3D {
   private reserveTop = 0;
   private reserveBottom = 0;
   private index = 0;
-  /** 글쓰기 자리로 비워 둔 면의 번호. 없으면 -1. */
-  private writeboxPage = -1;
+  /**
+   * 면마다 어디서 시작해 어디까지 그렸는지. 어떤 덩이가 어느 면에 있는지 되짚을 때
+   * 쓴다 — 방금 남긴 글이 있는 장으로 넘기고 거기에 잉크를 그리려면 이게 필요하다.
+   */
+  private ranges: PageRange[] = [];
+  /** 마지막으로 그린 시각 정보. 잉크를 다시 그릴 때 같은 값으로 그려야 한다. */
+  private visual: BookVisual | null = null;
+  /** 페이지 텍스처의 픽셀 크기. dims(월드 크기)와 다르다. */
+  private texDims = { pw: 0, ph: 0 };
+  /** 면마다 눌리는 자리. 텍스처 픽셀 좌표다. */
+  private links: LinkRect[][] = [];
   private busy = false;
   private raf = 0;
   private w = 0;
@@ -835,17 +1104,11 @@ export class Book3D {
    */
   rebuildPages(v: BookVisual): boolean {
     if (!this.group || this.busy) return false;
-    this.buildPages(v, this.dims.W, this.dims.H);
+    this.buildPages(v, this.texDims.pw, this.texDims.ph);
     this.index = Math.min(this.index, this.total - 1);
     // 두 면 모드: 왼 면은 표지 안쪽(coverBack), 오른 면은 몸통 앞면(bodyFront).
     // 한 면 모드: 몸통 앞면 하나뿐이다.
-    const at = this.single ? this.index : 2 * this.index + 1;
-    this.bodyFrontMat!.map = this.pages[at] ?? this.pages[0];
-    this.bodyFrontMat!.needsUpdate = true;
-    if (!this.single && this.coverBackMat) {
-      this.coverBackMat.map = this.pages[2 * this.index] ?? this.pages[0];
-      this.coverBackMat.needsUpdate = true;
-    }
+    this.showSpread(this.index);
     this.render();
     this.onProgress?.(this.index, this.total);
     return true;
@@ -867,58 +1130,240 @@ export class Book3D {
   }
 
   /**
-   * 글쓰기 자리로 비운 면이 **지금 보이면** 그 면의 화면 사각형(CSS px)을 준다. 아니면 null.
+   * 지금 보이는 면 하나의 화면 사각형(CSS px). 넘기는 중이면 null.
    *
    * z=0 평면이 화면 픽셀과 1:1 로 대응하도록 카메라를 잡아 두었으므로(resize),
    * 원근 투영을 되짚을 필요 없이 책 중심과 면 크기만으로 자리가 나온다.
    * 넘기는 중(busy)에는 면이 접혀 있어 자리가 뜻을 잃는다 — null 을 준다.
+   *
+   * 한 면 모드에서는 어느 쪽을 물어도 그 한 면을 준다. '남기기' 버튼을 종이 오른쪽
+   * 아래 구석에 놓는 데 쓴다.
    */
-  writeboxRect(): { left: number; top: number; width: number; height: number } | null {
-    if (this.writeboxPage < 0 || !this.group || this.busy) return null;
-    const spread = this.single ? this.writeboxPage : Math.floor(this.writeboxPage / 2);
-    if (spread !== this.index) return null;
+  pageRect(
+    side: 'left' | 'right',
+  ): { left: number; top: number; width: number; height: number } | null {
+    if (!this.group || this.busy) return null;
     const { W, H } = this.dims;
     const c = this.restCenter();
-    const cx = c.x;
     const cy = this.h - c.y; // 월드 y 를 화면 y 로 되돌린다
-    // 한 면 모드는 그 면이 화면 가운데. 두 면 모드는 짝수 면이 왼쪽, 홀수 면이 오른쪽.
-    const left = this.single ? cx - W / 2 : this.writeboxPage % 2 === 0 ? cx - W : cx;
+    const left = this.single ? c.x - W / 2 : side === 'left' ? c.x - W : c.x;
     return { left, top: cy - H / 2, width: W, height: H };
+  }
+
+  /** 그 덩이가 **시작하는** 면의 번호. 없으면 -1. */
+  pageOfBlock(block: number): number {
+    return this.ranges.findIndex((r) => block >= r.start && block < r.end);
+  }
+
+  /**
+   * 그 덩이의 잉크가 닿는 **마지막** 면. 없으면 -1.
+   *
+   * 덩이는 면 경계에서 쪼개지므로 시작 면과 끝 면이 다를 수 있다. 다 쓴 글을 보여 줄
+   * 때는 끝 면이어야 한다 — 펜은 이미 사라져 어디 있었는지 물어볼 수 없다.
+   */
+  lastPageOfBlock(block: number): number {
+    for (let p = this.ranges.length - 1; p >= 0; p--) {
+      const r = this.ranges[p];
+      if (block >= r.start && block < r.end) return p;
+    }
+    return -1;
+  }
+
+  /** 그 면을 품은 펼침(장) 번호. */
+  spreadOfPage(page: number): number {
+    return this.single ? page : Math.floor(page / 2);
+  }
+
+  get spread(): number {
+    return this.index;
+  }
+
+  /**
+   * 한 덩이를 앞에서부터 `ratio` 만큼만 드러낸 상태로 다시 그린다.
+   *
+   * 그 덩이가 걸친 면만 다시 만든다. 매 프레임 부르는 자리라 60장을 통째로 다시
+   * 그리면 저사양 기기에서 버벅인다.
+   */
+  reveal(block: number, ratio: number): { ok: boolean; penPage: number } {
+    const v = this.visual;
+    if (!v || !this.group) return { ok: false, penPage: -1 };
+    if (this.pageOfBlock(block) < 0) return { ok: false, penPage: -1 };
+
+    // 한 덩이가 두 면에 걸칠 수 있으므로 그 덩이에 잉크가 닿는 면을 모두 다시 그린다.
+    const { pw, ph } = this.texDims;
+    let penPage = -1;
+    for (let p = 0; p < this.ranges.length; p++) {
+      const r = this.ranges[p];
+      if (block < r.start || block >= r.end) continue;
+      const gutter = this.single ? 'left' : p % 2 === 0 ? 'right' : 'left';
+      this.pages[p]?.dispose();
+      const drawn = drawContentPage(
+        this.THREE,
+        v,
+        pw,
+        ph,
+        gutter,
+        r.start,
+        r.startLine,
+        this.hasCorner(p),
+        { block, ratio },
+      );
+      this.pages[p] = this.crisp(drawn.tex);
+      this.links[p] = drawn.links;
+      if (drawn.penDrawn) penPage = p;
+    }
+    this.showSpread(this.index);
+    this.render();
+    return { ok: true, penPage };
+  }
+
+  /**
+   * 지금 보이는 두 면(또는 한 면)의 링크 자리를 **화면 좌표**로 준다.
+   *
+   * 좌표를 돌려줄 뿐 직접 열지 않는 이유: 컨트롤러가 이 자리에 진짜 `<a>` 를 얹는다.
+   * 클릭 좌표를 견줘 `window.open` 을 부르는 편이 짧지만, 그러면 키보드로 닿을 수
+   * 없고(본문 HTML 은 3D 에서 opacity 0 인 조상 안에 있어 초점이 가도 보이지 않는다)
+   * 가운데 클릭·새 탭·주소 복사도 손으로 다시 만들어야 한다. 브라우저가 이미 아는
+   * 일을 흉내 내지 않는다.
+   *
+   * z=0 평면이 화면 픽셀과 1:1 이라(resize) 면의 화면 사각형만 알면 텍스처 좌표를
+   * 되돌릴 수 있다. 넘기는 중에는 `pageRect` 가 null 을 주므로 빈 배열이 된다.
+   */
+  visibleLinks(): VisibleLink[] {
+    if (!this.group || this.busy) return [];
+    const { pw, ph } = this.texDims;
+    if (!pw || !ph) return [];
+    const out: VisibleLink[] = [];
+    // 한 면 모드는 보이는 면이 하나, 두 면 모드는 왼·오 두 면이다.
+    const sides: ('left' | 'right')[] = this.single ? ['left'] : ['left', 'right'];
+    for (const side of sides) {
+      const rect = this.pageRect(side);
+      if (!rect) continue;
+      const page = this.single ? this.index : 2 * this.index + (side === 'right' ? 1 : 0);
+      // 여러 줄에 걸친 링크는 **하나로 합친다.** 줄마다 손잡이를 두면 낭독기가 같은
+      // 이름을 여러 번 읽고, Tab 도 그만큼 더 눌러야 한다.
+      const merged = new Map<string, LinkRect>();
+      for (const r of this.links[page] ?? []) {
+        const at = merged.get(r.href);
+        if (!at) {
+          merged.set(r.href, { ...r });
+          continue;
+        }
+        const right = Math.max(at.x + at.w, r.x + r.w);
+        const bot = Math.max(at.y + at.h, r.y + r.h);
+        at.x = Math.min(at.x, r.x);
+        at.y = Math.min(at.y, r.y);
+        at.w = right - at.x;
+        at.h = bot - at.y;
+      }
+      for (const r of merged.values()) {
+        out.push({
+          left: rect.left + (r.x / pw) * rect.width,
+          top: rect.top + (r.y / ph) * rect.height,
+          width: (r.w / pw) * rect.width,
+          height: (r.h / ph) * rect.height,
+          href: r.href,
+          text: r.text,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 그 면에 '남기기' 버튼이 얹히는가.
+   *
+   * 두 면 모드에서는 오른 면(홀수)에만, 한 면 모드에서는 모든 면에 얹힌다.
+   * 버튼은 HTML 이라 종이에 그려지지 않으므로, 그 면은 본문 바닥을 올려 자리를 비운다.
+   */
+  private hasCorner(page: number): boolean {
+    return this.single || page % 2 === 1;
   }
 
   private buildPages(v: BookVisual, pw: number, ph: number) {
     for (const p of this.pages) p.dispose();
     const blocks = v.blocks ?? [];
     const pages: THREE_NS.Texture[] = [];
-    // 밉맵을 끄고 LinearFilter 로 둔다. 고해상도 텍스처가 화면 크기로 줄 때 밉맵이
-    // 끼면 저해상 단계를 섞어 글씨가 뭉개진다(오버샘플링일수록 더). 밉맵 없이 선형으로
-    // 축소하면 슈퍼샘플링(SSAA)처럼 또렷하게 다운스케일된다 — 텍스트엔 이게 정석이다.
-    const T = this.THREE;
-    const crisp = (t: THREE_NS.Texture) => {
-      t.minFilter = T.LinearFilter;
-      t.magFilter = T.LinearFilter;
-      t.generateMipmaps = false;
-      t.needsUpdate = true;
-      return t;
-    };
+    const ranges: PageRange[] = [];
+    const links: LinkRect[][] = [];
+    // 잉크를 다시 그릴 때 같은 값·같은 크기로 그려야 한다.
+    this.visual = v;
+    this.texDims = { pw, ph };
     let start = 0;
+    let startLine = 0;
     let idx = 0;
-    this.writeboxPage = -1;
     while (start < blocks.length && idx < 60) {
       // 두 면: 왼/오 번갈아 안쪽(책등) 그늘. 한 면: 항상 왼쪽 제본(일관된 한 쪽 그늘).
       const gutter = this.single ? 'left' : idx % 2 === 0 ? 'right' : 'left';
-      const r = drawContentPage(this.THREE, v, pw, ph, gutter, start);
-      if (r.writebox) this.writeboxPage = idx;
-      pages.push(crisp(r.tex));
-      start = r.next > start ? r.next : start + 1;
+      const r = drawContentPage(
+        this.THREE,
+        v,
+        pw,
+        ph,
+        gutter,
+        start,
+        startLine,
+        this.hasCorner(idx),
+      );
+      pages.push(this.crisp(r.tex));
+      links.push(r.links);
+      // 덩이가 이 면에서 안 끝났으면(nextLine > 0) 그 덩이는 이 면에도 잉크가 있다 —
+      // end 는 그것까지 포함해야 reveal 이 이 면을 다시 그린다.
+      ranges.push({ start, startLine, end: r.nextLine > 0 ? r.next + 1 : r.next });
+      // 한 줄도 못 나아갔으면 강제로 다음 덩이로 넘긴다. 자리가 너무 좁아 아무것도
+      // 못 그리는 상태에서 같은 자리를 다시 시도하면 60장까지 빈 면만 쌓인다.
+      if (r.next === start && r.nextLine <= startLine) {
+        start += 1;
+        startLine = 0;
+      } else {
+        start = r.next;
+        startLine = r.nextLine;
+      }
       idx++;
     }
-    if (pages.length === 0)
-      pages.push(crisp(drawContentPage(this.THREE, v, pw, ph, this.single ? 'left' : 'right', 0).tex));
+    if (pages.length === 0) {
+      pages.push(
+        this.crisp(drawContentPage(this.THREE, v, pw, ph, this.single ? 'left' : 'right', 0).tex),
+      );
+      ranges.push({ start: 0, startLine: 0, end: 0 });
+      links.push([]);
+    }
     // 두 면 모드만 짝수로 맞춘다(스프레드 짝맞춤). 한 면은 페이지마다 한 화면이라 불필요.
-    if (!this.single && pages.length % 2 === 1)
-      pages.push(crisp(drawContentPage(this.THREE, v, pw, ph, 'left', blocks.length).tex));
+    if (!this.single && pages.length % 2 === 1) {
+      pages.push(this.crisp(drawContentPage(this.THREE, v, pw, ph, 'left', blocks.length).tex));
+      ranges.push({ start: blocks.length, startLine: 0, end: blocks.length });
+      links.push([]);
+    }
     this.pages = pages;
+    this.ranges = ranges;
+    this.links = links;
+  }
+
+  /**
+   * 밉맵을 끄고 LinearFilter 로 둔다. 고해상도 텍스처가 화면 크기로 줄 때 밉맵이
+   * 끼면 저해상 단계를 섞어 글씨가 뭉개진다(오버샘플링일수록 더). 밉맵 없이 선형으로
+   * 축소하면 슈퍼샘플링(SSAA)처럼 또렷하게 다운스케일된다 — 텍스트엔 이게 정석이다.
+   */
+  private crisp(t: THREE_NS.Texture) {
+    const T = this.THREE;
+    t.minFilter = T.LinearFilter;
+    t.magFilter = T.LinearFilter;
+    t.generateMipmaps = false;
+    t.needsUpdate = true;
+    return t;
+  }
+
+  /** 그 장의 두 면(또는 한 면)을 재질에 물린다. */
+  private showSpread(spread: number) {
+    const at = this.single ? spread : 2 * spread + 1;
+    if (this.bodyFrontMat) {
+      this.bodyFrontMat.map = this.pages[at] ?? this.pages[0];
+      this.bodyFrontMat.needsUpdate = true;
+    }
+    if (!this.single && this.coverBackMat) {
+      this.coverBackMat.map = this.pages[2 * spread] ?? this.pages[0];
+      this.coverBackMat.needsUpdate = true;
+    }
   }
 
   /** 책 메시(몸통 + 표지 + 넘김용 잎)를 만든다. 페이지 텍스처는 미리 만들어 둔다. */
@@ -1148,11 +1593,41 @@ export class Book3D {
   }
 
   /** 페이지 넘김: dir=+1 다음 두 면, -1 이전. 한 장이 책등을 축으로 넘어간다. */
-  turn(dir: 1 | -1) {
+  /**
+   * 그 장까지 넘어간다. 이미 그 장이면 곧바로 끝난다.
+   *
+   * 멀리 떨어져 있으면 **마지막 한 장만 넘기는 연출**을 하고 나머지는 건너뛴다.
+   * 열 장을 한 장씩 넘기면 7초를 기다려야 하는데, 그건 연출이 아니라 대기다.
+   * 마지막 한 장이 넘어가는 것만 보여도 "책이 그리로 갔다"는 것은 충분히 읽힌다.
+   */
+  turnTo(target: number, onDone?: () => void) {
+    const to = Math.max(0, Math.min(this.total - 1, target));
+    if (!this.group || this.busy || to === this.index) {
+      onDone?.();
+      return;
+    }
+    const dir: 1 | -1 = to > this.index ? 1 : -1;
+    const hop = () => {
+      // 마지막 한 장을 남겨 두고 나머지는 소리 없이 건너뛴다.
+      if (Math.abs(to - this.index) > 1) {
+        this.index = to - dir;
+        this.showSpread(this.index);
+      }
+      this.turn(dir, onDone);
+    };
+    hop();
+  }
+
+  /**
+   * 한 장 넘긴다. `onDone` 은 넘김이 **실제로 끝났을 때만** 불린다 — 넘길 수 없어
+   * 아무 일도 안 했으면 불리지 않는다. 여러 장을 이어 넘길 때(turnTo) 쓴다.
+   */
+  turn(dir: 1 | -1, onDone?: () => void) {
     if (this.busy || !this.group || !this.turnHinge) return;
     const nextIdx = this.index + dir;
     if (nextIdx < 0 || nextIdx >= this.total) return;
     this.busy = true;
+    const finish = onDone;
     const leftOf = (s: number) => this.pages[2 * s] ?? this.pages[0];
     const rightOf = (s: number) => this.pages[2 * s + 1] ?? this.pages[0];
     const hinge = this.turnHinge;
@@ -1169,6 +1644,7 @@ export class Book3D {
         this.busy = false;
         this.render();
         this.onProgress?.(this.index, this.total);
+        finish?.();
       };
       if (dir === 1) {
         // 현재 페이지(잎)가 위로 넘어가고, 그 아래 다음 페이지가 드러난다.
@@ -1234,6 +1710,7 @@ export class Book3D {
           this.busy = false;
           this.render();
           this.onProgress?.(this.index, this.total);
+          finish?.();
         },
       );
     } else {
@@ -1261,6 +1738,7 @@ export class Book3D {
           this.busy = false;
           this.render();
           this.onProgress?.(this.index, this.total);
+          finish?.();
         },
       );
     }

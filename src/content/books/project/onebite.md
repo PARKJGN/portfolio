@@ -15,6 +15,11 @@ summary: 관심 카테고리를 고르면 매일 아침 AI 가 요약한 뉴스�
 푸시로 받아보는 모바일·웹 서비스입니다. 백엔드부터 앱, 웹, 인프라까지 혼자
 설계하고 만들었습니다.
 
+## 직접 보기
+
+- [onebite.jgbak-land.com](https://onebite.jgbak-land.com)
+- iOS · Android 앱 — 출시 예정
+
 ## 어떻게 만들었나
 
 - 백엔드는 Kotlin 과 Spring Boot 로 헥사고날 아키텍처를 잡고 JPA·PostgreSQL·Flyway 를
@@ -35,5 +40,5 @@ summary: 관심 카테고리를 고르면 매일 아침 AI 가 요약한 뉴스�
 
 배포는 라즈베리파이 ARM64 3노드 쿠버네티스 클러스터에 올렸습니다. amd64/arm64
 멀티아치 이미지를 GitHub Actions 로 굽고, 기동이 90초쯤 걸리는 문제는 startupProbe 로
-받아냈습니다. App Store 와 Google Play 출시도 EAS 빌드부터 아이콘·정책 문서·심사
-대응까지 직접 했습니다.
+받아냈습니다. App Store 와 Google Play 출시는 EAS 빌드부터 아이콘·정책 문서·심사
+준비까지 직접 했고, 지금은 출시를 앞두고 있습니다.

@@ -52,6 +52,85 @@
   gap: var(--space-3);
 }
 
+/* ── 종이 구석의 '남기기' ──────────────────────────────
+   3D 에서는 컨트롤러가 오른쪽 면의 오른쪽 아래 구석에 자리를 잡아 준다
+   (BookController.placeWriteButton). 좌표가 화면 기준이라 fixed 다.
+
+   가로만 자기 폭만큼 당긴다(`-100%, 0`). 컨트롤러가 주는 점은 오른쪽 여백선이자
+   **본문이 끝나는 줄**이라, 세로로도 당기면 버튼이 마지막 글줄 위로 올라탄다.
+   여기서는 그 선 아래로 걸린다 — 종이 쪽도 그만큼 바닥을 올려 자리를 비워 둔다. */
+.guestbook__pen[data-on-page] {
+  position: fixed;
+  z-index: 3;
+  transform: translate(-100%, 0);
+  margin: 0;
+}
+
+/* 종이 위에 앉은 것처럼. 상자를 그리지 않고 잉크색 밑줄만 둔다 — 3D 가 칠한 종이색이
+   배경이라 흰 카드를 얹으면 종이에서 떠 보인다. */
+.guestbook__pen {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 6px 2px;
+  color: var(--page-text);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border-bottom: 1.5px solid currentcolor;
+  line-height: 1.2;
+}
+
+.guestbook__pen:hover {
+  color: var(--page-accent);
+}
+
+.guestbook__pen:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 3px;
+}
+
+/* 3D 종이 위에 얹혔을 때는 **테마를 따르지 않는다.**
+
+   `--spine-pages`(3D 가 칠하는 종이색)는 :root 에만 있고 어두운 테마에서 뒤집히지
+   않는다 — 종이는 두 테마 모두 밝은 양피지다. 그런데 `--page-text` 는 뒤집힌다.
+   그대로 두면 어두운 테마에서 밝은 글씨가 밝은 종이에 얹혀 안 보인다.
+
+   그래서 여기서만 book3d.ts 의 INK·ACCENT 와 같은 값을 박는다. 한쪽을 바꾸면
+   다른 쪽도 봐야 한다. */
+.guestbook__pen[data-on-page] {
+  color: #463714;
+}
+
+.guestbook__pen[data-on-page]:hover {
+  color: #ae1800;
+}
+
+.guestbook__pen[data-on-page]:focus-visible {
+  outline-color: #ae1800;
+}
+
+/* ── 글쓰기 모달 ──────────────────────────────
+   책 <dialog> 안에 겹쳐 뜬다. 책을 다 덮지 않아야 좌우로 남들 글이 보인다. */
+.guestbook__modal {
+  border: 0;
+  border-radius: 10px;
+  padding: clamp(20px, 4vw, 32px);
+  width: min(440px, 90vw);
+  max-height: 85vh;
+  background: var(--page-bg);
+  color: var(--page-text);
+  box-shadow: var(--shadow-open);
+}
+
+/* 거의 비워 둔다. `showModal()` 로 연 <dialog> 는 **최상위 레이어**에 그려져서,
+   backdrop 이 z-index 60 인 3D 캔버스까지 덮는다 — 진한 막을 깔면 책이 통째로
+   어두워져 "좌우로 남들 글이 보인다"가 무너진다. 여기서 필요한 것은 가리는 막이
+   아니라 모달이 앞에 있다는 정도의 신호다. */
+.guestbook__modal::backdrop {
+  background: rgb(0 0 0 / 12%);
+}
+
 .guestbook__field {
   display: flex;
   flex-direction: column;
@@ -130,6 +209,7 @@
 .guestbook__actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* 종이 위의 버튼.
@@ -138,6 +218,7 @@
    글자가 강제된다. 크림 종이 위에 올리면 글자가 사라진다 — 실제로 그랬다.
    맞는 컴포넌트가 없어 새로 만든다(헌장 원칙 V). 값은 전부 기존 토큰이다. */
 .guestbook__submit,
+.guestbook__cancel,
 .guestbook__more {
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--page-rule);
@@ -149,7 +230,14 @@
   cursor: pointer;
 }
 
+/* '닫기' 는 같은 단추의 조용한 쪽이다. 크기·테두리·글꼴을 그대로 두고 채움만 뺀다 —
+   나란히 놓았을 때 한 벌로 읽히면서도 어느 쪽이 본 동작인지 드러난다. */
+.guestbook__cancel {
+  background: none;
+}
+
 .guestbook__submit:hover:not(:disabled),
+.guestbook__cancel:hover,
 .guestbook__more:hover {
   background: color-mix(in srgb, var(--page-text) 12%, transparent);
 }
@@ -160,6 +248,7 @@
 }
 
 .guestbook__submit:focus-visible,
+.guestbook__cancel:focus-visible,
 .guestbook__more:focus-visible {
   outline: 2px solid var(--page-accent);
   outline-offset: 2px;
@@ -431,31 +520,21 @@
   gap: var(--space-2);
 }
 
-/* ── 3D 책 면 위에 얹힌 글쓰기 자리 ──────────────────────────────
-   3D 리더는 한 면을 통째로 비우고(Block 'writebox'), BookController 가 그 면의 화면
-   사각형을 재어 left/top/width/height 를 인라인으로 준다. 여기서는 '어떻게 보일지'만
-   맡는다 — 자리는 JS 가, 모양은 CSS 가.
+/* ── 3D 에서의 방명록 ──────────────────────────────
+   종이가 이미 글을 그렸다. HTML 쪽은 낭독기·검색용으로만 남기고 화면에서 뺀다 —
+   display:none 이면 낭독기도 못 읽으므로 그렇게 하지 않는다.
 
-   position:fixed 인 이유: 3D 책은 화면 전체를 덮는 캔버스에 그려져 문서 흐름과 무관하고,
-   컨트롤러가 주는 좌표도 화면 기준(getBoundingClientRect 계열)이다. */
-.guestbook[data-on-page] {
-  position: fixed;
-  z-index: 2;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  /* 면 안쪽 여백 — 3D 가 그리는 본문 여백(padX)과 눈으로 맞춘 값이다. 종이 가장자리에
-     입력칸이 닿으면 얹힌 게 아니라 잘린 것처럼 보인다. */
-  padding: clamp(20px, 7%, 52px);
-  overflow: hidden;
-}
+   '남기기' 버튼과 글쓰기 모달만 화면에 남는다. 버튼 자리는 컨트롤러가 잡고
+   (placeWriteButton), 모달은 브라우저가 가운데 띄운다.
 
-/* 3D 에서는 목록을 캔버스가 이미 그렸다. HTML 목록은 낭독기·검색용으로만 남기고
-   화면에서 뺀다 — display:none 이면 낭독기도 못 읽으므로 그렇게 하지 않는다. */
-.guestbook[data-on-page] .guestbook__rule,
-.guestbook[data-on-page] .guestbook__list,
-.guestbook[data-on-page] .guestbook__empty {
+   기준이 data-reader 가 아니라 **data-open3d** 인 이유: data-reader 는 책이 다 펼쳐진
+   뒤에 붙는다. 그때까지 목록이 문서 흐름에 있으면 상자가 부풀었다가 접히면서 화면이
+   크게 튄다(실측 CLS 0.175 — 예산 0.1 을 넘겼다). data-open3d 는 창을 여는 순간부터
+   붙으므로 흐름에 들어올 틈이 없다(재 보면 0.015, 다른 책과 같은 값). */
+.book-dialog[data-open3d] .guestbook__rule,
+.book-dialog[data-open3d] .guestbook__list,
+.book-dialog[data-open3d] .guestbook__empty,
+.book-dialog[data-open3d] .guestbook__more {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -467,26 +546,15 @@
   border: 0;
 }
 
-/* 종이 위라 상자를 다시 그리지 않는다. 3D 가 칠한 종이색이 배경이므로 폼에 배경을
-   주면 종이 위에 흰 카드를 얹은 꼴이 된다. 입력칸만 옅은 밑줄로 자리를 알린다. */
-.guestbook[data-on-page] .guestbook__form {
-  gap: var(--space-2);
-}
-.guestbook[data-on-page] .guestbook__textarea {
-  flex: 1;
-  min-height: 0;
-  resize: none;
+/* 3D 가 켜졌는데 아직 면의 자리를 못 잡았으면(펼치는 중·넘기는 중) 버튼을 감춘다.
+   종이와 함께 움직이지 않고 허공에 남아 있으면 책에서 떨어져 나온 것처럼 보인다. */
+.book-dialog[data-open3d] .guestbook__pen:not([data-on-page]) {
+  visibility: hidden;
 }
 
-/* 3D 인데 그 면이 안 보이는 동안(펼치는 중·다른 장·넘기는 중)에는 화면에서 뺀다.
-   .book__pages 밖으로 옮겨 놓았기 때문에 리더 모드의 opacity:0 이 이것까지 감춰 주지
-   않는다. display:none 은 쓰지 않는다 — 낭독기가 폼과 목록을 못 읽게 된다.
-
-   기준이 data-reader 가 아니라 **data-open3d** 인 이유: data-reader 는 책이 다 펼쳐진
-   뒤에 붙는다. 그때까지 폼이 문서 흐름에 있으면 상자가 600px 넘게 부풀었다가 접히면서
-   화면이 크게 튄다(실측 CLS 0.175 — 예산 0.1 을 넘겼다). data-open3d 는 창을 여는
-   순간부터 붙으므로 흐름에 들어올 틈이 없다(재 보면 0.015, 다른 책과 같은 값). */
-.book-dialog[data-open3d] .guestbook:not([data-on-page]) {
+/* 성공 알림은 낭독기 전용이다. 3D 에서는 펜이 글을 쓰는 것이, 평면에서는 목록에 글이
+   붙는 것이 눈으로 보는 확인이므로 같은 말을 화면에 또 띄우지 않는다. */
+.guestbook__done {
   position: absolute;
   width: 1px;
   height: 1px;

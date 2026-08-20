@@ -79,17 +79,32 @@ test.beforeAll(async ({ browser }) => {
 /**
  * 방명록 책을 열고 **글을 쓸 수 있는 상태**가 될 때까지 기다린다.
  *
- * 3D 로 열리면 책이 다 펼쳐진 뒤에야 폼이 그 면 위에 얹힌다(.guestbook[data-on-page]).
- * 그 전에 누르면 아직 1px 로 접혀 있는 자리를 누르게 된다. WebGL 이 없는 환경에서는
- * 3D 가 아예 안 뜨므로 평면 폼을 기다린다 — 둘 중 먼저 오는 쪽을 잡는다.
+ * 3D 로 열리면 책이 다 펼쳐진 뒤에야 '남기기' 가 종이 구석에 자리를 잡는다
+ * (.guestbook__pen[data-on-page]). 그 전에 누르면 아직 자리가 없는 버튼을 누르게 된다.
+ * WebGL 이 없는 환경에서는 3D 가 안 뜨고 버튼이 문서 흐름에 그냥 있다 — 둘 중 먼저
+ * 오는 쪽을 잡는다.
  */
 async function openGuestbook(page: Page): Promise<void> {
   await page.locator(`[data-book-slug="${SLUG}"]`).click();
   await expect(page.locator(dialog)).toBeVisible();
   await Promise.race([
-    page.locator(`${dialog} .guestbook[data-on-page]`).waitFor({ timeout: 15000 }),
-    page.locator(`${dialog}:not([data-reader]) .guestbook__submit`).waitFor({ timeout: 15000 }),
+    page.locator(`${dialog} .guestbook__pen[data-on-page]`).waitFor({ timeout: 15000 }),
+    page.locator(`${dialog}:not([data-reader]) .guestbook__pen`).waitFor({ timeout: 15000 }),
   ]);
+}
+
+/**
+ * 글쓰기 모달을 연다.
+ *
+ * 폼은 이제 종이 위에 얹혀 있지 않다 — 구석의 '남기기' 를 눌러야 모달이 뜬다.
+ * 이미 열려 있으면(중복 제출 검증처럼 이어서 쓰는 경우) 그대로 둔다.
+ */
+async function openCompose(page: Page): Promise<void> {
+  const modal = page.locator('.guestbook__modal');
+  if (!(await modal.evaluate((el) => (el as HTMLDialogElement).open).catch(() => false))) {
+    await page.locator('.guestbook__pen').click();
+  }
+  await expect(page.getByLabel('한마디')).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -124,6 +139,7 @@ async function waitForList(page: Page): Promise<void> {
 }
 
 async function fill(page: Page, body: string): Promise<void> {
+  await openCompose(page);
   await page.getByLabel('이름').fill('지나가던 개발자');
   await page.getByLabel('한마디').fill(body);
   // 서버는 3초 미만 제출을 봇으로 본다. 사람이 적는 속도를 흉내낸다.
@@ -136,7 +152,7 @@ test.describe('US1 — 남기고 읽는다', () => {
   test('남기면 목록 맨 위에 나타난다', async ({ page }) => {
     const body = unique('3D 책 재밌네요.');
     await fill(page, body);
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
 
     await expect(page.locator('.guestbook__body').first()).toHaveText(body);
     await expect(page.getByRole('status')).toContainText('고맙습니다');
@@ -145,7 +161,7 @@ test.describe('US1 — 남기고 읽는다', () => {
   test('새로고침해도 남아 있다 (FR-004)', async ({ page }) => {
     const body = unique('다시 와도 있어야 한다.');
     await fill(page, body);
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
     await expect(page.locator('.guestbook__body', { hasText: body })).toHaveCount(1);
 
     await page.reload();
@@ -159,7 +175,7 @@ test.describe('US1 — 남기고 읽는다', () => {
   test('HTML 을 적어도 글자로만 보인다 (R-8)', async ({ page }) => {
     const nasty = unique('<img src=x onerror=alert(1)> **굵게**');
     await fill(page, nasty);
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
 
     const first = page.locator('.guestbook__body').first();
     await expect(first).toHaveText(nasty);
@@ -168,19 +184,21 @@ test.describe('US1 — 남기고 읽는다', () => {
   });
 
   test('빈 칸으로는 보낼 수 없다', async ({ page }) => {
-    await page.getByRole('button', { name: '남기기' }).click();
+    await openCompose(page);
+    await page.locator('.guestbook__submit').click();
     // 브라우저의 required 가 막는다 — 서버까지 가지 않는다.
     await expect(page.getByLabel('이름')).toBeFocused();
   });
 
   test('보내기 전에 외부 전송 고지가 보인다 (FR-014)', async ({ page }) => {
+    await openCompose(page);
     const disclosure = page.locator('.guestbook__disclosure');
     await expect(disclosure).toBeVisible();
     await expect(disclosure).toContainText('외부');
 
     // 고지가 버튼보다 위에 있어야 "남기기 전에" 본 것이 된다.
     const noticeBox = await disclosure.boundingBox();
-    const buttonBox = await page.getByRole('button', { name: '남기기' }).boundingBox();
+    const buttonBox = await page.locator('.guestbook__submit').boundingBox();
     expect(noticeBox!.y).toBeLessThan(buttonBox!.y);
   });
 });
@@ -206,11 +224,11 @@ test.describe('US2 — 걸린 글은 나오지 않는다 (T043)', () => {
     const body = unique('싸게 팝니다 https://a.example https://b.example https://c.example');
 
     await fill(page, body);
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
 
     // 방문자에게는 성공처럼 보인다 — 어느 규칙에 걸렸는지 알려 주지 않는다.
-    await expect(page.getByRole('status')).toContainText('확인한 뒤');
-    await expect(page.getByRole('status')).not.toContainText(/링크|규칙|반복/);
+    await expect(page.getByRole('alert')).toContainText('확인한 뒤');
+    await expect(page.getByRole('alert')).not.toContainText(/링크|규칙|반복/);
 
     await reopenAndExpectAbsent(page, body);
   });
@@ -221,7 +239,7 @@ test.describe('US2 — 걸린 글은 나오지 않는다 (T043)', () => {
     await fill(page, body);
     // 봇이 하는 일: 화면에 없는 칸까지 채운다.
     await page.locator('.guestbook__honey input').fill('https://buy.example');
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
 
     // 봇에게는 성공으로 보인다. 실패를 알려 주면 조건을 바꿔 다시 온다.
     await expect(page.getByRole('status')).toContainText('고맙습니다');
@@ -233,14 +251,14 @@ test.describe('US2 — 걸린 글은 나오지 않는다 (T043)', () => {
     const body = unique('똑같이 남겨 본다');
 
     await fill(page, body);
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
     await expect(page.locator('.guestbook__body', { hasText: body })).toHaveCount(1);
 
     // 폼은 성공하면 비워진다. 같은 내용을 다시 적어 중복을 만든다.
     await fill(page, body);
-    await page.getByRole('button', { name: '남기기' }).click();
+    await page.locator('.guestbook__submit').click();
 
-    await expect(page.getByRole('status')).toContainText('같은 내용');
+    await expect(page.getByRole('alert')).toContainText('같은 내용');
     // 적던 내용이 사라지지 않는다 (FR-007).
     await expect(page.getByLabel('한마디')).toHaveValue(body);
   });
@@ -337,10 +355,11 @@ test.describe('좁은 폭에서의 방명록 (FR-017)', () => {
 
   test('320px 에서 가로로 넘치지 않고 폼을 쓸 수 있다', async ({ page }) => {
     await waitForList(page);
+    await openCompose(page);
 
     await expect(page.getByLabel('이름')).toBeVisible();
     await expect(page.getByLabel('한마디')).toBeVisible();
-    await expect(page.getByRole('button', { name: '남기기' })).toBeVisible();
+    await expect(page.locator('.guestbook__submit')).toBeVisible();
 
     const overflows = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
