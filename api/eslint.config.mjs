@@ -56,7 +56,15 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
-      globals: { process: 'readonly', console: 'readonly' },
+      // 표준 전역을 손으로 적는다. `globals` 패키지를 들이지 않는 이유는 이 목록이
+      // 대역 스크립트 두어 개만 위한 것이라서다 — 새 전역을 쓰면 여기 한 줄 더한다.
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        URL: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
     },
     rules: { 'no-console': 'off' },
   },
