@@ -27,6 +27,15 @@ import {
 const AUTHOR_MAX = 20;
 const BODY_MAX = 500;
 
+/**
+ * `api/src/guard/bot.ts` 의 MIN_FILL_MS. 저쪽은 별도 프로젝트라 가져오지 않고 적는다.
+ *
+ * 서버는 폼이 뜬 지 이 시간 안에 온 제출을 봇으로 보고 **저장하지 않은 채 성공처럼**
+ * 응답한다. 봇에게 실패를 알려 주지 않으려는 설계인데(계약), 빨리 적는 사람이 그걸
+ * 뒤집어쓰면 글이 사라진 줄도 모른다. 모자란 만큼 여기서 기다렸다 보낸다.
+ */
+const MIN_FILL_MS = 3000;
+
 type Notice = { kind: 'held' | 'error'; text: string } | null;
 
 function formatWhen(iso: string): string {
@@ -138,7 +147,10 @@ export function Guestbook() {
     const onOpen = () => {
       setNotice(null);
       setDone('');
-      openedAt.current = new Date().toISOString();
+      // 여기서 `openedAt` 을 다시 잡지 않는다. 잡았더니 3초 창이 모달을 여는 순간
+      // 시작돼, 이름과 한마디를 빨리 적는 사람이 봇으로 몰렸다 — 그러면 서버가
+      // 저장하지 않고 **성공처럼 응답한다**(bot.ts). 화면은 모달을 닫고, 글은 어디에도
+      // 없다. 되돌리기 어려운 종류의 조용한 실패라 시계는 책이 열릴 때부터 간다.
       const dlg = composeRef.current;
       if (!dlg) return;
       if (!dlg.open) dlg.showModal();
@@ -163,6 +175,13 @@ export function Guestbook() {
     setSending(true);
     setNotice(null);
     try {
+      // 3초가 안 됐으면 모자란 만큼 기다린다. 진짜 봇은 이 화면을 쓰지 않고 API 를
+      // 직접 두드리므로 방어가 약해지지 않는다 — 여기서 지키는 것은 사람 쪽이다.
+      const since = Date.now() - Date.parse(openedAt.current);
+      if (Number.isFinite(since) && since < MIN_FILL_MS) {
+        await new Promise((r) => setTimeout(r, MIN_FILL_MS - since));
+      }
+
       const result = await submitEntry({
         author,
         body,

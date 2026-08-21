@@ -19,8 +19,13 @@ import { createServer } from 'node:http';
  *
  * 글은 메모리에만 쌓인다. 끄면 사라진다 — 그게 목적이다.
  *
- * **운영에 쓰지 말 것.** 여기에는 방어가 하나도 없다. 봇 판별도, 규칙도, 판정도, 한도도
- * 없다. 계약서(contracts/guestbook-api.md)가 정한 **응답의 모양만** 흉내 낸다.
+ * **운영에 쓰지 말 것.** 규칙도 판정도 한도도 없다. 계약서(contracts/guestbook-api.md)가
+ * 정한 **응답의 모양만** 흉내 낸다.
+ *
+ * 다만 **1층 봇 판별은 흉내 낸다.** 그것만 정상 사용자의 화면에 영향을 주기 때문이다 —
+ * 걸리면 저장하지 않고 성공처럼 응답하므로 "모달은 닫히는데 글이 없다" 가 된다.
+ * 대역이 이걸 빼먹었더니 로컬에서는 멀쩡하고 운영에서만 글이 사라졌다. 방어를 시험하려는
+ * 것이 아니라, 대역이 화면에 거짓말을 하지 않게 하려는 것이다.
  */
 
 const PORT = Number(process.env.GUESTBOOK_STUB_PORT ?? 8080);
@@ -101,6 +106,22 @@ const server = createServer(async (req, res) => {
     // 확인하려면 이것도 흉내 내야 한다.
     if (!author) return json(res, 400, { error: 'invalid_input', message: '이름을 적어 주세요.' });
     if (!body) return json(res, 400, { error: 'invalid_input', message: '내용을 적어 주세요.' });
+
+    // ── 1층 봇 판별 (api/src/guard/bot.ts 와 같은 규칙) ──
+    // 걸리면 **저장하지 않고 201 을 준다.** 봇에게 실패를 알려 주면 조건을 바꿔 다시 온다.
+    const opened = Date.parse(String(raw.openedAt ?? ''));
+    const tooFast = !Number.isNaN(opened) && Date.now() - opened >= 0 && Date.now() - opened < 3000;
+    const honeypot = String(raw.website ?? '').trim() !== '';
+    if (honeypot || tooFast || Number.isNaN(opened)) {
+      console.log(
+        '[대역] 봇으로 판정 — 저장하지 않는다:',
+        honeypot ? 'honeypot' : tooFast ? 'too_fast' : 'bad_timestamp',
+      );
+      return json(res, 201, {
+        status: 'visible',
+        entry: { id: 0, author, body, createdAt: new Date().toISOString() },
+      });
+    }
 
     const verdict = nextResult;
     if (!sticky) nextResult = 'visible';
