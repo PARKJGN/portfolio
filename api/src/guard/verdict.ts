@@ -136,7 +136,7 @@ export function createClaudeCall(apiKey: string): VerdictCall {
         max_tokens: 1024,
         system: SYSTEM,
         // **끄지 않으면 켜진다.** 이 모델은 thinking 을 생략하면 적응형 사고가 도는데,
-        // 그 몇 초가 VERDICT_TIMEOUT_MS(4초)를 먹어 멀쩡한 인사글까지 보류로 떨어졌다.
+        // 그 몇 초가 VERDICT_TIMEOUT_MS 를 먹어 멀쩡한 인사글까지 보류로 떨어졌다.
         // 방명록 한 줄에 사고는 필요 없다. effort 가 high 이하일 때만 끌 수 있는데
         // 여기는 low 다.
         thinking: { type: 'disabled' },

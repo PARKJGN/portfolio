@@ -102,7 +102,9 @@ export function loadConfig(): Config {
     },
     verdict: {
       apiKey: required('ANTHROPIC_API_KEY'),
-      timeoutMs: optionalNumber('VERDICT_TIMEOUT_MS', 4000),
+      // 기본값도 6초다. 운영에서 판정 한 번이 2.4~3.1초 걸려 4초로는 여유가 없었다
+      // (측정 기록은 deploy/k8s/15-config.yaml).
+      timeoutMs: optionalNumber('VERDICT_TIMEOUT_MS', 6000),
     },
     adminToken: required('ADMIN_TOKEN'),
     clientHashSalt: required('CLIENT_HASH_SALT'),
