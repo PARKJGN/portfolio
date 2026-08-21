@@ -182,6 +182,14 @@ test.describe('한번에 보기 (책 ↔ 스크롤)', () => {
     await expect(dialog).not.toHaveAttribute('data-reader', /.*/);
     // 본문이 다시 보인다 — 3D 아래 감춰져 있던 그 HTML 이다.
     await expect(dialog.locator('.book__body')).toBeVisible();
+
+    // **속성만 보면 안 된다.** 예전에 이 검사가 통과하는데도 화면은 깨져 있었다 —
+    // data-open3d 를 떼면서 CSS 표지와 등장 애니메이션이 처음부터 다시 재생돼,
+    // 표지가 책을 덮고 본문은 책등만 하게 쪼그라들었다. 그러니 실제로 읽을 만한
+    // 크기인지, 표지가 덮고 있지 않은지를 본다.
+    await expect(dialog.locator('.book__cover')).toBeHidden();
+    const bodyH = await dialog.locator('.book__body').evaluate((el) => el.clientHeight);
+    expect(bodyH, '본문이 읽을 수 없을 만큼 작다').toBeGreaterThan(200);
     // 세로로 이어진다: 넘길 단이 없으므로 가로 스크롤이 생기지 않는다.
     const body = dialog.locator('.book__body');
     const overflowsX = await body.evaluate((el) => el.scrollWidth > el.clientWidth + 2);

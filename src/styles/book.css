@@ -36,10 +36,14 @@
 .book-dialog[data-reader]::backdrop {
   background: transparent;
 }
-.book-dialog[data-open3d] .book__cover {
+/* data-scroll 이 여기 함께 오는 이유: '한번에 보기' 는 3D 를 걷어내지만 **책은 이미
+   펼쳐진 상태**다. data-open3d 만 떼면 이 규칙들이 풀리면서 CSS 표지와 등장
+   애니메이션이 처음부터 다시 재생된다 — 표지가 다시 덮이고 책이 책등 크기에서
+   커지기 시작해, 본문은 안 보이고 도구 막대만 아래에 작게 남았다. */
+.book-dialog:is([data-open3d], [data-scroll]) .book__cover {
   display: none;
 }
-.book-dialog[data-open3d] .book {
+.book-dialog:is([data-open3d], [data-scroll]) .book {
   animation: none;
 }
 
@@ -64,10 +68,10 @@
    '펼쳐 읽는' 동안만 붙는다. .book-dialog::after(보드 바닥 탭)는 .book-stage 밖(다이얼로그
    가상)이라 intro 의 stage opacity:0 로도 안 가려져, 등장·닫힘 애니메이션 동안 아래에
    작은 사다리꼴로 남았다. 그래서 이 장식들은 data-reader 가 아니라 data-open3d 로 숨긴다. */
-.book-dialog[data-open3d] .book-stage::before,
-.book-dialog[data-open3d] .book__cover,
-.book-dialog[data-open3d]::after,
-.book-dialog[data-open3d] .book::before {
+.book-dialog:is([data-open3d], [data-scroll]) .book-stage::before,
+.book-dialog:is([data-open3d], [data-scroll]) .book__cover,
+.book-dialog:is([data-open3d], [data-scroll])::after,
+.book-dialog:is([data-open3d], [data-scroll]) .book::before {
   display: none;
 }
 .book-dialog[data-reader] .book__pages {
