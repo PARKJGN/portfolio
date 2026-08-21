@@ -429,7 +429,7 @@ export function BookController() {
      * 다시 타야 하기 때문이다. 창을 여는 일(showModal·히스토리)과 3D 를 올리는 일은
      * 별개다.
      */
-    const buildReader = (dialog: HTMLDialogElement, spineRect: DOMRect) => {
+    const buildReader = (dialog: HTMLDialogElement, from: DOMRect, duration = 1300) => {
       const v = readVisual(dialog);
       const dims = bookDims();
       // 글이 늘면 이 v 의 blocks 를 다시 만들어 그린다(onGuestbookChanged).
@@ -458,10 +458,10 @@ export function BookController() {
           eng.show();
           readerEngine = eng; // 화면에 올랐다 — 이제부터 어느 경로로 닫든 걷어낸다
           eng.playOpen({
-            spineRect,
+            spineRect: from,
             v,
             ...dims,
-            duration: 1300,
+            duration,
             // 다 펼친 뒤에도 3D 를 유지한다(리더). HTML 종이·표지는 감추고 낭독기용으로만
             // DOM 에 남기며, 조작 막대만 3D 위에 보인다. 넘김·닫기가 이 엔진으로 간다.
             onDone: () => {
@@ -488,7 +488,16 @@ export function BookController() {
     const canRead3D = (dialog: HTMLDialogElement, spineRect?: DOMRect) =>
       dialog.dataset.readerMode !== 'flat' && !reduced() && !!spineRect;
 
-    /** 스크롤로 보던 것을 다시 책으로. 창은 이미 열려 있다. */
+    /**
+     * 스크롤로 보던 것을 다시 책으로. 창은 이미 열려 있다.
+     *
+     * **책장에서 뽑는 연출은 다시 하지 않는다.** 책은 이미 나와 있다 — 그걸 또 하면
+     * 화면이 방으로 물러났다가 책등만 한 책이 1.3초 동안 날아온다. 돌아오는 길에
+     * 볼 것이 아니다. 지금 자리에서 표지만 짧게 펼친다.
+     *
+     * playOpen 은 '어디서 날아오는가' 를 사각형으로 받으므로, 책이 앉을 자리를 그대로
+     * 주면 날아오는 거리가 0 이 된다 — 엔진을 고치지 않고 연출만 뺀다.
+     */
     const enterReader = (dialog: HTMLDialogElement, slug: string) => {
       const spineRect = spineRectOf(slug);
       if (!canRead3D(dialog, spineRect)) return false;
@@ -496,7 +505,8 @@ export function BookController() {
       dialog.dataset.open3d = '';
       dialog.dataset.intro = '';
       setPulled(slug, true);
-      buildReader(dialog, spineRect!);
+      const restRect = dialog.querySelector('.book-stage')?.getBoundingClientRect();
+      buildReader(dialog, restRect?.width ? restRect : spineRect!, 420);
       return true;
     };
 
