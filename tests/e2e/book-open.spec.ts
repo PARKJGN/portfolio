@@ -30,6 +30,40 @@ test.describe('책 열기와 닫기', () => {
     await expect(page.locator(dialog('hello'))).toBeHidden();
   });
 
+  /**
+   * 닫은 책이 저절로 다시 열리던 회귀.
+   *
+   * 원인은 우리가 `history.state` 에 `{bookSlug}` 를 담고 popstate 에서 그걸 읽어 책을
+   * 열었던 것이다. 그 저장소는 **Next 앱 라우터의 것**이라, 라우터가 제 내부 상태
+   * (`__PRIVATE_NEXTJS_INTERNALS_TREE`)로 replaceState 를 돌리며 우리 값을 덮어쓴다.
+   * 지워진 뒤에 popstate 가 오면 정상이지만, 아직 남아 있을 때 오면 그 책이 다시 열렸다.
+   * 낡은 슬러그가 남아 있으면 **다른 책**이 열렸다.
+   *
+   * 그냥 열고 닫아서는 못 잡는다 — 라우터의 타이밍에 달려 있어 대개는 통과한다
+   * (실제로 고치기 전 코드에서도 통과했다). 그래서 **그 상황을 손으로 만든다.**
+   * 상태에 슬러그를 박고 popstate 를 던지는 것은 라우터가 늦게 덮어쓴 순간과 같다.
+   *
+   * 지금 코드는 history.state 를 아예 읽지 않으므로 무엇이 담겨 있든 열리지 않는다.
+   */
+  test('히스토리 상태에 슬러그가 남아 있어도 책이 다시 열리지 않는다 (회귀)', async ({
+    page,
+  }) => {
+    await page.locator('[data-book-slug="hello"]').click();
+    await expect(page.locator(dialog('hello'))).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    // 라우터가 아직 우리 표식을 지우지 않은 채 popstate 가 온 상황.
+    await page.evaluate(() => {
+      history.replaceState({ bookSlug: 'onebite' }, '');
+      window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+    });
+
+    await page.waitForTimeout(400);
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+  });
+
   test('바깥 영역을 누르면 닫힌다 (FR-005 — dialog 가 기본 제공하지 않는 항목)', async ({
     page,
   }) => {

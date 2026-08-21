@@ -440,9 +440,18 @@ export function BookController() {
         setPulled(slug, true); // 책장의 그 책을 감춘다
       }
       dialog.showModal();
-      // 주소는 바꾸지 않는다 — 뒤로 가기로 덮기 위한 히스토리 항목만 남긴다.
+      // 주소는 바꾸지 않는다 — 뒤로 가기로 덮기 위한 히스토리 **항목만** 남긴다.
       // (책은 3D/모달로만 열리므로 딥링크·정적 페이지가 없다.)
-      if (pushHistory) history.pushState({ bookSlug: slug }, '');
+      //
+      // 상태에 아무것도 담지 않는다. 예전에는 `{bookSlug}` 를 넣고 popstate 에서 그걸
+      // 읽어 판단했는데, **history.state 는 Next 앱 라우터의 것**이다. 라우터가 제
+      // 내부 상태로 replaceState 를 돌리면서 우리 표식을 지운다 — 지워진 뒤에 popstate
+      // 가 오면 정상이지만, 아직 남아 있을 때 오면 그 슬러그로 책을 다시 연다.
+      // 그게 "닫았는데 다시 열리는" 것이었고, 낡은 슬러그가 남아 있으면 다른 책이 열렸다.
+      if (pushHistory && !historyMark) {
+        history.pushState(null, '');
+        historyMark = true;
+      }
       requestAnimationFrame(updateProgress);
 
       if (!use3D) {
@@ -592,12 +601,25 @@ export function BookController() {
     // 닫아버린다. 이 카운터로 '그 한 번의 close 는 히스토리를 건드리지 않는다'를 표시한다.
     let swallowCloseHistory = 0;
 
+    /**
+     * 우리가 히스토리에 항목을 하나 남겨 두었나.
+     *
+     * `history.state` 에 표식을 두지 않는 이유는 그 저장소가 **Next 앱 라우터의 것**이기
+     * 때문이다. 라우터가 제 내부 상태(`__PRIVATE_NEXTJS_INTERNALS_TREE`)로 replaceState 를
+     * 돌리며 우리가 넣은 값을 덮어쓴다. 남을지 지워질지가 라우터의 타이밍에 달리면
+     * 같은 조작이 어떤 때는 되고 어떤 때는 안 된다.
+     *
+     * 그래서 히스토리 항목은 "뒤로 가기로 덮기" 를 위한 자리로만 쓰고, 아는 것은 우리가
+     * 들고 있는다. 책은 한 번에 하나만 열리므로 참·거짓 하나로 충분하다.
+     */
+    let historyMark = false;
+
     // 책 사이 이동 — 지금 열린 책을 즉시(연출 없이) 접고 다른 책을 연다.
-    // 히스토리는 항목 하나로 유지한다(replace) — 뒤로 가기 한 번이면 방으로 나간다.
+    // 히스토리는 항목 하나로 유지한다 — 뒤로 가기 한 번이면 방으로 나간다. 그 항목은
+    // 이미 있고(historyMark) 어느 책인지는 담지 않으므로 손댈 것이 없다.
     const switchBook = (slug: string) => {
       swallowCloseHistory++; // 닫히는 책의 close 이벤트가 history.back 을 부르지 않게
       closeOpenDialog(); // 현재 책 닫기
-      history.replaceState({ bookSlug: slug }, '');
       openDialog(slug, false);
     };
 
@@ -963,13 +985,26 @@ export function BookController() {
         return;
       }
       if (closingFromHistory) return;
-      if (history.state?.bookSlug) history.back();
+      // 우리가 남긴 항목이 있을 때만 되돌린다. 표식을 먼저 내리는 이유는 back() 이
+      // 곧 popstate 를 부르기 때문이다 — 거기서 또 닫으려 들면 안 된다.
+      if (historyMark) {
+        historyMark = false;
+        history.back();
+      }
     };
 
+    /**
+     * 뒤로 가기 — 우리가 남긴 항목을 넘어섰으면 책을 덮는다.
+     *
+     * **여기서 책을 열지 않는다.** 예전에는 `history.state.bookSlug` 가 있으면 그 책을
+     * 열었는데, 그 값이 남아 있는지가 Next 라우터의 타이밍에 달려 있어 닫자마자 다시
+     * 열리곤 했다. 앞으로 가기로 책이 되살아나지 않는 것은 잃는 것이 아니다 —
+     * 애초에 딥링크가 없는 책이다(헌장 3.0.0).
+     */
     const onPopState = () => {
-      const slug = (history.state as { bookSlug?: string } | null)?.bookSlug;
-      if (slug) openDialog(slug, false);
-      else closeOpenDialog();
+      if (!historyMark) return; // 우리 항목이 아니다
+      historyMark = false;
+      closeOpenDialog();
     };
 
     const onScrollOrResize = () => {
