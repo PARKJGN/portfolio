@@ -222,4 +222,35 @@ test.describe('한번에 보기 (책 ↔ 스크롤)', () => {
     });
     await expect(page.locator('#book-dialog-career')).not.toHaveAttribute('data-scroll', /.*/);
   });
+
+  /**
+   * 닫힘 연출의 자국이 다음 열림에 묻어 나오던 회귀.
+   *
+   * 닫는 길과 여는 길은 원래 짝이 맞았다 — 3D 로 열었으면 3D 로 닫고, 평면이면
+   * 평면으로. 닫힘 FLIP 이 fill:forwards 로 남긴 축소·반투명은 평면 열기 함수가
+   * 지웠다. '한번에 보기' 가 그 짝을 깼다: 3D 를 걷어낸 뒤 닫으면 **평면 닫힘**이
+   * 자국을 남기는데, 다시 열 때는 **3D 경로**라 아무도 지우지 않는다.
+   *
+   * 그래서 책이 나오는 내내 그 화면이 48% 크기에 투명도 0.2 로 떠 있었다.
+   * 속성만 보는 검사로는 안 잡힌다 — 계산된 transform 과 opacity 를 본다.
+   */
+  test('한번에 보기로 보다 덮은 뒤 다시 열면 자국이 남지 않는다 (회귀)', async ({ page }) => {
+    await openBook(page);
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+    await expect(page.locator('#book-dialog-career')).toHaveAttribute('data-scroll', '');
+
+    await page.getByRole('button', { name: '덮기' }).click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0, { timeout: 10000 });
+
+    await page.locator('[data-book-slug="career"]').click();
+    // **나오는 도중**에 본다 — 자국은 여기서 보였다.
+    await page.waitForTimeout(250);
+    const st = await page.locator('#book-dialog-career .book-stage').evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { transform: cs.transform, opacity: cs.opacity };
+    });
+    expect(st.transform, '닫힘 연출의 축소가 남아 있다').toBe('none');
+    // 등장 중이면 0, 끝났으면 1. 어중간한 값은 남은 자국이다.
+    expect(['0', '1']).toContain(st.opacity);
+  });
 });

@@ -269,9 +269,8 @@ export function BookController() {
       const stage = dialog.querySelector<HTMLElement>('.book-stage');
       const spine = document.querySelector<HTMLElement>(`[data-book-slug="${slug}"]`);
       if (!stage || !spine) return;
-      // 닫힘 FLIP 이 fill:forwards 로 남긴 값(반투명·축소)을 지운다 — 안 지우면
-      // 다시 열 때 책이 그 opacity 를 물려받아 투명하게 나온다.
-      for (const a of stage.getAnimations()) a.cancel();
+      // 지난 닫힘 FLIP 의 자국은 openDialog 가 이미 지웠다(어느 길로 열든 지워야 해서
+      // 그리로 옮겼다). 여기서 또 지우지 않는다.
       const s = spine.getBoundingClientRect();
       const b = stage.getBoundingClientRect();
       if (!b.width || !b.height) return;
@@ -515,6 +514,16 @@ export function BookController() {
       if (!dialog || dialog.open) return false;
       delete dialog.dataset.closing; // 접힘 도중 재열림 대비
       delete dialog.dataset.scroll; // 지난번에 스크롤로 보다 닫았어도 책으로 연다
+
+      // 지난 닫힘 FLIP 이 fill:forwards 로 남긴 값(반투명·축소)을 지운다.
+      //
+      // **여는 길이 어느 쪽이든 지워야 한다.** 예전에는 animateOpenFromSpine 안에서만
+      // 지웠는데 그건 평면으로 열 때만 도는 함수다. 닫는 길과 여는 길이 늘 짝이 맞아
+      // 문제가 없었지만, '한번에 보기' 가 그 짝을 깼다 — 3D 를 걷어낸 뒤 닫으면 CSS
+      // 닫힘이 자국을 남기고, 다시 열 때는 3D 경로라 아무도 지우지 않는다. 그래서 책이
+      // 나오는 내내 그 화면이 48% 크기에 투명도 0.2 로 떠 있었다.
+      const stageEl = dialog.querySelector<HTMLElement>('.book-stage');
+      if (stageEl) for (const a of stageEl.getAnimations()) a.cancel();
 
       const spineRect = spineRectOf(slug);
       // 원래 방명록을 위한 탈출구였으나 R-2 가 뒤집혀(2026-08-01) 방명록도 3D 로 연다.
