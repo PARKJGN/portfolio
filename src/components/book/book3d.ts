@@ -909,12 +909,13 @@ function drawContentPage(
     if (bl.kind === 'header') {
       y += drawHeader(g, bl, padX, colW, y, cw);
     } else if (bl.kind === 'tech' || bl.kind === 'product') {
+      // **제품 머리는 늘 새 면에서 시작한다.** 앞 제품의 꼬리 밑에 다음 제품의 이름이
+      // 붙으면 어디까지가 누구 이야기인지 흐려진다 — 책에서 장이 바뀌는 자리다.
+      // 자리가 남아도 넘긴다. 남는 아래쪽은 앞 이야기가 끝났다는 표시가 된다.
+      if (bl.kind === 'product' && drew) break;
       // 한 항목이 통째로 들어갈 자리가 없으면(그리고 페이지에 이미 뭔가 있으면) 다음 장으로.
       const h0 = heightOf(bl, y);
       if (drew && y + h0 > bottom) break;
-      // 제품 머리만 페이지 끝에 남지 않게 — 뒤따르는 덩이까지 들어가야 그린다.
-      const after = bl.kind === 'product' && drew ? blocks[i + 1] : undefined;
-      if (after && y + h0 + heightOf(after, y + h0) > bottom) break;
       y +=
         bl.kind === 'tech'
           ? drawTech(g, bl, padX, colW, y, cw)

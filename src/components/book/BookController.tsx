@@ -422,43 +422,14 @@ export function BookController() {
         el.classList.remove('is-pulled');
     };
 
-    const openDialog = (slug: string, pushHistory: boolean) => {
-      const dialog = dialogFor(slug);
-      if (!dialog || dialog.open) return false;
-      delete dialog.dataset.closing; // 접힘 도중 재열림 대비
-
-      const spineRect = spineRectOf(slug);
-      // 어떤 책은 3D 로 열지 않는다 — 책이 스스로 표시한다(schema.ts 의 `reader`).
-      // 원래 방명록을 위한 탈출구였으나 R-2 가 뒤집혀(2026-08-01) 방명록도 3D 로 연다.
-      // **지금 이 값을 쓰는 책은 없다.** 지우지 않은 이유는 schema.ts 주석에 적어 두었다.
-      const flatOnly = dialog.dataset.readerMode === 'flat';
-      const use3D = !flatOnly && !reduced() && !!spineRect;
-      if (use3D) {
-        // 3D 가 등장을 그리는 동안 모달은 숨기고(정적 펼침 상태로) 방·3D 책을 보인다.
-        dialog.dataset.open3d = '';
-        dialog.dataset.intro = '';
-        setPulled(slug, true); // 책장의 그 책을 감춘다
-      }
-      dialog.showModal();
-      // 주소는 바꾸지 않는다 — 뒤로 가기로 덮기 위한 히스토리 **항목만** 남긴다.
-      // (책은 3D/모달로만 열리므로 딥링크·정적 페이지가 없다.)
-      //
-      // 상태에 아무것도 담지 않는다. 예전에는 `{bookSlug}` 를 넣고 popstate 에서 그걸
-      // 읽어 판단했는데, **history.state 는 Next 앱 라우터의 것**이다. 라우터가 제
-      // 내부 상태로 replaceState 를 돌리면서 우리 표식을 지운다 — 지워진 뒤에 popstate
-      // 가 오면 정상이지만, 아직 남아 있을 때 오면 그 슬러그로 책을 다시 연다.
-      // 그게 "닫았는데 다시 열리는" 것이었고, 낡은 슬러그가 남아 있으면 다른 책이 열렸다.
-      if (pushHistory && !historyMark) {
-        history.pushState(null, '');
-        historyMark = true;
-      }
-      requestAnimationFrame(updateProgress);
-
-      if (!use3D) {
-        animateOpenFromSpine(dialog, slug); // 폴백: 기존 CSS 등장
-        return true;
-      }
-
+    /**
+     * 열려 있는 창에 3D 리더를 띄운다.
+     *
+     * openDialog 에서 갈라 냈다 — '책으로 보기' 로 스크롤에서 돌아올 때 같은 길을
+     * 다시 타야 하기 때문이다. 창을 여는 일(showModal·히스토리)과 3D 를 올리는 일은
+     * 별개다.
+     */
+    const buildReader = (dialog: HTMLDialogElement, spineRect: DOMRect) => {
       const v = readVisual(dialog);
       const dims = bookDims();
       // 글이 늘면 이 v 의 blocks 를 다시 만들어 그린다(onGuestbookChanged).
@@ -487,7 +458,7 @@ export function BookController() {
           eng.show();
           readerEngine = eng; // 화면에 올랐다 — 이제부터 어느 경로로 닫든 걷어낸다
           eng.playOpen({
-            spineRect: spineRect!,
+            spineRect,
             v,
             ...dims,
             duration: 1300,
@@ -510,6 +481,62 @@ export function BookController() {
           delete dialog.dataset.intro; // WebGL 불가 → 정적으로 즉시 표시(폴백)
           delete dialog.dataset.open3d;
         });
+    };
+
+    /** 3D 로 열 수 있는 책인가. 책이 스스로 표시하고(schema.ts 의 `reader`), 움직임
+     *  최소화이거나 책등을 못 찾으면 3D 를 켜지 않는다. */
+    const canRead3D = (dialog: HTMLDialogElement, spineRect?: DOMRect) =>
+      dialog.dataset.readerMode !== 'flat' && !reduced() && !!spineRect;
+
+    /** 스크롤로 보던 것을 다시 책으로. 창은 이미 열려 있다. */
+    const enterReader = (dialog: HTMLDialogElement, slug: string) => {
+      const spineRect = spineRectOf(slug);
+      if (!canRead3D(dialog, spineRect)) return false;
+      delete dialog.dataset.scroll;
+      dialog.dataset.open3d = '';
+      dialog.dataset.intro = '';
+      setPulled(slug, true);
+      buildReader(dialog, spineRect!);
+      return true;
+    };
+
+    const openDialog = (slug: string, pushHistory: boolean) => {
+      const dialog = dialogFor(slug);
+      if (!dialog || dialog.open) return false;
+      delete dialog.dataset.closing; // 접힘 도중 재열림 대비
+      delete dialog.dataset.scroll; // 지난번에 스크롤로 보다 닫았어도 책으로 연다
+
+      const spineRect = spineRectOf(slug);
+      // 원래 방명록을 위한 탈출구였으나 R-2 가 뒤집혀(2026-08-01) 방명록도 3D 로 연다.
+      // **지금 `reader: flat` 을 쓰는 책은 없다.** 지우지 않은 이유는 schema.ts 주석에.
+      const use3D = canRead3D(dialog, spineRect);
+      if (use3D) {
+        // 3D 가 등장을 그리는 동안 모달은 숨기고(정적 펼침 상태로) 방·3D 책을 보인다.
+        dialog.dataset.open3d = '';
+        dialog.dataset.intro = '';
+        setPulled(slug, true); // 책장의 그 책을 감춘다
+      }
+      dialog.showModal();
+      // 주소는 바꾸지 않는다 — 뒤로 가기로 덮기 위한 히스토리 **항목만** 남긴다.
+      // (책은 3D/모달로만 열리므로 딥링크·정적 페이지가 없다.)
+      //
+      // 상태에 아무것도 담지 않는다. 예전에는 `{bookSlug}` 를 넣고 popstate 에서 그걸
+      // 읽어 판단했는데, **history.state 는 Next 앱 라우터의 것**이다. 라우터가 제
+      // 내부 상태로 replaceState 를 돌리면서 우리 표식을 지운다 — 지워진 뒤에 popstate
+      // 가 오면 정상이지만, 아직 남아 있을 때 오면 그 슬러그로 책을 다시 연다.
+      // 그게 "닫았는데 다시 열리는" 것이었고, 낡은 슬러그가 남아 있으면 다른 책이 열렸다.
+      if (pushHistory && !historyMark) {
+        history.pushState(null, '');
+        historyMark = true;
+      }
+      requestAnimationFrame(updateProgress);
+
+      if (!use3D) {
+        animateOpenFromSpine(dialog, slug); // 폴백: 기존 CSS 등장
+        return true;
+      }
+
+      buildReader(dialog, spineRect!);
       return true;
     };
 
@@ -825,6 +852,35 @@ export function BookController() {
         const next = otherMode((root.dataset.viewMode as ViewMode) ?? DEFAULT_VIEW_MODE);
         applyMode(next);
         writeStoredMode(globalThis.localStorage, next);
+        return;
+      }
+      /**
+       * 책 ↔ 스크롤.
+       *
+       * 3D 를 걷어내면 그 아래 HTML 본문이 그대로 드러난다 — 낭독기용으로 늘 거기
+       * 있던 것이다(book.css 가 data-reader 일 때만 감춘다). 그래서 새로 그릴 것이
+       * 없고, 이어보기 모드로 바꾸면 세로로 죽 흐른다.
+       *
+       * 보던 장은 잃는다. 3D 의 '몇 번째 장' 과 HTML 의 스크롤 위치는 서로 대응하는
+       * 값이 아니라, 맞추려면 덩이 번호를 DOM 요소로 되짚어야 한다. 지금은 그만한
+       * 값이 없다고 보고 맨 위에서 시작한다.
+       */
+      if (action === 'scroll-view') {
+        const dialog = target?.closest<HTMLDialogElement>('dialog');
+        if (!dialog) return;
+        if (readerEngine || activeReader) {
+          teardownEngine();
+          delete dialog.dataset.open3d;
+          delete dialog.dataset.intro;
+          delete dialog.dataset.reader;
+          dialog.dataset.scroll = '';
+          clearPulled(); // 책장의 그 책을 도로 꽂는다 — 3D 로 빠져나온 상태가 아니다
+          applyMode('continuous');
+        } else {
+          // 되돌아갈 때는 저장된 보기 방식으로 — 스크롤로 본 것이 취향을 바꾸지는 않는다.
+          applyMode(readStoredMode(globalThis.localStorage));
+          enterReader(dialog, dialog.id.replace('book-dialog-', ''));
+        }
         return;
       }
       if (action === 'page-prev' || action === 'page-next') {

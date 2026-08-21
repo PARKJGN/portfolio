@@ -190,6 +190,14 @@ export function BookContent({
               </button>
             ) : null}
           </nav>
+          {/* 책에서 벗어나 세로로 죽 훑는다. 3D 로 열렸을 때만 보인다 —
+              평면 폴백에는 위쪽 '전체 이어보기' 가 이미 그 일을 한다(book.css).
+              라벨 두 벌을 두고 CSS 가 고르는 이유: 상태가 두 곳(속성·글자)에
+              나뉘면 어긋난다. dialog 의 data-scroll 하나만 보면 된다. */}
+          <button type="button" className="book__btn book__scroll" data-action="scroll-view">
+            <span data-scroll-to-list>한번에 보기</span>
+            <span data-scroll-to-book>책으로 보기</span>
+          </button>
           {onCloseSlot}
         </footer>
       </div>

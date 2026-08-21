@@ -146,3 +146,72 @@ test.describe('두 보기 방식', () => {
     expect(current).toBeLessThanOrEqual(total);
   });
 });
+
+/**
+ * 한번에 보기 — 3D 책에서 벗어나 세로로 죽 훑는다.
+ *
+ * 위의 '전체 이어보기' 와 다른 점은 **3D 를 걷어낸다**는 것이다. 그 아래 HTML 본문은
+ * 낭독기용으로 늘 거기 있었으므로 새로 그릴 것이 없다(book.css 가 data-reader 일
+ * 때만 감춘다).
+ *
+ * 움직임 최소화에서는 3D 가 아예 안 켜져 이 버튼이 나오지 않는다 — 그때는 위쪽
+ * '전체 이어보기' 가 같은 일을 한다. 그래서 여기서는 움직임을 켠 채로 본다.
+ */
+test.describe('한번에 보기 (책 ↔ 스크롤)', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', '3D 는 desktop 에서 본다');
+  });
+
+  const openBook = async (page: import('@playwright/test').Page) => {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    await page.locator('[data-book-slug="career"]').click();
+    // 3D 가 다 펼쳐져야 리더로 승격된다.
+    await expect(page.locator('#book-dialog-career[data-reader]')).toBeAttached({
+      timeout: 15000,
+    });
+  };
+
+  test('누르면 3D 가 걷히고 본문이 세로로 이어진다', async ({ page }) => {
+    await openBook(page);
+    const dialog = page.locator('#book-dialog-career');
+
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+
+    await expect(dialog).toHaveAttribute('data-scroll', '');
+    await expect(dialog).not.toHaveAttribute('data-reader', /.*/);
+    // 본문이 다시 보인다 — 3D 아래 감춰져 있던 그 HTML 이다.
+    await expect(dialog.locator('.book__body')).toBeVisible();
+    // 세로로 이어진다: 넘길 단이 없으므로 가로 스크롤이 생기지 않는다.
+    const body = dialog.locator('.book__body');
+    const overflowsX = await body.evaluate((el) => el.scrollWidth > el.clientWidth + 2);
+    expect(overflowsX).toBe(false);
+  });
+
+  test('다시 누르면 책으로 돌아온다', async ({ page }) => {
+    await openBook(page);
+    const dialog = page.locator('#book-dialog-career');
+
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+    await expect(dialog).toHaveAttribute('data-scroll', '');
+
+    await page.getByRole('button', { name: '책으로 보기' }).click();
+    await expect(dialog).toHaveAttribute('data-reader', '', { timeout: 15000 });
+    await expect(dialog).not.toHaveAttribute('data-scroll', /.*/);
+  });
+
+  test('닫았다 다시 열면 책으로 열린다', async ({ page }) => {
+    await openBook(page);
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+    await expect(page.locator('#book-dialog-career')).toHaveAttribute('data-scroll', '');
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+
+    await page.locator('[data-book-slug="career"]').click();
+    await expect(page.locator('#book-dialog-career[data-reader]')).toBeAttached({
+      timeout: 15000,
+    });
+    await expect(page.locator('#book-dialog-career')).not.toHaveAttribute('data-scroll', /.*/);
+  });
+});
