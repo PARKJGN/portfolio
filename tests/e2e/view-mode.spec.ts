@@ -297,4 +297,31 @@ test.describe('한번에 보기 (책 ↔ 스크롤)', () => {
       'rgba(0, 0, 0, 0)',
     );
   });
+
+  /**
+   * 넓은 폭에서 제품 로고가 어두운 판만 남고 사라지던 회귀.
+   *
+   * 흰 로고에 깔아 주는 판의 여백이  였다. **백분율 여백은 담는
+   * 상자의 폭**을 기준으로 잡히지 자기 크기가 아니다 — '한번에 보기' 는 담는 상자가
+   * 1148px 이라 한 쪽 여백이 115px 이 됐고, box-sizing:border-box 라 96px 상자에
+   * 이미지가 들어갈 자리가 0 이 됐다.
+   *
+   * 그래서 상자 크기가 아니라 **안쪽에 남는 자리**를 잰다. 크기만 보면 통과한다.
+   */
+  test('넓은 폭에서도 제품 로고가 그려질 자리가 남는다 (회귀)', async ({ page }) => {
+    await openBook(page);
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+    await expect(page.locator('#book-dialog-career')).toHaveAttribute('data-scroll', '');
+
+    const logos = await page.locator('#book-dialog-career img.product__logo').all();
+    expect(logos.length, '경력 책에 제품 로고가 없다').toBeGreaterThan(0);
+    for (const logo of logos) {
+      const inner = await logo.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        const w = el.getBoundingClientRect().width;
+        return w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      });
+      expect(inner, '여백이 상자를 다 먹어 로고가 그려질 자리가 없다').toBeGreaterThan(40);
+    }
+  });
 });

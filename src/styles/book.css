@@ -277,7 +277,11 @@ img.product__logo {
 img.product__logo--on-dark {
   background: var(--page-text);
   border-radius: 4px;
-  padding: 10%;
+  /* 길이로 준다. 백분율 여백은 **담는 상자의 폭**을 기준으로 잡히지 자기 크기가
+     아니다 — 10% 로 뒀더니 폭이 넓은 '한번에 보기'(담는 상자 1148px)에서 한 쪽
+     여백이 115px 이 됐고, box-sizing:border-box 라 96px 상자에 이미지가 들어갈
+     자리가 0 이 되어 어두운 판만 남았다. */
+  padding: var(--space-2);
 }
 .book__body .product__name {
   margin: 0;
