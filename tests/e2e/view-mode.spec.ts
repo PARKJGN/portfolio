@@ -253,4 +253,48 @@ test.describe('한번에 보기 (책 ↔ 스크롤)', () => {
     // 등장 중이면 0, 끝났으면 1. 어중간한 값은 남은 자국이다.
     expect(['0', '1']).toContain(st.opacity);
   });
+
+  /**
+   * '한번에 보기' 는 저장하지 않고 이어보기로 바꾼다 — 그건 이번 한 번의 편의지
+   * 취향이 아니기 때문이다. 그런데 그대로 닫으면 data-view-mode 에 continuous 가
+   * 남았고, [data-view-mode='continuous'] 가 장 이동 조작을 통째로 감춰 **다음에 연
+   * 책에서 페이지네이션이 사라졌다.**
+   */
+  test('한번에 보기로 보다 덮어도 다음 책의 장 이동 조작이 남는다 (회귀)', async ({ page }) => {
+    await openBook(page);
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+    await expect(page.locator('#book-dialog-career')).toHaveAttribute('data-scroll', '');
+
+    await page.getByRole('button', { name: '덮기' }).click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0, { timeout: 10000 });
+
+    await page.locator('[data-book-slug="career"]').click();
+    await expect(page.locator('#book-dialog-career[data-reader]')).toBeAttached({
+      timeout: 15000,
+    });
+    await expect(page.locator('#book-dialog-career .book__paging')).toBeVisible();
+  });
+
+  /**
+   * 방명록 책은 종이(.book__pages)가 비어 있고 목록은 그 밖에 있다. 그래서 3D 를
+   * 걷어내면 목록이 종이 없이 하드커버 보드 위에 얹혀, 어두운 바탕에 짙은 갈색
+   * 글씨가 되어 읽을 수 없었다.
+   */
+  test('방명록도 스크롤에서 종이 위에 얹힌다 (회귀)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    await page.locator('[data-book-slug="about-guestbook"]').click();
+    await expect(page.locator('#book-dialog-about-guestbook[data-reader]')).toBeAttached({
+      timeout: 15000,
+    });
+    await page.getByRole('button', { name: '한번에 보기' }).click();
+    await expect(page.locator('#book-dialog-about-guestbook')).toHaveAttribute('data-scroll', '');
+
+    const bg = await page
+      .locator('#book-dialog-about-guestbook .guestbook')
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(bg, '방명록 자리에 종이가 없다 — 보드 위에 글이 그대로 얹힌다').not.toBe(
+      'rgba(0, 0, 0, 0)',
+    );
+  });
 });

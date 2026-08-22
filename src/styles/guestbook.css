@@ -36,6 +36,39 @@
   background: var(--page-bg);
 }
 
+/* ── 방명록 자리를 종이로 만든다 (평면·스크롤) ──────────────────────────────
+   이 책은 종이가 **비어 있다.** 안내문 면을 없앴고(about-guestbook.md), 글 목록과
+   '남기기' 는 3D 종이 위에 얹혀야 해서 `.book__pages` **밖**에 있다 — 그 상자에는
+   3D 에서 opacity:0 이 걸리는데 opacity 는 쌓임 맥락을 만들어 자식이 벗어날 수 없다
+   (BookContent 주석).
+
+   그래서 3D 가 아닐 때는 목록이 종이 없이 하드커버 보드 위에 얹혔다. 어두운 바탕에
+   `--page-text`(짙은 갈색) 글씨라 읽을 수 없었다. 여기서 방명록 자리에 종이를 준다.
+
+   빈 종이 상자는 자국만 지운다. `display: none` 을 쓰지 않는 이유는 그 안의 머리글
+   (.book__header--sr)이 창의 이름(aria-labelledby)이라, 트리에서 빠지면 낭독기가
+   무슨 창인지 말하지 못하기 때문이다. */
+.book-dialog[data-guestbook]:not([data-reader]) .book__pages {
+  flex: none;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.book-dialog[data-guestbook]:not([data-reader]) .book__body {
+  padding: 0;
+}
+.book-dialog[data-guestbook]:not([data-reader]) .guestbook {
+  margin: 0;
+  padding: var(--space-6);
+  background: var(--page-bg);
+  border: 1px solid var(--page-rule);
+  box-shadow: 0 14px 52px color-mix(in srgb, var(--backdrop) 34%, transparent);
+  /* 높이를 못 박아 목록이 도착해도 창이 밀리지 않게 한다(CLS 0) — 위 .book__body 의
+     max-height 가 하던 일이 이제 여기로 온다. 글은 안에서 스크롤된다. */
+  max-height: 78svh;
+  overflow-y: auto;
+}
+
 /* 장이 하나뿐이라 넘김 조작과 보기 전환은 뜻이 없다. */
 .book-dialog[data-guestbook]:not([data-reader]) .book__paging,
 .book-dialog[data-guestbook]:not([data-reader]) [data-action='toggle-view'] {

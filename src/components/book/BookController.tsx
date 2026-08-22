@@ -518,6 +518,11 @@ export function BookController() {
       if (!dialog || dialog.open) return false;
       delete dialog.dataset.closing; // 접힘 도중 재열림 대비
       delete dialog.dataset.scroll; // 지난번에 스크롤로 보다 닫았어도 책으로 연다
+      // 보기 방식도 저장된 값으로 되돌린다. '한번에 보기' 는 저장하지 않고 이어보기로
+      // 바꾸므로(그건 이번 한 번의 편의지 취향이 아니다), 그대로 닫으면 continuous 가
+      // 남는다 — 그러면 다음에 연 책에서 [data-view-mode='continuous'] 가 장 이동
+      // 조작을 통째로 감춰 페이지네이션이 사라진다.
+      applyMode(readStoredMode(globalThis.localStorage));
 
       // 지난 닫힘 FLIP 이 fill:forwards 로 남긴 값(반투명·축소)을 지운다.
       //
