@@ -1099,3 +1099,9 @@ dialog[data-closing] .book {
 .book-dialog[data-scroll] [data-action='toggle-view'] {
   display: none;
 }
+
+/* 종이 위의 스크롤바는 종이 결로. 뿌리(globals.css)의 방 색을 여기서만 덮는다 —
+   크림 종이에 벽 색 막대가 서면 종이에서 떠 보인다. */
+.book__body {
+  scrollbar-color: color-mix(in srgb, var(--page-rule) 70%, transparent) transparent;
+}

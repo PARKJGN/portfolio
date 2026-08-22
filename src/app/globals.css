@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── 스크롤바 ──────────────────────────────
+   기본 스크롤바는 이 방의 결과 따로 논다 — 나무와 종이 사이에 회색 막대가 하나
+   서 있는 꼴이다. 방의 선반 선 색으로 맞춘다.
+
+   표준 속성(`scrollbar-color`·`scrollbar-width`)만 쓴다. `::-webkit-scrollbar` 로
+   따로 그리면 같은 것을 두 벌 관리해야 하고, 둘이 함께 있을 때 어느 쪽이 이기는지가
+   브라우저마다 달라 한쪽만 고치면 다른 쪽에서 어긋난다. 표준 속성을 모르는
+   브라우저는 기본 스크롤바로 둔다 — 읽는 데 지장이 없다.
+
+   **`scrollbar-color` 는 상속된다.** 그래서 뿌리에 한 번 주면 방·모달·목록이 모두
+   따라오고, 종이 위처럼 바탕이 다른 곳에서만 덮어쓰면 된다(book.css·guestbook.css).
+
+   색은 토큰이라 어두운 테마에서 함께 뒤집힌다. 홈은 비워 둔다 — 막대만 보이는 편이
+   가볍고, 바탕이 무엇이든 그 위에 얹힌다. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--room-line) transparent;
+}

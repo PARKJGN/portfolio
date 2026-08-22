@@ -505,7 +505,11 @@ export function BookController() {
       dialog.dataset.intro = '';
       setPulled(slug, true);
       const restRect = dialog.querySelector('.book-stage')?.getBoundingClientRect();
-      buildReader(dialog, restRect?.width ? restRect : spineRect!, 420);
+      // 날아오는 구간이 없으니 전체 등장(1300ms)보다는 짧다. 다만 420ms 로 뒀더니
+      // 표지가 눈으로 따라갈 새 없이 팍 열렸다 — 책을 펴는 동작으로 읽히지 않았다.
+      // 다른 책 연출과 같은 박자를 쓰도록 --motion-book 에 맞춘다(헌장 원칙 V).
+      const mb = parseFloat(getComputedStyle(root).getPropertyValue('--motion-book')) || 680;
+      buildReader(dialog, restRect?.width ? restRect : spineRect!, Math.round(mb * 1.3));
       return true;
     };
 
