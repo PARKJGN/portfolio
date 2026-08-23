@@ -75,3 +75,31 @@ test.describe('책장·책 클릭은 그대로 동작한다', () => {
     await expect(page.locator('#book-dialog-hello')).toBeVisible();
   });
 });
+
+/**
+ * 화분이 책장을 파고들던 회귀.
+ *
+ * 화분은 화면 폭에 그대로 비례해 자랐다(left 7vw + width 10vw). 그런데 화분이 설
+ * 자리 — 책장 왼쪽에 남는 폭 — 은 화면이 좁아질수록 훨씬 빠르게 줄어든다. 책장
+ * 세 칸이 최소 폭을 지키느라 자리를 먼저 가져가기 때문이다. 그래서 1290px 아래부터
+ * 화분 오른쪽이 첫 책장에 가려졌다(1100px 에서 46px, 900px 에서 69px).
+ *
+ * 한 폭만 재면 못 잡는다 — 1400px 는 고치기 전에도 통과했다. 겹치기 시작하는
+ * 경계를 포함해 여러 폭에서 잰다.
+ */
+test.describe('화분과 책장이 겹치지 않는다 (회귀)', () => {
+  for (const width of [1920, 1400, 1320, 1280, 1220, 1100, 1000, 940, 900]) {
+    test(`${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 760 });
+      await page.goto('/');
+      await page.waitForSelector('html[data-book-ready]');
+
+      const gap = await page.evaluate(() => {
+        const plant = document.querySelector('.scene__plant')!.getBoundingClientRect();
+        const shelf = document.querySelector('section.shelf')!.getBoundingClientRect();
+        return shelf.left - plant.right;
+      });
+      expect(gap, '화분 오른쪽이 첫 책장에 닿는다').toBeGreaterThan(8);
+    });
+  }
+});

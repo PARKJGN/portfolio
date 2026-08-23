@@ -45,9 +45,7 @@ test.describe('책 열기와 닫기', () => {
    *
    * 지금 코드는 history.state 를 아예 읽지 않으므로 무엇이 담겨 있든 열리지 않는다.
    */
-  test('히스토리 상태에 슬러그가 남아 있어도 책이 다시 열리지 않는다 (회귀)', async ({
-    page,
-  }) => {
+  test('히스토리 상태에 슬러그가 남아 있어도 책이 다시 열리지 않는다 (회귀)', async ({ page }) => {
     await page.locator('[data-book-slug="hello"]').click();
     await expect(page.locator(dialog('hello'))).toBeVisible();
 
@@ -90,7 +88,10 @@ test.describe('책 열기와 닫기', () => {
     await expect(page.locator(dialog('hello'))).toBeVisible();
 
     // 프로필 책장의 '박종건'과 '경력'은 서로 이웃이라 '다른 책' 버튼이 뜬다.
-    await page.locator(`${dialog('hello')} .book__nav button`).first().click();
+    await page
+      .locator(`${dialog('hello')} .book__nav button`)
+      .first()
+      .click();
 
     // 원래 책은 닫히고 다른 책이 열린다.
     await expect(page.locator(dialog('hello'))).toBeHidden();
@@ -163,5 +164,73 @@ test.describe('책 열기와 닫기', () => {
     for (const slug of ['hello', 'career', 'onebite', 'about-guestbook']) {
       await expect(page.locator(`[data-book-slug="${slug}"]`)).toBeVisible();
     }
+  });
+});
+
+/**
+ * 표지 없이 본문부터 나오던 회귀 — 모바일(한 면 모드).
+ *
+ * 두 면 모드의 표지는 왼쪽으로 눕고 그 안쪽이 곧 왼 면이 된다. 한 면 모드엔 눕힐
+ * 왼쪽이 없어서 한동안 표지를 아예 만들지 않았다. 그래서 책이 뽑혀 나오자마자
+ * 앞면이 본문이었다 — 책을 여는 게 아니라 종이 한 장이 날아오는 것처럼 보였다.
+ * 지금은 페이지와 같은 축(위 모서리)으로 위로 젖혀 올린다.
+ *
+ * WebGL 이라 DOM 으로는 못 본다. 여는 동안 화면 가운데를 여러 번 찍어 밝기를 잰다.
+ * 어두운 표지(경력)가 한 번이라도 가운데를 덮었는지, 그리고 끝에는 종이가 남았는지.
+ * 시각을 하나 찍어 재면 연출 길이가 조금만 바뀌어도 깨지므로 구간 전체를 본다.
+ *
+ * **넓게** 재야 한다. 좁은 사각은 뽑혀 나오는 동안의 어두운 **책등**을 표지로 착각한다
+ * (그래서 첫 판은 고치기 전 코드에서도 통과했다). 책 면만 한 사각이면 책등은 가는
+ * 막대라 평균이 밝게 남고, 면을 덮은 표지만 어둡게 잡힌다 — 고치기 전 161, 지금 55.
+ */
+test.describe('표지가 열리며 책이 펼쳐진다 (회귀)', () => {
+  // 두 면 모드엔 표지가 늘 있었다. 이 회귀는 한 면 모드의 것이다.
+  test.beforeEach(({ viewport }) => {
+    test.skip((viewport?.width ?? 0) >= 900, '한 면 모드(모바일)에서만 났던 회귀');
+  });
+
+  test('여는 동안 표지가 보이고, 끝나면 종이가 남는다', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+
+    // 화면 가운데, 펼친 책 면쯤 되는 사각의 평균 밝기. 캔버스는 preserveDrawingBuffer 가
+    // 없어 toDataURL 로는 못 읽는다 — 스크린숏을 다시 페이지 안으로 들여보내 잰다.
+    const middle = async () => {
+      const size = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+      const w = Math.round(size.w * 0.55);
+      const h = Math.round(size.h * 0.45);
+      const shot = await page.screenshot({
+        clip: {
+          x: Math.round((size.w - w) / 2),
+          y: Math.round((size.h - h) / 2),
+          width: w,
+          height: h,
+        },
+      });
+      return page.evaluate(async (b64) => {
+        const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
+        const bmp = await createImageBitmap(blob);
+        const c = document.createElement('canvas');
+        c.width = bmp.width;
+        c.height = bmp.height;
+        const g = c.getContext('2d')!;
+        g.drawImage(bmp, 0, 0);
+        const { data } = g.getImageData(0, 0, c.width, c.height);
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+        return sum / (data.length / 4);
+      }, shot.toString('base64'));
+    };
+
+    await page.locator('[data-book-slug="career"]').click();
+    const frames: number[] = [];
+    for (let i = 0; i < 16; i += 1) frames.push(await middle());
+    await expect(page.locator(dialog('career'))).toBeVisible();
+
+    // 경력 표지는 짙은 갈색, 종이는 밝은 미색이라 사이가 넉넉하다.
+    expect(Math.min(...frames), '어두운 표지가 한 번도 책 면을 덮지 않았다').toBeLessThan(120);
+
+    await page.waitForTimeout(600); // 연출이 끝나기를 기다린다
+    expect(await middle(), '다 열렸는데 종이가 아니다').toBeGreaterThan(150);
   });
 });

@@ -1082,6 +1082,9 @@ dialog[data-closing] .book {
    폴백에는 위쪽 '전체 이어보기' 가 이미 그 일을 하므로 두 벌을 두지 않는다. */
 .book__scroll {
   display: none;
+  /* 좁은 화면에서 '한번에 보기' 가 '한번에 보 / 기' 로 갈라졌다. 한국어는 낱말 안이
+     아니라 띄어쓰기에서 접혀야 읽힌다. */
+  word-break: keep-all;
 }
 .book-dialog:is([data-reader], [data-scroll]) .book__scroll {
   display: inline-block;

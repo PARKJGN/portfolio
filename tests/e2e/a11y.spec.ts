@@ -44,6 +44,7 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
 
   test('책 창이 열린 상태', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await page.locator('[data-book-slug="hello"]').click();
     await settleOpen(page);
 
@@ -53,6 +54,7 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
 
   test('전체 이어보기 모드', async ({ page }) => {
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await page.locator('[data-book-slug="hello"]').click();
     await settleOpen(page);
     await page.getByRole('button', { name: '전체 이어보기' }).click();
@@ -71,6 +73,7 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
   test('어두운 테마에서 책 창', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await page.locator('[data-book-slug="hello"]').click();
     await settleOpen(page);
 
@@ -183,6 +186,7 @@ test.describe('움직임 최소화 (FR-016)', () => {
   test('책 본문의 부드러운 스크롤도 꺼진다', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await page.locator('[data-book-slug="hello"]').click();
 
     const behavior = await page
@@ -208,6 +212,7 @@ test.describe('가로 스크롤 없음 (FR-017, SC-005)', () => {
   test('책 창을 연 상태에서도 320px 에서 가로 스크롤이 없다', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
     await page.locator('[data-book-slug="hello"]').click();
 
     const overflows = await page.evaluate(

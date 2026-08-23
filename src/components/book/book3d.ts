@@ -1367,6 +1367,23 @@ export class Book3D {
     }
   }
 
+  /**
+   * 표지를 0(덮임)에서 1(열림)까지 연다. 축은 모드마다 다르다 — 두 면은 책등(y),
+   * 한 면은 위 모서리(x). 한 면에선 다 젖혀진 표지가 책 위에 그대로 서 있으므로
+   * 마지막에 감춘다. 두 면에선 눕힌 표지가 곧 왼 면이라 감추면 안 된다.
+   */
+  private setCoverOpen(open: number) {
+    const hinge = this.coverHinge;
+    if (!hinge) return;
+    const a = -PI * 0.985 * open;
+    if (this.single) {
+      hinge.rotation.x = a;
+      hinge.visible = open < 0.999;
+    } else {
+      hinge.rotation.y = a;
+    }
+  }
+
   /** 책 메시(몸통 + 표지 + 넘김용 잎)를 만든다. 페이지 텍스처는 미리 만들어 둔다. */
   private buildBook(v: BookVisual, W: number, H: number, thickness: number) {
     const T = this.THREE;
@@ -1390,7 +1407,7 @@ export class Book3D {
       new T.MeshStandardMaterial({ map, roughness: rough, metalness: 0 });
 
     // 몸통 앞면(+z): 두 면 모드는 첫 스프레드의 오른 면(pages[1]), 한 면 모드는 첫
-    // 페이지(pages[0])를 바로 보여준다(표지 여닫음 없이 페이지가 곧 책의 앞).
+    // 페이지(pages[0]). 어느 쪽이든 표지가 열리며 이 면이 드러난다.
     const bodyFront = mat(this.single ? this.pages[0] : (this.pages[1] ?? this.pages[0]), 0.66);
     this.bodyFrontMat = bodyFront;
     const body = new T.Mesh(new T.BoxGeometry(W, H, thickness), [
@@ -1422,27 +1439,28 @@ export class Book3D {
     group.add(shadow);
 
     const ct = Math.max(6, thickness * 0.16);
-    this.coverHinge = undefined;
-    this.coverBackMat = undefined;
-    if (!this.single) {
-      // 앞표지: -z 안쪽 = 왼쪽 페이지(첫 스프레드의 왼 면). 한 면 모드엔 없다.
-      const coverBack = mat(this.pages[0], 0.66);
-      this.coverBackMat = coverBack;
-      const coverHinge = new T.Group();
-      coverHinge.position.set(0, 0, thickness / 2 + 0.6);
-      const cover = new T.Mesh(new T.BoxGeometry(W, H, ct), [
-        mat(foreEdge),
-        mat(spineTex),
-        mat(headTail),
-        mat(headTail),
-        mat(coverTex, 0.5),
-        coverBack,
-      ]);
-      cover.position.set(W / 2, 0, 0);
-      coverHinge.add(cover);
-      group.add(coverHinge);
-      this.coverHinge = coverHinge;
-    }
+    // 앞표지. 두 면 모드는 책등(왼쪽 세로축)을 축으로 왼쪽에 눕고, 그 안쪽(-z)이 곧
+    // 왼 면이 된다. 한 면 모드는 눕힐 왼쪽이 없으니 **페이지와 같은 축** — 위 모서리를
+    // 축으로 위로 젖혀 올린다. 젖혀진 표지의 안쪽은 페이지가 아니라 빈 속표지(backTex)다.
+    //
+    // 한동안 한 면 모드엔 표지가 아예 없었다. 뽑히자마자 본문이 앞면이라, 책을 여는
+    // 게 아니라 종이 한 장이 날아오는 것처럼 보였다.
+    const coverBack = this.single ? mat(backTex, 0.5) : mat(this.pages[0], 0.66);
+    this.coverBackMat = this.single ? undefined : coverBack;
+    const coverHinge = new T.Group();
+    coverHinge.position.set(0, this.single ? H / 2 : 0, thickness / 2 + 0.6);
+    const cover = new T.Mesh(new T.BoxGeometry(W, H, ct), [
+      mat(foreEdge),
+      mat(spineTex),
+      mat(headTail),
+      mat(headTail),
+      mat(coverTex, 0.5),
+      coverBack,
+    ]);
+    cover.position.set(W / 2, this.single ? -H / 2 : 0, 0);
+    coverHinge.add(cover);
+    group.add(coverHinge);
+    this.coverHinge = coverHinge;
 
     // 넘기는 잎(평소 숨김)
     const turnFront = mat(null, 0.66);
@@ -1544,16 +1562,17 @@ export class Book3D {
     );
     const center = this.restCenter();
     const startScale = opts.spineRect.height / opts.coverH;
-    const OPEN = PI * 0.985;
     const halfW = () => -this.dims.W / 2;
     this.tween(
       (p) => {
         if (this.single) {
-          // 한 면: 표지 여닫음이 없으니 등장은 이동+회전뿐. 회전이 끝까지 이어져 빈 꼬리
-          // 시간이 없게 한다. 페이지(몸통 0..W)가 가운데 오도록 offX=-W/2(회전 중엔 ×rot).
-          const move = easeInOut(clamp01(p / 0.55));
-          const rot = easeInOut(clamp01((p - 0.25) / 0.75));
-          const s = lerp(startScale, 1, easeOut(clamp01(p / 0.85)));
+          // 한 면: 뽑혀 나와 정면을 보고(rot), 그 다음 표지가 위로 젖혀진다(open).
+          // 페이지(몸통 0..W)가 가운데 오도록 offX=-W/2 — 회전 중엔 원점이 곧 책등이라
+          // ×rot 로 줄인다. 표지가 열려도 페이지 자리는 그대로라 open 은 안 곱한다.
+          const move = easeInOut(clamp01(p / 0.5));
+          const rot = easeInOut(clamp01((p - 0.2) / 0.4));
+          const open = easeInOut(clamp01((p - 0.6) / 0.4));
+          const s = lerp(startScale, 1, easeOut(clamp01(p / 0.75)));
           const offX = halfW() * s * rot;
           group.position.set(
             lerp(start.x, center.x, move) + offX,
@@ -1562,6 +1581,8 @@ export class Book3D {
           );
           group.scale.setScalar(s);
           group.rotation.y = lerp(PI / 2, 0, rot);
+          this.setCoverOpen(open);
+          // 그늘의 폭이 한 장 기준이라 표지가 아니라 회전에 맞춰 짙어진다.
           if (this.shadowMat) this.shadowMat.opacity = rot;
           return;
         }
@@ -1580,7 +1601,7 @@ export class Book3D {
         );
         group.scale.setScalar(s);
         group.rotation.y = lerp(PI / 2, 0, rot);
-        if (this.coverHinge) this.coverHinge.rotation.y = -OPEN * open;
+        this.setCoverOpen(open);
         // 그림자는 표지가 열리는 만큼 짙어진다 — 그늘의 폭이 두 면 기준이라, 아직
         // 접혀 있는 동안 짙게 깔리면 책보다 그림자가 넓어 보인다.
         if (this.shadowMat) this.shadowMat.opacity = open;
@@ -1758,7 +1779,6 @@ export class Book3D {
       opts.spineRect.top + opts.spineRect.height / 2,
     );
     const endScale = opts.spineRect.height / opts.coverH;
-    const OPEN = PI * 0.985;
     const W = this.dims.W;
     // 표지 안쪽(왼 면)은 **지금 보고 있던 것 그대로** 두고 접는다.
     //
@@ -1778,7 +1798,7 @@ export class Book3D {
         // 실제 책장 자리(end)로 곧장 들어가게 한다(안 그러면 왼쪽으로 들어간다).
         // 한 면은 늘 한 장 가운데(-W/2)에서 시작하고, 두 면은 표지가 닫히며(close) 그리 모인다.
         const offX = (this.single ? -W / 2 : lerp(0, -W / 2, close)) * s * (1 - rot);
-        if (this.coverHinge) this.coverHinge.rotation.y = -OPEN * (1 - close);
+        this.setCoverOpen(1 - close);
         // 덮으면서 그림자도 걷힌다(등장의 역순).
         if (this.shadowMat) this.shadowMat.opacity = 1 - (this.single ? rot : close);
         group.rotation.y = lerp(0, PI / 2, rot);
