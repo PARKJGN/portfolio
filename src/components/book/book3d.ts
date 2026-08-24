@@ -1122,6 +1122,17 @@ export class Book3D {
    * '책을 눌렀는지'를 요소로는 알 수 없고, 이 사각형과 좌표를 견줘 판단한다.
    * 넘기는 중(busy)에도 자리는 그대로이므로 여기서는 busy 를 보지 않는다.
    */
+  /**
+   * 한 면만 펴는 모드(좁은 화면)인가.
+   *
+   * 조작의 축이 여기서 갈린다 — 한 면은 위/아래(장이 위로 젖혀진다), 두 면은 좌/우.
+   * 밖에서 `window.innerWidth` 로 다시 재면 3D 가 실제로 몇 면을 펼쳤는지와 어긋날 수
+   * 있다(연 뒤에 창을 줄인 경우). 편 쪽이 답을 갖고 있어야 한다.
+   */
+  get onePage() {
+    return this.single;
+  }
+
   bookRect(): { left: number; top: number; width: number; height: number } | null {
     if (!this.group) return null;
     const { W, H } = this.dims;

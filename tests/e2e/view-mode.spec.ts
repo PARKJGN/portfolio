@@ -325,3 +325,38 @@ test.describe('한번에 보기 (책 ↔ 스크롤)', () => {
     }
   });
 });
+
+/**
+ * 좁은 화면에서 책을 누르는 축.
+ *
+ * 한 면 모드에서 장은 위 모서리를 축으로 **위로** 젖혀지고 스와이프도 위/아래인데,
+ * 누르기만 좌/우 반쪽이었다. 화면 왼쪽을 눌렀는데 장이 위로 넘어가니 어디를 눌러야
+ * 앞으로 가는지 몸에 남지 않았다. 이제 위=이전, 아래=다음이다.
+ *
+ * 가로 위치를 일부러 반대쪽에 둔다 — 왼쪽 아래를 눌러도 **다음**으로 가야 세로축이
+ * 실제로 판정에 쓰인다는 뜻이다. 예전 규칙이면 왼쪽이라 이전으로 읽혀 첫 장에 멈춘다.
+ */
+test.describe('좁은 화면에서는 위·아래로 넘긴다 (회귀)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 9999) >= 900, '한 면 모드에서만');
+
+  test('아래를 누르면 다음 장, 위를 누르면 이전 장', async ({ page }) => {
+    await openBook(page);
+    // 3D 가 다 펼칠 때까지 기다린다 — data-intro 는 그때 떨어진다. 펼치는 도중에는
+    // 아직 평면 쪽 장 수가 보여, 위치 표시만 보고 기다리면 너무 일찍 누르게 된다.
+    await page.waitForSelector('dialog[open]:not([data-intro])');
+    const progress = page.locator('dialog[open] [data-progress]');
+    await expect(progress).toHaveText(/^1 \/ [2-9]\d*$/);
+
+    // 책이 차지한 세로 구간 — 위는 창 꼭대기, 아래는 도구막대 바로 위.
+    const box = await page.evaluate(() => ({
+      w: innerWidth,
+      tools: document.querySelector('dialog[open] .book__tools')!.getBoundingClientRect().top,
+    }));
+
+    await page.mouse.click(box.w * 0.3, box.tools * 0.75); // 왼쪽 **아래**
+    await expect(progress).toHaveText(/^2 \/ \d+$/);
+
+    await page.mouse.click(box.w * 0.7, box.tools * 0.25); // 오른쪽 **위**
+    await expect(progress).toHaveText(/^1 \/ \d+$/);
+  });
+});

@@ -995,7 +995,12 @@ export function BookController() {
         return;
       }
 
-      // 3D 리더에서 책 위를 누르면 그 반쪽 방향으로 넘긴다(왼쪽=이전, 오른쪽=다음).
+      // 3D 리더에서 책 위를 누르면 그 반쪽 방향으로 넘긴다.
+      //
+      // 나누는 축은 장이 넘어가는 축을 따른다 — 두 면은 좌/오른쪽(왼=이전, 오른=다음),
+      // 한 면은 위/아래(위=이전, 아래=다음). 한 면에서 장은 위 모서리를 축으로 위로
+      // 젖혀지고 스와이프도 위/아래인데 누르기만 좌/우여서, 화면 왼쪽을 눌렀는데 장이
+      // 위로 넘어가는 어긋남이 있었다.
       //
       // 요소로는 가릴 수 없다. 책은 캔버스에 그려지고 그 캔버스는 pointer-events:none 이라
       // 클릭이 통과하며, 밑에 깔린 HTML(.book, dialog)이 제각각 대상이 된다. 그래서 3D 가
@@ -1018,7 +1023,10 @@ export function BookController() {
           skipInk();
           return;
         }
-        activeReader!.turn(e.clientX < bookArea.left + bookArea.width / 2 ? -1 : 1);
+        const back = activeReader!.onePage
+          ? e.clientY < bookArea.top + bookArea.height / 2
+          : e.clientX < bookArea.left + bookArea.width / 2;
+        activeReader!.turn(back ? -1 : 1);
         placeOnPage(); // 넘기는 동안에는 뗀다 — 끝나면 readerProgress 가 다시 잡는다
         return;
       }

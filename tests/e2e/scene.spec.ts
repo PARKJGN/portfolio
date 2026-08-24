@@ -88,7 +88,7 @@ test.describe('책장·책 클릭은 그대로 동작한다', () => {
  * 경계를 포함해 여러 폭에서 잰다.
  */
 test.describe('화분과 책장이 겹치지 않는다 (회귀)', () => {
-  for (const width of [1920, 1400, 1320, 1280, 1220, 1100, 1000, 940, 900]) {
+  for (const width of [1920, 1400, 1320, 1280, 1220, 1150, 1100, 1024, 1000, 940, 900]) {
     test(`${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 760 });
       await page.goto('/');
@@ -102,4 +102,25 @@ test.describe('화분과 책장이 겹치지 않는다 (회귀)', () => {
       expect(gap, '화분 오른쪽이 첫 책장에 닿는다').toBeGreaterThan(8);
     });
   }
+});
+
+/**
+ * 화분은 방의 물건이지 화면의 장식이 아니다 — 창을 늘리면 같이 커지던 것이 어색했다.
+ * 자리는 옮겨도(좁으면 왼쪽 가장자리 밖으로 물린다) 크기는 어느 폭에서나 같아야 한다.
+ *
+ * 겹침을 피하려고 폭을 줄이는 손쉬운 고침이 늘 손짓하는 자리라, 위 규칙과 짝으로 둔다.
+ */
+test('화면 폭이 달라져도 화분 크기는 그대로다', async ({ page }) => {
+  const widths: number[] = [];
+  for (const width of [1920, 1280, 1024, 900, 700, 480, 320]) {
+    await page.setViewportSize({ width, height: 760 });
+    await page.goto('/');
+    await page.waitForSelector('html[data-book-ready]');
+    widths.push(
+      await page.evaluate(
+        () => document.querySelector('.scene__plant')!.getBoundingClientRect().width,
+      ),
+    );
+  }
+  expect(new Set(widths.map(Math.round)).size, `화면마다 다르다: ${widths.join(' ')}`).toBe(1);
 });

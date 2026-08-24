@@ -195,18 +195,18 @@ test.describe('표지가 열리며 책이 펼쳐진다 (회귀)', () => {
 
     // 화면 가운데, 펼친 책 면쯤 되는 사각의 평균 밝기. 캔버스는 preserveDrawingBuffer 가
     // 없어 toDataURL 로는 못 읽는다 — 스크린숏을 다시 페이지 안으로 들여보내 잰다.
+    //
+    // 사각은 **누르기 전에** 미리 잡는다. 한 컷마다 크기를 다시 물으면 첫 컷이 그만큼
+    // 늦고, 여럿이 함께 도는 전체 실행에서는 그 지연이 표지가 다 열린 뒤까지 밀렸다.
+    const size = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+    const clip = {
+      x: Math.round(size.w * 0.225),
+      y: Math.round(size.h * 0.275),
+      width: Math.round(size.w * 0.55),
+      height: Math.round(size.h * 0.45),
+    };
     const middle = async () => {
-      const size = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
-      const w = Math.round(size.w * 0.55);
-      const h = Math.round(size.h * 0.45);
-      const shot = await page.screenshot({
-        clip: {
-          x: Math.round((size.w - w) / 2),
-          y: Math.round((size.h - h) / 2),
-          width: w,
-          height: h,
-        },
-      });
+      const shot = await page.screenshot({ clip });
       return page.evaluate(async (b64) => {
         const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
         const bmp = await createImageBitmap(blob);
@@ -222,13 +222,34 @@ test.describe('표지가 열리며 책이 펼쳐진다 (회귀)', () => {
       }, shot.toString('base64'));
     };
 
+    // 본문 글꼴을 미리 받아 둔다. playOpen 은 페이지 텍스처를 그리기 전에 글꼴을
+    // 기다리는데, 여럿이 함께 도는 전체 실행에서는 그 받기가 2초 넘게 걸려 표지가
+    // 열리는 구간이 통째로 촬영 뒤로 밀렸다(16컷이 모두 빈 방이었다).
+    await page.evaluate(() =>
+      Promise.all([
+        document.fonts.load('600 40px "Noto Serif KR Subset"'),
+        document.fonts.load('400 40px "Noto Serif KR Subset"'),
+      ]).then(() => undefined),
+    );
+    await middle(); // 스크린숏 길을 미리 덥힌다 — 첫 컷만 유난히 느리다
     await page.locator('[data-book-slug="career"]').click();
+    // **컷 수가 아니라 등장이 끝날 때까지** 찍는다. 열여섯 컷으로 정해 두었더니, 기계가
+    // 한가할 때는 700ms 만에 열여섯 컷이 다 끝나 책이 날아오기도 전에 촬영이 끝났다
+    // (열여섯 컷이 모두 빈 방이었다). data-intro 는 3D 가 다 펼치면 떨어진다.
+    const opening = page.locator(dialog('career'));
     const frames: number[] = [];
-    for (let i = 0; i < 16; i += 1) frames.push(await middle());
-    await expect(page.locator(dialog('career'))).toBeVisible();
+    while ((await opening.evaluate((d) => d.dataset.intro != null)) && frames.length < 200) {
+      frames.push(await middle());
+    }
+    expect(frames.length, '등장하는 동안 한 컷도 못 찍었다').toBeGreaterThan(3);
 
-    // 경력 표지는 짙은 갈색, 종이는 밝은 미색이라 사이가 넉넉하다.
-    expect(Math.min(...frames), '어두운 표지가 한 번도 책 면을 덮지 않았다').toBeLessThan(120);
+    // **뒤 절반만 본다.** 앞 절반은 책이 아직 작고 90° 로 서서 날아오는 구간이라, 표지가
+    // 있든 없든 어두운 책등이 잡힌다 — 그래서 전 구간의 최솟값을 보면 고치기 전 코드도
+    // 통과했다. 표지는 등장의 60% 지점부터 열리므로 뒤 절반이 곧 표지의 구간이다.
+    // 컷 수가 아니라 비율로 잘라 기계가 빠르든 느리든 같은 구간을 본다.
+    const late = frames.slice(Math.floor(frames.length / 2));
+    // 경력 표지는 짙은 갈색, 종이는 밝은 미색이라 사이가 넉넉하다(고치기 전 164, 지금 60).
+    expect(Math.min(...late), '어두운 표지가 한 번도 책 면을 덮지 않았다').toBeLessThan(120);
 
     await page.waitForTimeout(600); // 연출이 끝나기를 기다린다
     expect(await middle(), '다 열렸는데 종이가 아니다').toBeGreaterThan(150);
