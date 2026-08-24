@@ -8,9 +8,9 @@ import { test, expect } from '@playwright/test';
 const sky = (page: import('@playwright/test').Page) =>
   page.locator('html').getAttribute('data-sky');
 
-// 창·화분은 좁은 화면에서 방을 답답하지 않게 가장자리로 밀린다(창은 반쯤 화면 밖,
-// 화분은 왼쪽 책장 뒤). 그래서 모바일에선 조작이 어렵다 — 같은 코드라 데스크톱에서
-// 검증한다.
+// 창·화분은 좁은 화면에서 방을 답답하지 않게 가장자리로 밀린다(아주 좁으면 화분은
+// 왼쪽 가장자리에 반쯤 걸친다). 그래서 모바일에선 조작이 어렵다 — 같은 코드라
+// 데스크톱에서 검증한다.
 test.beforeEach(({ viewport }) => {
   test.skip((viewport?.width ?? 9999) < 900, '장면 상호작용은 데스크톱에서 검증');
 });
@@ -86,33 +86,48 @@ test.describe('책장·책 클릭은 그대로 동작한다', () => {
  *
  * 한 폭만 재면 못 잡는다 — 1400px 는 고치기 전에도 통과했다. 겹치기 시작하는
  * 경계를 포함해 여러 폭에서 잰다.
+ *
+ * 화분은 줄어들지 않으므로 900~1030px 에서는 아예 설 자리가 없다(900px 에서 책장
+ * 왼쪽에 남는 폭이 84px 뿐이다). 그 구간은 치운다 — 그러니 "보인다면 온전히 보이고
+ * 겹치지도 않는다"를 잰다. 왼쪽으로 물려 반쯤 잘려 보이던 것도 여기서 걸린다.
  */
 test.describe('화분과 책장이 겹치지 않는다 (회귀)', () => {
-  for (const width of [1920, 1400, 1320, 1280, 1220, 1150, 1100, 1024, 1000, 940, 900]) {
+  for (const width of [
+    1920, 1400, 1320, 1280, 1220, 1150, 1100, 1060, 1040, 1024, 1000, 940, 900,
+  ]) {
     test(`${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 760 });
       await page.goto('/');
       await page.waitForSelector('html[data-book-ready]');
 
-      const gap = await page.evaluate(() => {
-        const plant = document.querySelector('.scene__plant')!.getBoundingClientRect();
+      const seen = await page.evaluate(() => {
+        const el = document.querySelector('.scene__plant')!;
+        if (!el.getClientRects().length) return null; // 치웠다
+        const plant = el.getBoundingClientRect();
         const shelf = document.querySelector('section.shelf')!.getBoundingClientRect();
-        return shelf.left - plant.right;
+        return { left: plant.left, gap: shelf.left - plant.right };
       });
-      expect(gap, '화분 오른쪽이 첫 책장에 닿는다').toBeGreaterThan(8);
+
+      if (seen === null) {
+        // 치우는 것이 허용되는 구간인지까지 본다 — 넉넉한 폭에서 사라지면 그것도 버그다.
+        expect(width, '자리가 넉넉한 폭인데 화분이 없다').toBeLessThanOrEqual(1030);
+        return;
+      }
+      expect(seen.gap, '화분 오른쪽이 첫 책장에 닿는다').toBeGreaterThan(8);
+      expect(seen.left, '화분 왼쪽이 화면 밖으로 잘렸다').toBeGreaterThanOrEqual(0);
     });
   }
 });
 
 /**
  * 화분은 방의 물건이지 화면의 장식이 아니다 — 창을 늘리면 같이 커지던 것이 어색했다.
- * 자리는 옮겨도(좁으면 왼쪽 가장자리 밖으로 물린다) 크기는 어느 폭에서나 같아야 한다.
+ * 자리는 옮겨도, 자리가 없어 치우는 일은 있어도, 크기는 어느 폭에서나 같아야 한다.
  *
  * 겹침을 피하려고 폭을 줄이는 손쉬운 고침이 늘 손짓하는 자리라, 위 규칙과 짝으로 둔다.
  */
 test('화면 폭이 달라져도 화분 크기는 그대로다', async ({ page }) => {
   const widths: number[] = [];
-  for (const width of [1920, 1280, 1024, 900, 700, 480, 320]) {
+  for (const width of [1920, 1280, 1060, 899, 700, 480, 320]) {
     await page.setViewportSize({ width, height: 760 });
     await page.goto('/');
     await page.waitForSelector('html[data-book-ready]');
