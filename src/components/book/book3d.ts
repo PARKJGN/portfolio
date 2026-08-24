@@ -1013,6 +1013,8 @@ export class Book3D {
   private shadowMat?: THREE_NS.MeshBasicMaterial;
   private pages: THREE_NS.Texture[] = [];
   private dims = { W: 0, H: 0, t: 0 };
+  /** 넘기는 잎의 깊이. 세워질 땐 몸통 위로 뜨고, 누우면 몸통에 내려앉는다. */
+  private leafZ = { base: 0, lift: 0 };
   // 좁은 화면(모바일)에서는 한 면만 폭에 꽉 채워 보여주고 한 장씩 넘긴다.
   // 넓은 화면은 두 면 펼침(false). playOpen 에서 정해진다.
   private single = false;
@@ -1523,7 +1525,11 @@ export class Book3D {
     const turnHinge = new T.Group();
     // 두 면: 책등(왼쪽 세로축)을 축으로 넘긴다. 한 면: 위 모서리(가로축)를 축으로 위로
     // 넘긴다 — 모바일에서 위/아래로 넘기는 손맛에 맞춘다.
-    turnHinge.position.set(0, this.single ? H / 2 : 0, thickness / 2 + ct + 1.0);
+    // 잎이 다 누웠을 때의 깊이(base)는 몸통 앞면 바로 위다. 세워질수록 lift 만큼 떠서
+    // 몸통을 스치지 않는다. 늘 떠 있게 두면 잎이 몸통보다 카메라에 가까워 조금 크게
+    // 보이는데, 다 누운 뒤 잎을 감추는 순간 그 차이가 튐으로 드러난다.
+    this.leafZ = { base: thickness / 2 + 0.6, lift: ct + 0.4 };
+    turnHinge.position.set(0, this.single ? H / 2 : 0, this.leafZ.base + this.leafZ.lift);
     turnHinge.visible = false;
     const leaf = new T.Mesh(new T.BoxGeometry(W, H, Math.max(3, ct * 0.5)), [
       mat(foreEdge),
@@ -1740,6 +1746,7 @@ export class Book3D {
       const done = () => {
         hinge.visible = false;
         hinge.rotation.x = 0;
+        hinge.position.z = this.leafZ.base + this.leafZ.lift;
         this.index = nextIdx;
         this.busy = false;
         this.render();
@@ -1754,7 +1761,9 @@ export class Book3D {
         let swapped = false;
         this.tween(
           (p) => {
-            hinge.rotation.x = V * easeInOut(p);
+            const e = easeInOut(p);
+            hinge.rotation.x = V * e;
+            hinge.position.z = this.leafZ.base + this.leafZ.lift * Math.min(1, e * 6);
             if (!swapped && p > 0.16) {
               swapped = true;
               this.bodyFrontMat!.map = pageAt(nextIdx); // 잎이 들리며 다음 면 드러남
@@ -1770,9 +1779,17 @@ export class Book3D {
         this.turnFrontMat!.map = pageAt(nextIdx);
         this.turnBackMat!.map = pageAt(this.index);
         this.turnFrontMat!.needsUpdate = this.turnBackMat!.needsUpdate = true;
+        // 각도는 easeInOut 을 뒤집지 **않는다.** 뒤집으면 시간은 대칭이지만 눈에 보이는
+        // 것은 대칭이 아니다 — 잎이 종이를 덮는 구간(90°→0°)이 통째로 뒤쪽에 몰려,
+        // 화면이 끝까지 한창이다가 뚝 멎는다. 실측한 프레임 변화량이 그대로 보여 준다.
+        //   다음으로: 22 → 36 → 6.5 → 6.1 → 2.9 → 3.1 → 0   (앞에서 몰아치고 잦아든다)
+        //   이전으로: 3 → 4.7 → 8.1 → 28 → 15 → 17 → 12 → 0 (끝까지 한창인데 끊긴다)
+        // 그래서 떨어지는 쪽은 떨어지는 것답게 — 빨리 넘어와 천천히 내려앉는다.
         this.tween(
           (p) => {
-            hinge.rotation.x = V * (1 - easeInOut(p));
+            const a = (1 - p) ** 3;
+            hinge.rotation.x = V * a;
+            hinge.position.z = this.leafZ.base + this.leafZ.lift * Math.min(1, a * 6);
           },
           560,
           () => {
