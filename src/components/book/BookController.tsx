@@ -192,18 +192,23 @@ export function BookController() {
       placeLinks();
     };
 
-    const readerProgress = (i: number, total: number) => {
+    /**
+     * `hasCover` 는 표지가 **첫 장 앞의 한 자리로 있는지**(한 면 모드), `atCover` 는
+     * 지금 거기 있는지다. 표지에 서 있으면 장 번호 대신 그렇다고 적고, 점은 어느
+     * 것도 켜지 않는다 — 표지는 몇째 장이 아니다.
+     */
+    const readerProgress = (i: number, total: number, hasCover = false, atCover = false) => {
       const open = document.querySelector<HTMLElement>('dialog[open]');
       if (!open) return;
       const label = open.querySelector<HTMLElement>('[data-progress]');
-      if (label) label.textContent = `${i + 1} / ${total}`;
-      renderPips(open, i, total);
+      if (label) label.textContent = atCover ? '표지' : `${i + 1} / ${total}`;
+      renderPips(open, atCover ? -1 : i, total);
       open
         .querySelector<HTMLButtonElement>('[data-action="page-prev"]')
-        ?.toggleAttribute('disabled', i <= 0);
+        ?.toggleAttribute('disabled', atCover || (i <= 0 && !hasCover));
       open
         .querySelector<HTMLButtonElement>('[data-action="page-next"]')
-        ?.toggleAttribute('disabled', i >= total - 1);
+        ?.toggleAttribute('disabled', !atCover && i >= total - 1);
       placeOnPage();
     };
 
@@ -453,7 +458,8 @@ export function BookController() {
         .then((m) => m.getBook3D())
         .then((eng) => {
           if (!dialog.open || dialog.dataset.intro == null) return; // 이미 닫힘
-          eng.onProgress = readerProgress;
+          // 표지 자리가 있는지·지금 거기인지는 엔진만 안다(한 면 모드에서만 있다).
+          eng.onProgress = (i, total) => readerProgress(i, total, eng.onePage, eng.onCover);
           eng.show();
           readerEngine = eng; // 화면에 올랐다 — 이제부터 어느 경로로 닫든 걷어낸다
           eng.playOpen({

@@ -360,3 +360,60 @@ test.describe('좁은 화면에서는 위·아래로 넘긴다 (회귀)', () => 
     await expect(progress).toHaveText(/^1 \/ \d+$/);
   });
 });
+
+/**
+ * 한 면 보기에서 표지는 **첫 장 앞의 한 자리**다.
+ *
+ * 첫 장에서 뒤로 가면 표지가 도로 덮이고, 거기서 앞으로 가면 다시 열린다. 표지를
+ * 보고 싶은데 책을 덮었다 다시 여는 수밖에 없던 것이 답답했다.
+ *
+ * 두 면 보기엔 이 자리가 없다 — 거기서 표지는 왼쪽에 눕는 순간 곧 왼 면이라, 덮으면
+ * 책이 한쪽으로 치우친 채 닫힌 책이 된다. 그래서 첫 장에서 '이전' 은 잠긴 채다.
+ */
+test.describe('한 면 보기에서 첫 장 앞은 표지다', () => {
+  const open = async (page: Page) => {
+    await openBook(page, 'career');
+    await page.waitForSelector('dialog[open]:not([data-intro])');
+  };
+  const progress = (page: Page) => page.locator('dialog[open] [data-progress]');
+  const prev = (page: Page) => page.locator('dialog[open] [data-action="page-prev"]');
+  const next = (page: Page) => page.locator('dialog[open] [data-action="page-next"]');
+
+  test('첫 장에서 이전으로 가면 표지, 다시 다음으로 가면 첫 장', async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 9999) >= 900, '한 면 보기에서만 있는 자리');
+    await open(page);
+    await expect(progress(page)).toHaveText(/^1 \/ \d+$/);
+    await expect(prev(page)).toBeEnabled();
+
+    await prev(page).click();
+    await expect(progress(page)).toHaveText('표지');
+    // 표지보다 앞은 없고, 앞으로는 갈 수 있다.
+    await expect(prev(page)).toBeDisabled();
+    await expect(next(page)).toBeEnabled();
+    // 종이 위에 얹히는 것들은 표지 위에 떠 있으면 안 된다.
+    await expect(page.locator('dialog[open] .book__link')).toHaveCount(0);
+
+    await next(page).click();
+    await expect(progress(page)).toHaveText(/^1 \/ \d+$/);
+  });
+
+  test('책 위쪽을 눌러도 표지로 간다', async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 9999) >= 900, '한 면 보기에서만 있는 자리');
+    await open(page);
+    await expect(progress(page)).toHaveText(/^1 \/ \d+$/);
+
+    const box = await page.evaluate(() => ({
+      w: innerWidth,
+      tools: document.querySelector('dialog[open] .book__tools')!.getBoundingClientRect().top,
+    }));
+    await page.mouse.click(box.w * 0.5, box.tools * 0.25);
+    await expect(progress(page)).toHaveText('표지');
+  });
+
+  test('두 면 보기에서는 첫 장 앞이 없다', async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 0) < 900, '두 면 보기에서만');
+    await open(page);
+    await expect(progress(page)).toHaveText(/^1 \/ \d+$/);
+    await expect(prev(page)).toBeDisabled();
+  });
+});

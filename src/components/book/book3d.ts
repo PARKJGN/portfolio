@@ -1154,7 +1154,9 @@ export class Book3D {
   pageRect(
     side: 'left' | 'right',
   ): { left: number; top: number; width: number; height: number } | null {
-    if (!this.group || this.busy) return null;
+    // 표지를 덮어 두었으면 보이는 면이 없다 — 종이 위에 얹는 것들(남기기 단추·링크)이
+    // 표지 위에 떠 있으면 안 된다.
+    if (!this.group || this.busy || this.atCover) return null;
     const { W, H } = this.dims;
     const c = this.restCenter();
     const cy = this.h - c.y; // 월드 y 를 화면 y 로 되돌린다
@@ -1379,6 +1381,18 @@ export class Book3D {
   }
 
   /**
+   * 한 면 모드에서 **표지를 덮어 둔 자리**인가. 첫 장 바로 앞의 한 자리다.
+   *
+   * 두 면 모드엔 이 자리가 없다. 거기서 표지는 왼쪽에 눕는 순간 곧 왼 면이 되므로
+   * 덮으면 책이 화면 오른쪽으로 치우친 채 닫힌 책이 된다 — 자리가 아니라 사고로 보인다.
+   */
+  private atCover = false;
+
+  get onCover() {
+    return this.atCover;
+  }
+
+  /**
    * 표지를 0(덮임)에서 1(열림)까지 연다. 축은 모드마다 다르다 — 두 면은 책등(y),
    * 한 면은 위 모서리(x). 한 면에선 다 젖혀진 표지가 책 위에 그대로 서 있으므로
    * 마지막에 감춘다. 두 면에선 눕힌 표지가 곧 왼 면이라 감추면 안 된다.
@@ -1393,6 +1407,34 @@ export class Book3D {
     } else {
       hinge.rotation.y = a;
     }
+  }
+
+  /**
+   * 표지를 덮거나(close) 다시 여는 한 자리 이동. 한 면 모드에서만 쓴다.
+   *
+   * 장을 넘기는 것과 같은 축·같은 박자(560ms)다 — 표지도 한 장처럼 넘어가야 첫 장과
+   * 표지 사이를 오가는 것이 '넘기기' 로 읽힌다.
+   */
+  private flipCover(close: boolean, onDone?: () => void) {
+    if (!this.coverHinge) {
+      onDone?.();
+      return;
+    }
+    this.busy = true;
+    this.tween(
+      (p) => {
+        const e = easeInOut(p);
+        this.setCoverOpen(close ? 1 - e : e);
+      },
+      560,
+      () => {
+        this.atCover = close;
+        this.busy = false;
+        this.render();
+        this.onProgress?.(this.index, this.total);
+        onDone?.();
+      },
+    );
   }
 
   /** 책 메시(몸통 + 표지 + 넘김용 잎)를 만든다. 페이지 텍스처는 미리 만들어 둔다. */
@@ -1500,6 +1542,7 @@ export class Book3D {
     this.group = group;
     this.turnHinge = turnHinge;
     this.index = 0;
+    this.atCover = false; // 새 책은 표지가 열리며 시작한다
   }
 
   private disposeBook() {
@@ -1635,7 +1678,17 @@ export class Book3D {
    */
   turnTo(target: number, onDone?: () => void) {
     const to = Math.max(0, Math.min(this.total - 1, target));
-    if (!this.group || this.busy || to === this.index) {
+    if (!this.group || this.busy) {
+      onDone?.();
+      return;
+    }
+    // 표지를 덮어 둔 채로 어느 장을 보여 달라는 요청이 오면(글이 등록돼 그 장으로
+    // 가는 경우) 먼저 표지를 연다. 열고 나면 첫 장이므로 거기서 이어 넘긴다.
+    if (this.atCover) {
+      this.flipCover(false, () => this.turnTo(to, onDone));
+      return;
+    }
+    if (to === this.index) {
       onDone?.();
       return;
     }
@@ -1657,6 +1710,20 @@ export class Book3D {
    */
   turn(dir: 1 | -1, onDone?: () => void) {
     if (this.busy || !this.group || !this.turnHinge) return;
+
+    // 한 면 모드에서 표지는 첫 장 **앞의 한 자리**다. 첫 장에서 뒤로 가면 표지가 도로
+    // 덮이고, 거기서 앞으로 가면 다시 열린다. 두 면 모드엔 이 자리가 없다.
+    if (this.single) {
+      if (this.atCover) {
+        if (dir === 1) this.flipCover(false, onDone);
+        return; // 표지보다 앞은 없다
+      }
+      if (dir === -1 && this.index === 0) {
+        this.flipCover(true, onDone);
+        return;
+      }
+    }
+
     const nextIdx = this.index + dir;
     if (nextIdx < 0 || nextIdx >= this.total) return;
     this.busy = true;
@@ -1809,7 +1876,9 @@ export class Book3D {
         // 실제 책장 자리(end)로 곧장 들어가게 한다(안 그러면 왼쪽으로 들어간다).
         // 한 면은 늘 한 장 가운데(-W/2)에서 시작하고, 두 면은 표지가 닫히며(close) 그리 모인다.
         const offX = (this.single ? -W / 2 : lerp(0, -W / 2, close)) * s * (1 - rot);
-        this.setCoverOpen(1 - close);
+        // 표지를 덮어 둔 자리에서 닫으면 표지는 이미 내려와 있다 — 다시 열었다 덮으면
+        // 안 된다.
+        this.setCoverOpen(this.atCover ? 0 : 1 - close);
         // 덮으면서 그림자도 걷힌다(등장의 역순).
         if (this.shadowMat) this.shadowMat.opacity = 1 - (this.single ? rot : close);
         group.rotation.y = lerp(0, PI / 2, rot);
