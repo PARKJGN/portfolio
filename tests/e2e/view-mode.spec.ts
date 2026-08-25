@@ -417,3 +417,41 @@ test.describe('한 면 보기에서 첫 장 앞은 표지다', () => {
     await expect(prev(page)).toBeDisabled();
   });
 });
+
+/**
+ * 좁은 화면의 조작 막대가 깨지던 회귀.
+ *
+ * 막대는 내용만큼만 차지하다가(width: max-content) 좁아지면 두 줄로 접힌다. 그런데
+ * 접힌 줄을 space-between 이 왼쪽에 붙여 놓아 **점 표시가 한쪽으로 쏠렸고**, 아래 줄의
+ * 틈이 넓어 '한번에 보기' 가 낱말째('한번에 / 보기') 접혀 단추만 두 줄이 됐다.
+ *
+ * 접히는 폭은 글자 크기에 따라 달라지므로 폭을 박아 두고 재지 않는다 — 접혔는지는
+ * 막대 높이가 한 줄보다 큰지로 알 수 있고, 접혔을 때만 가운데 정렬을 따진다.
+ */
+test.describe('좁은 화면 조작 막대 (회귀)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 9999) >= 900, '접히는 폭에서만');
+
+  test('접혀도 점 표시가 가운데 오고 단추가 한 줄이다', async ({ page }) => {
+    await openBook(page, 'career');
+    await page.waitForSelector('dialog[open]:not([data-intro])');
+
+    const m = await page.evaluate(() => {
+      const d = document.querySelector('dialog[open]')!;
+      const box = (sel: string) => d.querySelector(sel)!.getBoundingClientRect();
+      const tools = box('.book__tools');
+      const paging = box('.book__paging');
+      return {
+        wrapped: tools.height > box('.book__footer').height * 1.5,
+        // 점줄 좌우 여백의 차 — 0 이면 가운데다.
+        off: paging.left - tools.left - (tools.right - paging.right),
+        scroll: box('.book__scroll').height,
+        close: box('.book__close').height,
+      };
+    });
+
+    expect(m.wrapped, '이 폭에서는 막대가 접혀야 검증할 것이 생긴다').toBe(true);
+    expect(Math.abs(m.off), '점 표시가 한쪽으로 쏠렸다').toBeLessThanOrEqual(2);
+    // 낱말째 접히면 단추만 두 줄이 되어 '덮기' 보다 눈에 띄게 높아진다.
+    expect(m.scroll, "'한번에 보기' 가 두 줄로 접혔다").toBeLessThanOrEqual(m.close + 2);
+  });
+});

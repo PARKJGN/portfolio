@@ -112,6 +112,22 @@
   padding: var(--space-2) var(--space-4);
   backdrop-filter: blur(4px);
   box-shadow: 0 6px 24px color-mix(in srgb, var(--backdrop) 42%, transparent);
+  /* 접힌 줄은 가운데로 모은다.
+     한 줄에 다 들어갈 때는 width:max-content 라 막대가 내용에 딱 맞아 남는 자리가
+     없고, space-between 이든 center 든 결과가 같다. 접히는 순간에만 달라진다 —
+     그때 space-between 은 혼자 남은 줄(점 표시)을 왼쪽에 붙여 놓아 한쪽으로 쏠렸다.
+     모바일에서 점이 왼쪽에 몰려 보이던 것이 이것이다. */
+  justify-content: center;
+}
+
+/* 좁은 화면에서는 막대가 두 줄로 접힌다(대략 540px 아래). 아래 줄의 틈이 넓으면
+   '한번에 보기' 가 낱말째 접혀 단추가 두 줄이 되고 막대가 120px 까지 높아졌다.
+   세 항목은 59+98+61=218px 이라 틈을 16px 로 좁히면 250px, 쓸 수 있는 262px 안에
+   넉넉히 들어간다. */
+@media (max-width: 640px) {
+  .book-dialog[data-reader] .book__footer {
+    gap: var(--space-4);
+  }
 }
 
 /* 책이 3D 로 빠져나오면 책장의 그 책(책등)을 감춘다 — 자리는 빈 채로 둔다.
