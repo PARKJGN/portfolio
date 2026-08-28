@@ -4,7 +4,7 @@
   "tags": ["portfolio", "loki"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "5m",
   "time": {
     "from": "now-7d",
@@ -104,6 +104,34 @@
       ]
     },
     {
+      "id": 11,
+      "type": "table",
+      "title": "404 가 난 주소",
+      "description": "무엇이 없었는지는 `request_uri` 에만 남는다. `path`(=$uri)는 nginx 가 404 페이지로 내부 재작성하면서 `/404.html` 로 바뀌어 원인이 지워진다.\n\n`referer` 가 우리 사이트면 우리가 없는 파일을 부르고 있는 것이고, 비어 있거나 남이면 대개 주소를 훑는 스캐너다.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(20, sum by (request_uri, referer) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | status = `404` [$__range])))",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
       "id": 4,
       "type": "table",
       "title": "경로별 요청 수",
@@ -116,7 +144,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 20
       },
       "targets": [
         {
@@ -143,7 +171,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 20
       },
       "fieldConfig": {
         "defaults": {
@@ -176,7 +204,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 28
       },
       "fieldConfig": {
         "defaults": {
@@ -213,7 +241,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 28
       },
       "targets": [
         {
@@ -241,7 +269,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 30
+        "y": 36
       },
       "fieldConfig": {
         "defaults": {
@@ -284,7 +312,7 @@
         "h": 6,
         "w": 18,
         "x": 6,
-        "y": 30
+        "y": 36
       },
       "targets": [
         {
@@ -312,7 +340,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 42
       },
       "options": {
         "showTime": true,
