@@ -4,7 +4,22 @@
 # 헌장 원칙 I(Static by Default)에 부합한다 (plan.md 배포 구성 절).
 
 # ── 빌드 ──
-FROM node:22-alpine AS build
+#
+# `--platform=$BUILDPLATFORM` — **빌드는 굽는 기계의 아키텍처로 한 번만 한다.**
+#
+# 결과물(/app/out)은 정적 HTML·CSS·JS 라 arm64 든 amd64 든 내용이 같다. 그런데 이 줄이
+# 없으면 buildx 가 목표 플랫폼마다 이 단계를 다시 돌려, arm64 판은 QEMU 에뮬레이션 위에서
+# Node 를 굴린다. 거기서 Next 의 정적 페이지 생성 워커가 죽었다:
+#
+#   qemu: uncaught target signal 4 (Illegal instruction) - core dumped
+#   ⨯ Next.js build worker exited with code: null and signal: SIGILL
+#
+# 아래 실행 단계는 그대로 플랫폼별로 만들어진다 — nginx 바이너리는 아키텍처를 탄다.
+# 무거운 쪽만 한 번, 가벼운 쪽만 두 번 굽는 셈이라 CI 시간도 절반 아래로 준다.
+#
+# BuildKit 이 있어야 $BUILDPLATFORM 이 채워진다. 요즘 도커는 기본이고, buildx 로 굽는
+# CI 도 마찬가지다. DOCKER_BUILDKIT=0 으로 굽는 곳이 생기면 이 줄이 빈 값이 된다.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 
 # 의존성 레이어를 소스와 분리해, 소스만 바뀔 때 npm ci 를 다시 돌지 않게 한다.
