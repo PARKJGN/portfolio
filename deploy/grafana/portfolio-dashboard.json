@@ -4,9 +4,12 @@
   "tags": ["portfolio", "loki"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5m",
-  "time": { "from": "now-7d", "to": "now" },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
@@ -24,10 +27,15 @@
       "id": 1,
       "type": "text",
       "title": "읽기 전에",
-      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "options": {
         "mode": "markdown",
-        "content": "**책별 열람 수는 여기에 없다.** 얻을 수 없기 때문이다.\n\n헌장 3.0.0 이 책별 정적 라우트를 걷어내면서 책은 `/` 위의 모달이 되었고, 여는 순간 `history.pushState` 가 주소를 바꾸지 않는다 — 즉 **서버에 요청이 가지 않아 접근 로그에 아무것도 남지 않는다.** 001 T045 는 그 개정 전에 쓰인 항목이다.\n\n필요해지면 방법은 셋이다: (1) 책을 열 때 주소에 `?book=<slug>` 를 남기고 첫 진입만 세기, (2) API 에 조회수 엔드포인트를 두기, (3) 그냥 두기. 셋 다 새 결정이라 여기서 임의로 고르지 않았다."
+        "content": "**책별 열람 수는 여기에 없다.** 얻을 수 없기 때문이다.\n\n헌장 3.0.0 이 책별 정적 라우트를 걷어내면서 책은 `/` 위의 모달이 되었고, 여는 순간 `history.pushState` 가 주소를 바꾸지 않는다 — 즉 **서버에 요청이 가지 않아 접근 로그에 아무것도 남지 않는다.** 001 T045 는 그 개정 전에 쓰인 항목이다.\n\n필요해지면 방법은 셋이다: (1) 책을 열 때 주소에 `?book=<slug>` 를 남기고 첫 진입만 세기, (2) API 에 조회수 엔드포인트를 두기, (3) 그냥 두기. 셋 다 새 결정이라 여기서 임의로 고르지 않았다.\n\n---\n\n**방문자 IP 패널이 비어 있다면** 웹 이미지가 아직 `x_forwarded_for` 를 찍지 않는 판이다. `deploy/nginx.conf` 에 그 필드를 넣은 뒤 이미지를 다시 굽고 `kubectl -n jgbak-portfolio rollout restart deployment/web` 해야 채워진다. 그 전 기간의 로그에는 필드 자체가 없다."
       }
     },
     {
@@ -35,16 +43,33 @@
       "type": "timeseries",
       "title": "페이지 방문 (시간대별)",
       "description": "자산 요청은 로그에 남기지 않으므로(nginx.conf) 여기 잡히는 것은 실제 문서 요청뿐이다.",
-      "datasource": { "type": "loki", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 40 } },
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 40
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
           "expr": "sum(count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | status = `200` [$__auto]))",
           "legendFormat": "방문"
         }
@@ -55,12 +80,23 @@
       "type": "piechart",
       "title": "상태 코드",
       "description": "404 가 갑자기 늘면 링크가 깨졌거나 누군가 주소를 훑고 있다는 뜻이다.",
-      "datasource": { "type": "loki", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
           "expr": "sum by (status) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json [$__range]))",
           "instant": true,
           "legendFormat": "{{status}}"
@@ -72,12 +108,23 @@
       "type": "table",
       "title": "경로별 요청 수",
       "description": "지금 나오는 경로는 사실상 /index.html, /admin.html, /404.html 셋이다. /admin.html 이 늘면 주인이 아닌 누군가가 두드리고 있는 것이다.",
-      "datasource": { "type": "loki", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
           "expr": "topk(20, sum by (path) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json [$__range])))",
           "instant": true,
           "format": "table"
@@ -88,13 +135,29 @@
       "id": 5,
       "type": "timeseries",
       "title": "응답 시간 p95 (nginx)",
-      "datasource": { "type": "loki", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
           "expr": "quantile_over_time(0.95, {namespace=\"jgbak-portfolio\", app=\"web\"} | json | unwrap duration [$__auto])",
           "legendFormat": "p95"
         }
@@ -105,16 +168,33 @@
       "type": "timeseries",
       "title": "방명록 API — 응답 상태",
       "description": "API 는 nginx 를 거치지 않는다. 인그레스가 /api 를 API 파드로 바로 보내므로 로그도 그쪽(pino JSON)에서 읽는다. 202 는 보류, 409 는 중복, 429 는 한도 초과다.",
-      "datasource": { "type": "loki", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 40 } },
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 40
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
           "expr": "sum by (res_statusCode) (count_over_time({namespace=\"jgbak-portfolio\", app=\"api\"} | json | msg = `request completed` [$__auto]))",
           "legendFormat": "{{res_statusCode}}"
         }
@@ -125,15 +205,128 @@
       "type": "table",
       "title": "세 겹 방어가 걸러낸 것",
       "description": "어느 겹이 무엇 때문에 걸렀는지. 글 내용은 로그에 남기지 않으므로 사유와 층만 보인다. 보류가 계속 쌓이면 /admin 을 열어 볼 때다.",
-      "datasource": { "type": "loki", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
           "expr": "sum by (layer, reason) (count_over_time({namespace=\"jgbak-portfolio\", app=\"api\"} | json | msg =~ `guard (held|rejected)` [$__range]))",
           "instant": true,
           "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "고유 방문자 (봇 제외)",
+      "description": "서로 다른 X-Forwarded-For 주소의 수. 사람 수가 아니라 **주소 수**다 — 같은 공유기 아래 여럿은 하나로, 이동통신망을 쓰는 한 사람은 여럿으로 세어질 수 있다.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "expr": "count(sum by (x_forwarded_for) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | x_forwarded_for != `` | user_agent !~ `(?i)(bot|crawl|spider|slurp|curl|wget|python-requests|go-http|monitor|uptime|headless|scanner)` [$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "방문자 IP (봇 제외)",
+      "description": "인그레스가 X-Forwarded-For 로 넘겨준 주소다. nginx 의 remote_addr 은 인그레스 파드 IP 하나로만 찍혀 쓸 수 없다. 주소가 `1.2.3.4, 5.6.7.8` 처럼 둘 이상이면 맨 앞이 방문자, 뒤는 거쳐 온 프록시다.\n\n헤더는 방문자가 위조할 수 있다. 통계로만 보고 차단 같은 판단에는 쓰지 않는다.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 18,
+        "x": 6,
+        "y": 30
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(20, sum by (x_forwarded_for, user_agent) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | x_forwarded_for != `` | user_agent !~ `(?i)(bot|crawl|spider|slurp|curl|wget|python-requests|go-http|monitor|uptime|headless|scanner)` [$__range])))",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "접속 기록 원본",
+      "description": "위 패널이 이상할 때 여기서 줄 단위로 확인한다. 봇을 거르지 않은 그대로다.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "expr": "{namespace=\"jgbak-portfolio\", app=\"web\"} | json"
         }
       ]
     }
