@@ -4,7 +4,7 @@
   "tags": ["portfolio", "loki"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "5m",
   "time": {
     "from": "now-7d",
@@ -42,7 +42,7 @@
       "id": 2,
       "type": "timeseries",
       "title": "페이지 방문 (시간대별)",
-      "description": "자산 요청은 로그에 남기지 않으므로(nginx.conf) 여기 잡히는 것은 실제 문서 요청뿐이다.",
+      "description": "자산 요청은 로그에 남기지 않으므로(nginx.conf) 여기 잡히는 것은 실제 문서 요청뿐이다.\n\n304 를 함께 센다. 재방문은 브라우저가 캐시를 쓰고 서버는 \"안 바뀌었다\"만 답해 304 로 오는데, 200 만 세던 때는 그런 방문이 통째로 사라졌다 — 들어왔는데 그래프가 0 이었다.",
       "datasource": {
         "type": "loki",
         "uid": "${datasource}"
@@ -70,7 +70,7 @@
             "type": "loki",
             "uid": "${datasource}"
           },
-          "expr": "sum(count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | status = `200` [$__auto]))",
+          "expr": "sum(count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | status =~ `(200|304)` [$__auto]))",
           "legendFormat": "방문"
         }
       ]
@@ -129,6 +129,28 @@
           "instant": true,
           "format": "table"
         }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
+        }
       ]
     },
     {
@@ -156,6 +178,28 @@
           "expr": "topk(20, sum by (path) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json [$__range])))",
           "instant": true,
           "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
         }
       ]
     },
@@ -254,6 +298,28 @@
           "instant": true,
           "format": "table"
         }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
+        }
       ]
     },
     {
@@ -324,6 +390,28 @@
           "expr": "topk(20, sum by (x_forwarded_for, user_agent) (count_over_time({namespace=\"jgbak-portfolio\", app=\"web\"} | json | x_forwarded_for != `` | user_agent !~ `(?i)(bot|crawl|spider|slurp|curl|wget|python-requests|go-http|monitor|uptime|headless|scanner)` [$__range])))",
           "instant": true,
           "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
         }
       ]
     },
