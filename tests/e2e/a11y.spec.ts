@@ -42,6 +42,12 @@ test.describe('접근성 자동 검사 (원칙 II)', () => {
     expect(report(violations)).toBe('');
   });
 
+  test('없는 주소', async ({ page }) => {
+    await page.goto('/이런-책은-없다');
+    const { violations } = await scan(page).analyze();
+    expect(report(violations)).toBe('');
+  });
+
   test('책 창이 열린 상태', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('html[data-book-ready]');

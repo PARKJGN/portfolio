@@ -571,3 +571,69 @@
     scroll-behavior: auto;
   }
 }
+
+/* ── 없는 주소 (app/not-found.tsx) ──────────────────────────────
+   방의 벽을 그대로 쓰고 그 위에 안내만 올린다. 책장도 창도 없다 — 여기서 할 수 있는
+   일은 돌아가는 것 하나뿐이라, 고를 것이 여럿인 척하지 않는다. */
+.notfound {
+  justify-content: center;
+  /* 바닥 높이만큼 아래를 비우던 .room 의 여백을 걷는다. 여긴 바닥에 앉힐 책장이 없어
+     그대로 두면 글이 화면 위쪽으로 밀려 보인다. */
+  padding-bottom: var(--space-8);
+  text-align: center;
+}
+
+.notfound__inner {
+  position: relative; /* 바닥(scene__floor) 위로 */
+  z-index: 1;
+  max-width: 34rem;
+}
+
+/* 숫자를 크게 두지 않는다. 이 화면에서 중요한 것은 코드가 아니라 다음에 갈 곳이다.
+   흐리게 두되 72% 아래로는 내리지 않는다 — 62% 로 뒀더니 벽 위에서 3.87:1 이라
+   axe 가 잡았다. 72% 는 밝은 벽에서 5.13:1, 어두운 벽에서 6.98:1 이다. */
+.notfound__code {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  letter-spacing: 0.4em;
+  text-indent: 0.4em; /* 자간이 오른쪽으로 미는 만큼 되민다 — room__title 과 같은 처리 */
+  color: color-mix(in srgb, var(--room-wall-text) 72%, transparent);
+}
+
+.notfound__title {
+  margin: 0;
+  font-size: clamp(1.25rem, 4vw, 1.875rem);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--room-wall-text);
+}
+
+.notfound__lead {
+  margin: var(--space-4) 0 var(--space-8);
+  font-size: var(--text-sm);
+  line-height: 1.8;
+  color: color-mix(in srgb, var(--room-wall-text) 78%, transparent);
+  word-break: keep-all;
+}
+
+/* 책등을 눌러 여는 방과 같은 결 — 테두리만 두고 채우지 않는다. */
+.notfound__home {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--room-line);
+  border-radius: 3px;
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  color: var(--room-wall-text);
+  text-decoration: none;
+  transition: background var(--motion-fast) ease;
+}
+
+.notfound__home:hover {
+  background: color-mix(in srgb, var(--room-wall-text) 8%, transparent);
+}
+
+.notfound__home:focus-visible {
+  outline: 2px solid var(--page-accent);
+  outline-offset: 3px;
+}
